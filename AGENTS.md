@@ -12,8 +12,9 @@ structure changes.**
 - Read-only inspection is the default. A check must not rewrite the target.
 - Patch commands may modify only an explicitly supplied extracted ASAR directory. Application
   staging and installation require separate commands and must remain separate authority seams.
-- A future staging command must refuse a destination inside `/Applications`. A future installation
-  command must require an explicit operator action and preserve a recoverable external copy.
+- The staging command must refuse a destination inside `/Applications`, must never launch it, and
+  must remove a newly created partial destination on failure. A future installation command must
+  require an explicit operator action and preserve a recoverable external copy.
 - Match semantic owners and complete structural contracts. Unknown, partial, duplicated, or split
   ownership fails closed; never broaden a matcher merely to make a new build pass.
 - Keep local names, task IDs, ship identities, absolute user paths, and private policy out of source.

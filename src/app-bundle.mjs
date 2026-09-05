@@ -38,7 +38,7 @@ export function inspectAppBundle(app, { verifySignature = true } = {}) {
     build: plist(info, "Print :CFBundleVersion"),
     archive: {
       path: archive,
-      sha256: sha256(archive)
+      sha256: sha256File(archive)
     },
     asarIntegrity: {
       state: expectedHash === actualHash ? "valid" : "mismatch",
@@ -67,7 +67,7 @@ function plist(info, command) {
   return result.stdout.trim();
 }
 
-function sha256(file) {
+export function sha256File(file) {
   const hash = crypto.createHash("sha256");
   const descriptor = fs.openSync(file, "r");
   const buffer = Buffer.allocUnsafe(1024 * 1024);

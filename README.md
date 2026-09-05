@@ -45,6 +45,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
+- stage selected repairs into a new app outside `/Applications`, repack, seal, ad-hoc sign, and verify it;
 - check or apply the cross-task-attribution repair to an extracted ASAR directory;
 - check or apply the native app-tools peer authorization repair to an extracted ASAR directory;
 - check or apply the outgoing-message receipt to an extracted ASAR directory;
@@ -55,9 +56,9 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
 
-It cannot yet stage, sign, install, replace, launch, or roll back an application. The private
-operational kit remains authoritative while the public boundary is extracted one coherent slice at
-a time. No license has been selected yet; choose one before publication.
+It cannot install, replace, launch, or roll back an application. The private operational kit
+remains authoritative while the public boundary is extracted one coherent slice at a time. No
+license has been selected yet; choose one before publication.
 
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
@@ -67,7 +68,7 @@ and palette fixtures target the exact build-`7942` ownership contracts, but the 
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
 this claims support for an uninspected build or proves that this repository can yet produce a
-launchable staged app.
+live-usable staged app.
 
 ## Inspect an application
 
@@ -121,9 +122,33 @@ focused behavioral probe and exact current evidence.
 
 Personal paths and policy stay outside the repository. Copy [`toolkit.example.json`](toolkit.example.json)
 to an ignored `toolkit.local.json` (or another private path) and fill only the values required by
-the patches you use. The task-attention and task-visual-palette patches consume `workspaceRoot`;
+the patches you use. `enabledPatches` is the explicit staging selection and is applied in the
+toolkit's dependency-safe order. The task-attention and task-visual-palette patches consume `workspaceRoot`;
 the Tinrelay pointer presentation consumes `tinrelay.client` and `tinrelay.localShip`; the other
 extracted patches need no configuration.
+
+## Stage a candidate
+
+Staging copies a valid source app to a new destination outside `/Applications`, extracts its ASAR,
+requires every selected patch to begin pristine, applies them in dependency-safe order, runs their
+focused probes, proves a second application leaves the complete extracted tree byte-identical,
+requires and preserves the exact recognized native-package tree, repacks it, restores the terminal
+helper's executable bit, writes Electron's raw-header
+integrity seal, ad-hoc signs, extracts the result again, and reruns checks and probes.
+
+```sh
+node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app /path/to/Staged-ChatGPT.app \
+  --config /path/to/toolkit.local.json
+```
+
+The destination and its parent must already be an explicit safe choice: the parent must exist and
+the destination must not. Staging refuses `/Applications`, never changes or launches the source or
+candidate, and removes the new destination if static proof fails. It requires macOS `codesign`,
+`ditto`, and `PlistBuddy`, plus the `asar` CLI on `PATH`.
+
+Green staging is not live acceptance. Inspect the JSON evidence, then separately choose whether to
+launch the candidate or install it. Those actions are deliberately absent from this repository.
+See [staging and authority](docs/staging.md).
 
 ## What belongs here
 

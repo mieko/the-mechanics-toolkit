@@ -1,4 +1,15 @@
 {
+  "enabledPatches": [
+    "cross-task-attribution",
+    "task-visual-palette",
+    "sidebar-action-collapse",
+    "task-attention-policy",
+    "terminal-toggle",
+    "outgoing-message-receipt",
+    "tinrelay-pointer-presentation",
+    "native-app-tools-peer-authorization",
+    "renderer-patch-registry"
+  ],
   "workspaceRoot": "/absolute/path/to/your/workspace",
   "tinrelay": {
     "client": "/absolute/path/to/tinrelay",
