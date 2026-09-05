@@ -38,9 +38,10 @@ node bin/toolkit.mjs patch native-app-tools-peer-authorization apply /path/to/di
 node test/native-app-tools-peer-authorization.test.mjs /path/to/disposable-extracted-asar
 ```
 
-No configuration is required. The toolkit does not yet repack, sign, install, launch, or replace an
-application. Runtime acceptance still requires a native message to a known local task after a
-separately authorized rebuild and relaunch.
+No configuration is required. The patch command modifies only the supplied extracted tree. The
+separate staging command can build and statically verify a new app outside `/Applications`; neither
+command installs, launches, or replaces a working application. Runtime acceptance still requires a
+native message to a known local task after a separately authorized rebuild and relaunch.
 
 ## Verification
 

@@ -41,7 +41,7 @@ structure changes.**
 
 ## Public extraction
 
-The current private kit remains the operational source until each patch is deliberately extracted,
-stripped of ship-local assumptions, tested here, and adopted back through an explicit transition.
-Copying a file into this repository does not transfer operational authority or make the public
-version canonical.
+This repository is the canonical source for the portable patches extracted here. Private installed
+copies and older operational scripts are compatibility evidence, not a second source tree. Moving a
+patch here still does not install or adopt it: live qualification and application replacement remain
+explicit operator decisions.

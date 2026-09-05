@@ -3,6 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "description": "Fail-closed local repairs for Codex Desktop",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mieko/the-mechanics-toolkit.git"
+  },
   "type": "module",
   "bin": {
     "mechanics-toolkit": "bin/toolkit.mjs"
@@ -12,7 +17,10 @@
     "test": "node test/asar-integrity.test.mjs && node test/app-bundle.test.mjs && node test/cross-task-attribution-transform.test.mjs && node test/native-app-tools-peer-authorization-transform.test.mjs && node test/outgoing-message-receipt-transform.test.mjs && node test/renderer-patch-registry-transform.test.mjs && node test/sidebar-action-collapse-transform.test.mjs && node test/task-attention-policy-transform.test.mjs && node test/task-supervisor-transform.test.mjs && node test/task-visual-palette-transform.test.mjs && node test/terminal-toggle-transform.test.mjs && node test/tinrelay-pointer-presentation-transform.test.mjs && node test/stage-app.test.mjs",
     "inspect:installed": "node bin/toolkit.mjs inspect /Applications/ChatGPT.app"
   },
+  "devDependencies": {
+    "@electron/asar": "4.2.1"
+  },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   }
 }

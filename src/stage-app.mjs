@@ -20,6 +20,8 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   const destination = path.resolve(destinationApp);
   const configFile = path.resolve(configPath);
   const repository = path.resolve(repositoryRoot);
+  const asar = path.join(repository, "node_modules/.bin/asar");
+  requireFile(asar, "repository-local asar CLI; run npm install");
   const config = readConfig(configFile);
   const selected = selectedPatches(config.enabledPatches);
   validatePaths(source, destination);
@@ -37,8 +39,9 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   let destinationCreated = false;
   let complete = false;
   try {
-    run("/usr/bin/ditto", [source, destination]);
+    fs.mkdirSync(destination, {mode: 0o700});
     destinationCreated = true;
+    run("/usr/bin/ditto", [source, destination]);
     const copied = inspectAppBundle(destination);
     if (copied.archive.sha256 !== sourceBefore.archive.sha256) {
       throw new Error("Staged copy does not preserve the source ASAR bytes");
@@ -48,7 +51,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     }
 
     const extracted = path.join(scratch, "extracted");
-    run("asar", ["extract", copied.archive.path, extracted]);
+    run(asar, ["extract", copied.archive.path, extracted]);
     const initialChecks = checkPatches(selected, extracted, configFile, repository);
     const unexpected = initialChecks.filter(result => result.output.state !== "needs-apply");
     if (unexpected.length > 0) {
@@ -74,7 +77,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     const stagedUnpacked = `${stagedArchive}.unpacked`;
     fs.rmSync(stagedArchive, {force: true});
     fs.rmSync(stagedUnpacked, {recursive: true, force: true});
-    run("asar", ["pack", extracted, stagedArchive, "--unpack-dir", nativePackages]);
+    run(asar, ["pack", extracted, stagedArchive, "--unpack-dir", nativePackages]);
     requireDirectory(stagedUnpacked, "repacked native-module directory");
     verifyNativePackages(stagedUnpacked);
     if (!isExecutable(path.join(stagedUnpacked, terminalHelperRelative))) {
@@ -102,7 +105,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     }
 
     const verified = path.join(scratch, "verified");
-    run("asar", ["extract", finalInspection.archive.path, verified]);
+    run(asar, ["extract", finalInspection.archive.path, verified]);
     const finalChecks = checkPatches(selected, verified, configFile, repository);
     if (!finalChecks.every(result => result.output.state === "applied")) {
       throw new Error("Final staged application does not satisfy every selected patch");
@@ -175,8 +178,12 @@ function validatePaths(source, destination) {
   requireDirectory(source, "source application bundle");
   if (source === destination) throw new Error("Source and staging destination must differ");
   if (fs.existsSync(destination)) throw new Error(`Staging destination already exists: ${destination}`);
-  requireDirectory(path.dirname(destination), "staging destination parent");
-  if (insideApplications(destination)) throw new Error("Staging destination must remain outside /Applications");
+  const destinationParent = path.dirname(destination);
+  requireDirectory(destinationParent, "staging destination parent");
+  const canonicalDestination = path.join(fs.realpathSync(destinationParent), path.basename(destination));
+  if (insideApplications(canonicalDestination)) {
+    throw new Error("Staging destination must remain outside /Applications");
+  }
 }
 
 function checkPatches(selected, extracted, configFile, repository) {
@@ -260,7 +267,7 @@ function writeAsarIntegrity(app, hash) {
 }
 
 function insideApplications(target) {
-  const relative = path.relative("/Applications", target);
+  const relative = path.relative(fs.realpathSync("/Applications"), target);
   return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== "..");
 }
 

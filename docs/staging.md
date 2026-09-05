@@ -8,7 +8,8 @@ does not install, replace, launch, publish, or deploy it.
 - a valid `com.openai.codex` source bundle whose code signature and Electron ASAR-header seal pass;
 - a nonexistent destination outside `/Applications`, under an existing directory;
 - an ignored toolkit config with a nonempty, duplicate-free `enabledPatches` list;
-- `asar` on `PATH` and the macOS system tools `codesign`, `ditto`, and `PlistBuddy`.
+- dependencies installed with `npm install`, including the pinned repository-local Electron ASAR
+  tool, plus the macOS system tools `codesign`, `ditto`, and `PlistBuddy`.
 
 Configuration-backed patches read their ordinary sections from the same file. The palette requires
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array

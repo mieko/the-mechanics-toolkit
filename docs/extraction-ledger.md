@@ -1,7 +1,7 @@
 # Extraction ledger
 
-The private kit remains the operational source. This ledger says what has actually crossed the
-public boundary; it is not a promise to extract every historical patch.
+This repository is the canonical source for the portable patches recorded below. The ledger says
+what crossed the extraction boundary; it is not a promise to publish every historical experiment.
 
 | Area | Public state | Next boundary |
 | --- | --- | --- |

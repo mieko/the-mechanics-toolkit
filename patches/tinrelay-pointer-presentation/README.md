@@ -61,8 +61,10 @@ node bin/toolkit.mjs patch tinrelay-pointer-presentation apply /path/to/disposab
 node test/tinrelay-pointer-presentation.test.mjs /path/to/disposable-extracted-asar
 ```
 
-Apply the renderer patch registry afterward if a package descriptor is wanted. The toolkit does
-not yet repack, sign, install, launch, or replace an application.
+Apply the renderer patch registry afterward if a package descriptor is wanted. The patch command
+modifies only the supplied extracted tree. The separate staging command can build and statically
+verify a new app outside `/Applications`; neither command installs, launches, or replaces a working
+application.
 
 ## Verification
 

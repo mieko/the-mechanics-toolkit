@@ -41,7 +41,9 @@ node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-ext
 node test/sidebar-action-collapse.test.mjs /path/to/disposable-extracted-asar
 ```
 
-The toolkit does not yet repack, sign, install, launch, or replace an application.
+The patch command modifies only the supplied extracted tree. The separate staging command can build
+and statically verify a new app outside `/Applications`; neither command installs, launches, or
+replaces a working application.
 
 ## Verification
 

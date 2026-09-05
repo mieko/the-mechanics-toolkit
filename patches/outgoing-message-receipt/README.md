@@ -44,8 +44,9 @@ node test/outgoing-message-receipt.test.mjs /path/to/disposable-extracted-asar
 ```
 
 No configuration is required. Apply the renderer patch registry after this patch if package
-descriptors and optional task-palette color are wanted. The toolkit does not yet repack, sign,
-install, launch, or replace an application.
+descriptors and optional task-palette color are wanted. The patch command modifies only the supplied
+extracted tree. The separate staging command can build and statically verify a new app outside
+`/Applications`; neither command installs, launches, or replaces a working application.
 
 ## Verification
 

@@ -64,7 +64,9 @@ node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extra
 node test/task-attention-policy.test.mjs /path/to/disposable-extracted-asar /path/to/workspace
 ```
 
-The toolkit does not yet repack, sign, install, launch, or replace an application.
+The patch command modifies only the supplied extracted tree. The separate staging command can build
+and statically verify a new app outside `/Applications`; neither command installs, launches, or
+replaces a working application.
 
 ## Verification
 

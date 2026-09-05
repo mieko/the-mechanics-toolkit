@@ -9,12 +9,14 @@ ChatGPT, Codex, extracted application code, patched bundles, credentials, or use
 small transforms, the exact structures they recognize, and the probes that make them refuse a
 changed build instead of patching approximately.
 
+This is an independent, unofficial project and is not affiliated with or endorsed by OpenAI.
+ChatGPT and Codex remain trademarks of their respective owner. The toolkit is MIT-licensed; that
+license covers this repository's work, not the upstream application it modifies.
+
 ## Patch board
 
-This is the patch set currently carried by the operational kit. The state column describes the
-installed Codex Desktop build named below; it is not a promise about another build. “Not yet” means
-the repair still lives in the private operational kit and has not crossed this repository's public
-boundary.
+This is the patch set currently carried by the toolkit. The state column describes the installed
+Codex Desktop build named below; it is not a promise about another build.
 
 | Patch | State | What it changes | Extracted here |
 | --- | --- | --- | --- |
@@ -45,7 +47,7 @@ checks, and non-goals. See [`patches/`](patches/).
 
 ## Repository status
 
-This is an **early extraction workspace**, not a public release yet. The repository can currently:
+This is a **source toolkit, not an installer**. The repository can currently:
 
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
@@ -58,12 +60,12 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
 - check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
-- check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
+- check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory;
 - optionally check or apply the deliberately benched task supervisor.
 
-It cannot install, replace, launch, or roll back an application. The private operational kit
-remains authoritative while the public boundary is extracted one coherent slice at a time. No
-license has been selected yet; choose one before publication.
+It intentionally cannot install, replace, launch, or roll back an application. Staging ends with a
+new statically verified candidate outside `/Applications`; every live launch or adoption remains a
+separate operator decision. See the [MIT license](LICENSE) and [security policy](SECURITY.md).
 
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
@@ -74,6 +76,20 @@ patches use deliberately different markers and are not treated as evidence that 
 transforms are installed. None of
 this claims support for an uninspected build or proves that this repository can yet produce a
 live-usable staged app.
+
+## Requirements and setup
+
+The toolkit currently targets macOS and requires Node.js 22.12 or newer. Install its pinned local
+development dependency before running checks or staging:
+
+```sh
+npm install
+npm run check
+npm test
+```
+
+`npm install` supplies the exact Electron ASAR CLI used by staging. The macOS system provides
+`codesign`, `ditto`, and `PlistBuddy`.
 
 ## Inspect an application
 
@@ -151,7 +167,8 @@ node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app /path/to/Staged-ChatGPT
 The destination and its parent must already be an explicit safe choice: the parent must exist and
 the destination must not. Staging refuses `/Applications`, never changes or launches the source or
 candidate, and removes the new destination if static proof fails. It requires macOS `codesign`,
-`ditto`, and `PlistBuddy`, plus the `asar` CLI on `PATH`.
+`ditto`, and `PlistBuddy`, plus the pinned repository-local Electron ASAR CLI installed by
+`npm install`.
 
 Green staging is not live acceptance. Inspect the JSON evidence, then separately choose whether to
 launch the candidate or install it. Those actions are deliberately absent from this repository.
@@ -172,5 +189,5 @@ What does not belong here:
 - credentials, profiles, conversations, databases, logs, or crash dumps;
 - promises that an uninspected future build is supported.
 
-See [the extraction ledger](docs/extraction-ledger.md) for the boundary between the operational kit
-and this repository.
+See [the extraction ledger](docs/extraction-ledger.md) for the provenance of each extracted patch.
+Contributions are welcome within the [source and evidence boundaries](CONTRIBUTING.md).

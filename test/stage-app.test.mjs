@@ -10,6 +10,7 @@ import { asarHeaderSha256 } from "../src/asar-integrity.mjs";
 
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const toolkit = path.join(repository, "bin/toolkit.mjs");
+const asar = path.join(repository, "node_modules/.bin/asar");
 const terminalProbe = path.join(repository, "test/terminal-toggle.test.mjs");
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-stage-test-"));
 
@@ -66,7 +67,7 @@ try {
   assert.notEqual(staged.archive.sha256, sourceBefore.archive.sha256, "candidate owns the patched ASAR");
 
   const verified = path.join(scratch, "verified");
-  run("asar", ["extract", staged.archive.path, verified]);
+  run(asar, ["extract", staged.archive.path, verified]);
   const probe = spawnSync(process.execPath, [terminalProbe, verified], {encoding: "utf8"});
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
 
@@ -83,6 +84,18 @@ try {
   ]);
   assert.notEqual(forbidden.status, 0);
   assert.match(forbidden.stderr, /must remain outside \/Applications/);
+
+  const applicationsAlias = path.join(scratch, "Applications Alias");
+  fs.symlinkSync("/Applications", applicationsAlias);
+  const forbiddenAlias = runToolkitRaw([
+    "stage",
+    source,
+    path.join(applicationsAlias, "Mechanics Toolkit Alias Forbidden.app"),
+    "--config",
+    config
+  ]);
+  assert.notEqual(forbiddenAlias.status, 0);
+  assert.match(forbiddenAlias.stderr, /must remain outside \/Applications/);
 
   const incompatibleSource = path.join(scratch, "Incompatible ChatGPT.app");
   const failedDestination = path.join(scratch, "Failed Staged ChatGPT.app");
@@ -126,7 +139,7 @@ function makeSourceApp(app, rendererSource) {
   const executable = path.join(contents, "MacOS/ChatGPT");
   fs.writeFileSync(executable, "#!/bin/sh\nexit 0\n", {mode: 0o755});
   const archive = path.join(resources, "app.asar");
-  run("asar", [
+  run(asar, [
     "pack",
     sourceTree,
     archive,

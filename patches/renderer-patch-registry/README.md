@@ -37,8 +37,9 @@ node bin/toolkit.mjs patch renderer-patch-registry apply /path/to/disposable-ext
 node test/renderer-patch-registry.test.mjs /path/to/disposable-extracted-asar
 ```
 
-No configuration is required. The toolkit does not yet repack, sign, install, launch, or replace an
-application.
+No configuration is required. The patch command modifies only the supplied extracted tree. The
+separate staging command can build and statically verify a new app outside `/Applications`; neither
+command installs, launches, or replaces a working application.
 
 ## Verification
 
