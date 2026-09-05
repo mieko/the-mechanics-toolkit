@@ -12,7 +12,7 @@ provenanced delegated messages. An optional SVG mark can sit behind a room as a 
 watermark. Unconfigured tasks keep stock styling, including the same neutral outline when selected,
 so selection never masquerades as identity.
 
-![Codex Desktop showing task-specific sidebar colors, a neutral selected outline, and a matching room sigil](../../docs/images/agent-colors-and-sigils.png)
+![Codex Desktop showing task-specific sidebar colors, a neutral selected outline, and a matching room sigil](agent-colors-and-sigils.png)
 
 *Color carries identity; the outline carries selection.*
 

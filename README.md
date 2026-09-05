@@ -39,7 +39,7 @@ is counted separately because it has no user-facing behavior of its own.
 Every extracted patch has its own maintenance README with the owned seam, compatibility evidence,
 checks, and non-goals. See [`patches/`](patches/).
 
-![A patched Codex Desktop room with distinct task colors, selected-row outlines, and background sigils](docs/images/agent-colors-and-sigils.png)
+![A patched Codex Desktop room with distinct task colors, selected-row outlines, and background sigils](patches/task-visual-palette/agent-colors-and-sigils.png)
 
 *A busy room should still tell you where you are before you read a title.*
 

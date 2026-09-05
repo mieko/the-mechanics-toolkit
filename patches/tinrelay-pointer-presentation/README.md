@@ -18,7 +18,7 @@ renderer presents the body as inert plain text beneath a compact `local@ship →
 with an unmistakable dark radio-wake surface. Inspection is automatic and one-shot; malformed or
 mismatched data becomes a small local error rather than approximate rendering.
 
-![An authenticated Tinrelay transmission rendered in Codex as white text over a dark radio-wake card](../../docs/images/tinrelay-recv.png)
+![An authenticated Tinrelay transmission rendered in Codex as white text over a dark radio-wake card](tinrelay-recv.png)
 
 *An outside signal looks like an outside signal, without becoming active content.*
 

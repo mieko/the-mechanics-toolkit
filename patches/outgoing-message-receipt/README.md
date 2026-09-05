@@ -20,7 +20,7 @@ The receipt persists while the conversation is mounted and remains visible when 
 activity group is collapsed. It is not a durable delivery ledger and makes no claim beyond the
 send tool's own completion state.
 
-![A compact Codex receipt naming its destination beneath a completed activity group](../../docs/images/sent-message-notification.png)
+![A compact Codex receipt naming its destination beneath a completed activity group](sent-message-notification.png)
 
 *A successful send leaves a visible local trace instead of disappearing.*
 

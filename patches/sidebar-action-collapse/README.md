@@ -14,7 +14,7 @@ This patch adds one native-looking disclosure beside the existing sidebar header
 collapsed, it hides New Chat and the complete stock global-destination family while preserving
 Projects and task navigation. The choice persists locally and follows the renderer across windows.
 
-![The Codex sidebar with its global actions collapsed while Projects and colored task rows remain visible](../../docs/images/sidebar-collapse.png)
+![The Codex sidebar with its global actions collapsed while Projects and colored task rows remain visible](sidebar-collapse.png)
 
 *The chrome folds away; the work stays where your eyes expect it.*
 
