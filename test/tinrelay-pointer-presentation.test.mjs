@@ -15,6 +15,20 @@ const main = unique(fs.readdirSync(build).filter(name => /^main-.*\.js$/.test(na
   .map(name => path.join(build, name)), "main-process asset");
 const rendererSource = fs.readFileSync(renderer, "utf8");
 const mainSource = fs.readFileSync(main, "utf8");
+const stringLiteral = '"(?:\\\\.|[^"\\\\])*"';
+const rendererConfig = uniqueMatch(
+  rendererSource,
+  new RegExp(`const MTKtinrelayLocalShip=(?<ship>${stringLiteral});function MTKtinrelayPointerFromMessage\\(`, "g"),
+  "embedded renderer configuration"
+).groups;
+const mainConfig = uniqueMatch(
+  mainSource,
+  new RegExp(`const MTKtinrelayClient=(?<client>${stringLiteral}),MTKtinrelayLocalShip=(?<ship>${stringLiteral});function MTKtinrelayMainPointer\\(`, "g"),
+  "embedded main configuration"
+).groups;
+const client = JSON.parse(mainConfig.client);
+const localShip = JSON.parse(mainConfig.ship);
+assert.equal(JSON.parse(rendererConfig.ship), localShip, "renderer and main process agree on the local ship");
 
 const rendererStart = rendererSource.indexOf("const MTKtinrelayLocalShip=");
 const rendererEnd = rendererSource.indexOf("function MTKtinrelayPointerNode(", rendererStart);
@@ -25,7 +39,7 @@ const pointer = {
   contract: "tinrelay-local-pointer-v1",
   kind: "transmission",
   local_id: "tr_0123456789abcdef0123456789abcdef",
-  local_ship: "sample-ship",
+  local_ship: localShip,
   sender_ship: "friendly-ship",
   attention_label: "Engine room"
 };
@@ -44,7 +58,7 @@ for (const [label, text] of [
   ["non-string label", `TINRELAY LOCAL POINTER\n${JSON.stringify({...pointer, attention_label: null})}`]
 ]) assert.equal(parsePointer(text), null, label);
 
-const helpersStart = mainSource.indexOf('const MTKtinrelayClient="/opt/tinrelay/bin/tinrelay"');
+const helpersStart = mainSource.indexOf("const MTKtinrelayClient=");
 const helpersEnd = mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", helpersStart);
 assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, "localized main-process helpers");
 const helperSource = mainSource.slice(helpersStart, helpersEnd);
@@ -121,8 +135,8 @@ assert.equal((await mainHelpers.inspect(request)).authorLabel, null,
   "an explicitly null signed author is also unlabeled");
 assert.equal(calls.length, 3);
 for (const call of calls) {
-  assert.equal(call[0], "/opt/tinrelay/bin/tinrelay");
-  assert.deepEqual(call[1], ["inbox", "show", pointer.local_id, "--ship", "sample-ship"]);
+  assert.equal(call[0], client);
+  assert.deepEqual(call[1], ["inbox", "show", pointer.local_id, "--ship", localShip]);
   assert.deepEqual(call[2], {
     encoding: "utf8",
     maxBuffer: 1048576,
@@ -211,4 +225,10 @@ process.stdout.write(`${JSON.stringify({
 function unique(values, label) {
   assert.equal(values.length, 1, label);
   return values[0];
+}
+
+function uniqueMatch(value, pattern, label) {
+  const matches = [...value.matchAll(pattern)];
+  assert.equal(matches.length, 1, label);
+  return matches[0];
 }
