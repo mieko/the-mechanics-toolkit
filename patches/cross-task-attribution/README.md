@@ -20,6 +20,10 @@ current build-`7942` profile does not claim that metadata path.
 The patch also applies Codex's existing muted semantic accent only to the delegated user-message
 bubble. It does not tint the whole turn, dim text, or remove the source-task link.
 
+![A delegated Codex message labeled Sent by The Mechanic above its source-colored bubble](../../docs/images/cross-task-attribution.png)
+
+*The sender is visible at the point where provenance matters.*
+
 ## Owned seam
 
 The transform recognizes one delegated-message renderer owner, its wrapper, its user-message bubble,

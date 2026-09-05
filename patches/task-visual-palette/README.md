@@ -12,6 +12,10 @@ provenanced delegated messages. An optional SVG mark can sit behind a room as a 
 watermark. Unconfigured tasks keep stock styling, including the same neutral outline when selected,
 so selection never masquerades as identity.
 
+![Codex Desktop showing task-specific sidebar colors, a neutral selected outline, and a matching room sigil](../../docs/images/agent-colors-and-sigils.png)
+
+*Color carries identity; the outline carries selection.*
+
 The same rule may opt an exact task ID out of sidebar archive affordances. That protection is based
 on the task ID, never merely a matching title, and it removes archive actions without hiding the
 task or changing its state.

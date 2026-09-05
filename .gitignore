@@ -11,3 +11,6 @@ toolkit.local.json
 .DS_Store
 node_modules/
 npm-debug.log*
+
+# Local screenshot intake and edit drafts are not publication inputs.
+/REDACTED-SCREENSHOTS/
