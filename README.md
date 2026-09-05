@@ -21,7 +21,7 @@ boundary.
 | Cross-task attribution | **Active** | Replaces anonymous delegated-message attribution with the actual source task or agent. | Not yet |
 | Task visual palette | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | Not yet |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | **Yes** |
-| Task attention policy | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | Not yet |
+| [Task attention policy](patches/task-attention-policy/) | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
 | Outgoing-message receipt | **Active** | Leaves a compact, hover-previewable routing receipt after a cross-task send instead of letting it vanish. | Not yet |
 | Tinrelay pointer presentation | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | Not yet |
@@ -46,6 +46,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
+- check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
 
 It cannot yet stage, sign, install, replace, launch, or roll back an application. The private
@@ -55,9 +56,10 @@ a time. No license has been selected yet; choose one before publication.
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove both extracted transforms and byte-identical second application. The sidebar fixture targets
-the exact build-`7942` ownership contract, but the installed private patch uses deliberately
-different markers and is not treated as evidence that this public transform is installed. None of
+prove all three extracted transforms and byte-identical second application. The sidebar and
+attention fixtures target the exact build-`7942` ownership contracts, but the installed private
+patches use deliberately different markers and are not treated as evidence that these public
+transforms are installed. None of
 this claims support for an uninspected build or proves that this repository can yet produce a
 launchable staged app.
 
@@ -84,6 +86,9 @@ Each patch accepts an explicitly supplied extracted tree and owns its own compat
 ```sh
 node bin/toolkit.mjs patch sidebar-action-collapse check /path/to/extracted-asar
 node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch task-attention-policy check /path/to/extracted-asar
+node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extracted-asar \
+  --config /path/to/toolkit.local.json
 node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
 ```
@@ -91,6 +96,13 @@ node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-a
 `apply` modifies that extracted directory. It does not repack or touch an application bundle.
 Unknown, duplicated, partial, or changed ownership fails closed. Each patch directory documents its
 focused behavioral probe and exact current evidence.
+
+## Local configuration
+
+Personal paths and policy stay outside the repository. Copy [`toolkit.example.json`](toolkit.example.json)
+to an ignored `toolkit.local.json` (or another private path) and fill only the values required by
+the patches you use. The task-attention patch currently consumes `workspaceRoot`; other extracted
+patches need no configuration yet.
 
 ## What belongs here
 

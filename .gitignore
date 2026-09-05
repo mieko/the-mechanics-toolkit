@@ -1,4 +1,4 @@
-# Local ship configuration will live here once its schema is implemented.
+# Local paths and policy selectors belong outside the public repository.
 toolkit.local.json
 
 # Staged or extracted application material must never enter the repository.
