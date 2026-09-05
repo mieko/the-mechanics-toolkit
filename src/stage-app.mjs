@@ -24,6 +24,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   requireFile(asar, "repository-local asar CLI; run npm install");
   const config = readConfig(configFile);
   const selected = selectedPatches(config.enabledPatches);
+  const hasAsarPatches = selected.some(definition => definition.scope === "asar");
   validatePaths(source, destination);
 
   const sourceBefore = inspectAppBundle(source);
@@ -52,42 +53,49 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
 
     const extracted = path.join(scratch, "extracted");
     run(asar, ["extract", copied.archive.path, extracted]);
-    const initialChecks = checkPatches(selected, extracted, configFile, repository);
+    const roots = {app: destination, asar: extracted};
+    const initialChecks = checkPatches(selected, roots, configFile, repository);
     const unexpected = initialChecks.filter(result => result.output.state !== "needs-apply");
     if (unexpected.length > 0) {
       const states = unexpected.map(result => `${result.name}=${result.output.state}`).join(", ");
       throw new Error(`Source app is not pristine for selected patches: ${states}`);
     }
 
-    const applied = applyPatches(selected, extracted, configFile, repository);
+    const applied = applyPatches(selected, roots, configFile, repository);
     const targets = changedTargets(applied);
-    syntaxCheckTargets(extracted, targets);
-    runProbes(selected, extracted, config, repository);
+    syntaxCheckTargets(extracted, asarTargets(applied));
+    runProbes(selected, roots, config, repository);
     const firstTree = treeSnapshot(extracted);
-    applyPatches(selected, extracted, configFile, repository);
+    const firstAppTargets = patchTargetSnapshot(applied.filter(result => result.scope === "app"));
+    const secondApplied = applyPatches(selected, roots, configFile, repository);
     if (!equalRecords(firstTree, treeSnapshot(extracted))) {
       throw new Error("Second patch application changed the extracted tree");
     }
-
-    const extractedTerminalHelper = path.join(extracted, terminalHelperRelative);
-    requireFile(extractedTerminalHelper, "node-pty spawn-helper in extracted ASAR");
-    fs.chmodSync(extractedTerminalHelper, 0o755);
-
-    const stagedArchive = `${copied.archive.path}.toolkit-new`;
-    const stagedUnpacked = `${stagedArchive}.unpacked`;
-    fs.rmSync(stagedArchive, {force: true});
-    fs.rmSync(stagedUnpacked, {recursive: true, force: true});
-    run(asar, ["pack", extracted, stagedArchive, "--unpack-dir", nativePackages]);
-    requireDirectory(stagedUnpacked, "repacked native-module directory");
-    verifyNativePackages(stagedUnpacked);
-    if (!isExecutable(path.join(stagedUnpacked, terminalHelperRelative))) {
-      throw new Error("ASAR repack did not preserve the executable node-pty spawn-helper");
+    if (!equalRecords(firstAppTargets, patchTargetSnapshot(secondApplied.filter(result => result.scope === "app")))) {
+      throw new Error("Second patch application changed staged application metadata");
     }
 
-    fs.renameSync(stagedArchive, copied.archive.path);
-    fs.rmSync(`${copied.archive.path}.unpacked`, {recursive: true, force: true});
-    fs.renameSync(stagedUnpacked, `${copied.archive.path}.unpacked`);
-    writeAsarIntegrity(destination, asarHeaderSha256(copied.archive.path));
+    if (hasAsarPatches) {
+      const extractedTerminalHelper = path.join(extracted, terminalHelperRelative);
+      requireFile(extractedTerminalHelper, "node-pty spawn-helper in extracted ASAR");
+      fs.chmodSync(extractedTerminalHelper, 0o755);
+
+      const stagedArchive = `${copied.archive.path}.toolkit-new`;
+      const stagedUnpacked = `${stagedArchive}.unpacked`;
+      fs.rmSync(stagedArchive, {force: true});
+      fs.rmSync(stagedUnpacked, {recursive: true, force: true});
+      run(asar, ["pack", extracted, stagedArchive, "--unpack-dir", nativePackages]);
+      requireDirectory(stagedUnpacked, "repacked native-module directory");
+      verifyNativePackages(stagedUnpacked);
+      if (!isExecutable(path.join(stagedUnpacked, terminalHelperRelative))) {
+        throw new Error("ASAR repack did not preserve the executable node-pty spawn-helper");
+      }
+
+      fs.renameSync(stagedArchive, copied.archive.path);
+      fs.rmSync(`${copied.archive.path}.unpacked`, {recursive: true, force: true});
+      fs.renameSync(stagedUnpacked, `${copied.archive.path}.unpacked`);
+      writeAsarIntegrity(destination, asarHeaderSha256(copied.archive.path));
+    }
     run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", destination]);
 
     const finalInspection = inspectAppBundle(destination);
@@ -106,12 +114,13 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
 
     const verified = path.join(scratch, "verified");
     run(asar, ["extract", finalInspection.archive.path, verified]);
-    const finalChecks = checkPatches(selected, verified, configFile, repository);
+    const finalRoots = {app: destination, asar: verified};
+    const finalChecks = checkPatches(selected, finalRoots, configFile, repository);
     if (!finalChecks.every(result => result.output.state === "applied")) {
       throw new Error("Final staged application does not satisfy every selected patch");
     }
-    syntaxCheckTargets(verified, targets);
-    runProbes(selected, verified, config, repository);
+    syntaxCheckTargets(verified, asarTargets(applied));
+    runProbes(selected, finalRoots, config, repository);
 
     const sourceAfter = inspectAppBundle(source);
     if (sourceAfter.archive.sha256 !== sourceBefore.archive.sha256 || sourceAfter.signature.state !== "valid" ||
@@ -186,18 +195,21 @@ function validatePaths(source, destination) {
   }
 }
 
-function checkPatches(selected, extracted, configFile, repository) {
+function checkPatches(selected, roots, configFile, repository) {
   return selected.map(definition => ({
     name: definition.name,
-    output: patchCommand(definition, "check", extracted, configFile, repository)
+    scope: definition.scope,
+    root: roots[definition.scope],
+    output: patchCommand(definition, "check", roots[definition.scope], configFile, repository)
   }));
 }
 
-function applyPatches(selected, extracted, configFile, repository) {
+function applyPatches(selected, roots, configFile, repository) {
   return selected.map(definition => {
-    const output = patchCommand(definition, "apply", extracted, configFile, repository);
+    const root = roots[definition.scope];
+    const output = patchCommand(definition, "apply", root, configFile, repository);
     if (output.state !== "applied") throw new Error(`${definition.name} apply returned ${output.state}`);
-    return {name: definition.name, output};
+    return {name: definition.name, scope: definition.scope, root, output};
   });
 }
 
@@ -207,9 +219,9 @@ function patchCommand(definition, action, extracted, configFile, repository) {
   return jsonCommand(process.execPath, args, `${definition.name} ${action}`);
 }
 
-function runProbes(selected, extracted, config, repository) {
+function runProbes(selected, roots, config, repository) {
   for (const definition of selected) {
-    const args = [path.join(repository, definition.probe), extracted];
+    const args = [path.join(repository, definition.probe), roots[definition.scope]];
     if (definition.probeWorkspaceRoot) args.push(path.resolve(config.workspaceRoot));
     run(process.execPath, args);
   }
@@ -222,6 +234,27 @@ function changedTargets(results) {
     if (Array.isArray(output.targets)) targets.push(...output.targets);
   }
   return [...new Set(targets)].sort();
+}
+
+function asarTargets(results) {
+  return changedTargets(results.filter(result => result.scope === "asar"));
+}
+
+function patchTargetSnapshot(results) {
+  const snapshot = {};
+  for (const result of results) {
+    const targets = typeof result.output.target === "string"
+      ? [result.output.target]
+      : result.output.targets ?? [];
+    if (targets.length === 0) throw new Error(`${result.name} app patch did not report a changed target`);
+    for (const target of targets) {
+      const file = path.join(result.root, target);
+      requireFile(file, `${result.name} changed target ${target}`);
+      const stat = fs.statSync(file);
+      snapshot[`${result.name}:${target}`] = {sha256: sha256File(file), mode: stat.mode & 0o777};
+    }
+  }
+  return snapshot;
 }
 
 function syntaxCheckTargets(extracted, targets) {

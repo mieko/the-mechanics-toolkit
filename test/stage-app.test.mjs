@@ -19,13 +19,14 @@ try {
   const destination = path.join(scratch, "Staged ChatGPT.app");
   const config = path.join(scratch, "toolkit.json");
   makeSourceApp(source, terminalFixture());
-  fs.writeFileSync(config, JSON.stringify({enabledPatches: ["terminal-toggle"]}));
+  fs.writeFileSync(config, JSON.stringify({enabledPatches: ["terminal-toggle", "macos-menu-title"]}));
   const sourceBefore = inspectAppBundle(source);
 
   for (const [label, enabledPatches, expected] of [
     ["unknown patch", ["imaginary-patch"], /Unknown enabled patches/],
     ["duplicate patch", ["terminal-toggle", "terminal-toggle"], /contains duplicates/],
-    ["missing dependency", ["task-visual-palette"], /requires: cross-task-attribution/]
+    ["missing palette dependency", ["task-visual-palette"], /requires: cross-task-attribution/],
+    ["missing reasoning dependency", ["reasoning-retention"], /requires: task-visual-palette/]
   ]) {
     const rejectedConfig = path.join(scratch, `${label}.json`);
     fs.writeFileSync(rejectedConfig, JSON.stringify({enabledPatches}));
@@ -42,8 +43,8 @@ try {
 
   const result = runToolkit(["stage", source, destination, "--config", config]);
   assert.equal(result.state, "staged-static-proof-green");
-  assert.deepEqual(result.patches, ["terminal-toggle"]);
-  assert.deepEqual(result.changedTargets, ["webview/assets/app-initial-fixture.js"]);
+  assert.deepEqual(result.patches, ["macos-menu-title", "terminal-toggle"]);
+  assert.deepEqual(result.changedTargets, ["Contents/Info.plist", "webview/assets/app-initial-fixture.js"]);
   assert.equal(result.secondApplyByteIdentical, true);
   assert.equal(result.probesPassedAfterRepack, true);
   assert.equal(result.signatureValid, true);
@@ -65,11 +66,33 @@ try {
   assert.equal(staged.asarIntegrity.state, "valid");
   assert.equal(staged.signature.state, "valid");
   assert.notEqual(staged.archive.sha256, sourceBefore.archive.sha256, "candidate owns the patched ASAR");
+  assert.equal(plist(destination, "CFBundleName"), "Codex");
+  assert.equal(plist(destination, "CFBundleDisplayName"), "ChatGPT");
+  assert.equal(plist(source, "CFBundleName"), "ChatGPT", "source bundle name stays unchanged");
 
   const verified = path.join(scratch, "verified");
   run(asar, ["extract", staged.archive.path, verified]);
   const probe = spawnSync(process.execPath, [terminalProbe, verified], {encoding: "utf8"});
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
+
+  const bundleOnlyDestination = path.join(scratch, "Bundle-only ChatGPT.app");
+  const bundleOnlyConfig = path.join(scratch, "bundle-only.json");
+  fs.writeFileSync(bundleOnlyConfig, JSON.stringify({enabledPatches: ["macos-menu-title"]}));
+  const bundleOnlyResult = runToolkit([
+    "stage",
+    source,
+    bundleOnlyDestination,
+    "--config",
+    bundleOnlyConfig
+  ]);
+  assert.deepEqual(bundleOnlyResult.patches, ["macos-menu-title"]);
+  assert.deepEqual(bundleOnlyResult.changedTargets, ["Contents/Info.plist"]);
+  assert.equal(
+    inspectAppBundle(bundleOnlyDestination).archive.sha256,
+    sourceBefore.archive.sha256,
+    "a bundle-only patch preserves the ASAR bytes"
+  );
+  assert.equal(plist(bundleOnlyDestination, "CFBundleName"), "Codex");
 
   const existing = runToolkitRaw(["stage", source, destination, "--config", config]);
   assert.notEqual(existing.status, 0);
@@ -156,6 +179,8 @@ function writeInfo(file, hash) {
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>com.openai.codex</string>
   <key>CFBundleExecutable</key><string>ChatGPT</string>
+  <key>CFBundleDisplayName</key><string>ChatGPT</string>
+  <key>CFBundleName</key><string>ChatGPT</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>26.999.1</string>
   <key>CFBundleVersion</key><string>9999</string>
@@ -167,6 +192,16 @@ function writeInfo(file, hash) {
   </dict>
 </dict></plist>
 `);
+}
+
+function plist(app, key) {
+  const result = spawnSync("/usr/libexec/PlistBuddy", [
+    "-c",
+    `Print :${key}`,
+    path.join(app, "Contents/Info.plist")
+  ], {encoding: "utf8"});
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
 }
 
 function terminalFixture() {

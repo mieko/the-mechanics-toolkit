@@ -13,6 +13,8 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Cross-task attribution | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
 | Outgoing send receipt | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
 | Task palette | Extracted; config-backed build-7942 fixture red/green | Qualify with the selected renderer stack |
+| Reasoning retention | Extracted; exact-task build-7942 fixture red/green | Live configured completion and manual-collapse check |
+| macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
 | Task attention policy | Extracted; config-backed build-7942 fixture red/green | Qualify with the selected renderer stack |
 | Tinrelay pointer presentation | Extracted; config-backed renderer/main fixture red/green | Qualify with the selected renderer and main-process stack |
 | Sidebar action collapse | Extracted; build-7942 fixture red/green | Qualify with the selected renderer stack |

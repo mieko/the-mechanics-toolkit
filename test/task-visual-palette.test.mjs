@@ -31,7 +31,7 @@ const helper = source.slice(helperStart, helperEnd);
 assert.ok(!helper.includes("k9e"), "palette decoder does not capture a minified bundle binding");
 assert.ok(helper.includes("new TextDecoder().decode(Uint8Array.from(atob(e)"), "palette decoder is self-contained");
 const api = Function(
-  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected}`
+  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected,MTKreasoningShouldStayOpen}`
 )();
 
 const palette = JSON.parse(fs.readFileSync(path.join(projectRoot, ".codex/task-visual-palette.json"), "utf8"));
@@ -139,6 +139,9 @@ assert.equal(api.MTKmatchPalette(loaded, "other", engineRule.taskId)?.color, "#7
 assert.equal(api.MTKsidebarArchiveProtected(protectedTaskId, loaded), true);
 assert.equal(api.MTKsidebarArchiveProtected(ordinaryTaskId, loaded), false);
 assert.equal(api.MTKsidebarArchiveProtected("Bridge Keeper — Coordination", loaded), false, "titles never authorize archive protection");
+assert.equal(api.MTKreasoningShouldStayOpen(engineRule.taskId, loaded), true);
+assert.equal(api.MTKreasoningShouldStayOpen("Engine Tender — Repairs", loaded), false, "titles never authorize reasoning retention");
+assert.equal(api.MTKreasoningShouldStayOpen(ordinaryTaskId, loaded), false);
 
 const coloredUnprotected = await parse({
   ...palette,
@@ -159,6 +162,16 @@ assert.equal(await parse({
   ...palette,
   rules: { ...palette.rules, [Object.keys(palette.rules)[0]]: missingProtectedTaskId }
 }), null, "protected entries require an exact task ID");
+assert.equal(await parse({
+  ...palette,
+  rules: { ...palette.rules, [Object.keys(palette.rules)[1]]: { ...engineRule, keepReasoningOpen: "yes" } }
+}), null, "reasoning retention is boolean-only");
+const missingReasoningTaskId = { ...engineRule };
+delete missingReasoningTaskId.taskId;
+assert.equal(await parse({
+  ...palette,
+  rules: { ...palette.rules, [Object.keys(palette.rules)[1]]: missingReasoningTaskId }
+}), null, "reasoning retention requires an exact task ID");
 for (const rule of loaded.rules) {
   assert.ok(contrast(rule.dark.selection, rule.dark.text) >= 4.5, `${rule.color} dark selection contrast`);
   assert.ok(contrast(rule.light.selection, rule.light.text) >= 4.5, `${rule.color} light selection contrast`);

@@ -2,6 +2,8 @@
   "enabledPatches": [
     "cross-task-attribution",
     "task-visual-palette",
+    "reasoning-retention",
+    "macos-menu-title",
     "sidebar-action-collapse",
     "task-attention-policy",
     "terminal-toggle",

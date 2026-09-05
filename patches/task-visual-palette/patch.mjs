@@ -28,7 +28,10 @@ if (command === "apply" && state !== "applied") {
     patchObserverGate(appInitial);
   } else if (state === "needs-archive-protection") {
     patchPaletteArchiveSchema(appInitial);
+    patchReasoningPolicyBridge(appInitial);
     patchSidebarArchiveAffordances(appInitial, appPrimary);
+  } else if (state === "needs-reasoning-policy-bridge") {
+    patchReasoningPolicyBridge(appInitial);
   } else if (state === "needs-universal-selection-outline") {
     patchUniversalSelectionOutline(appInitial);
   } else {
@@ -46,7 +49,7 @@ if (command === "apply" && state !== "applied") {
 }
 
 process.stdout.write(`${JSON.stringify({
-  state: new Set(["needs-observer-gate", "needs-archive-protection", "needs-universal-selection-outline"]).has(state) ? "needs-apply" : state,
+  state: new Set(["needs-observer-gate", "needs-archive-protection", "needs-reasoning-policy-bridge", "needs-universal-selection-outline"]).has(state) ? "needs-apply" : state,
   targets: [appInitial, appPrimary, localPage, delegation].map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
@@ -88,6 +91,11 @@ function inspectState() {
       appSource.includes("const MTKpaletteSurfaceSelector=")
     ) {
       if (archiveProtection !== "applied") return "needs-archive-protection";
+      if (!appSource.includes("function MTKreasoningShouldStayOpen(") ||
+          !appSource.includes("globalThis.__MTKreasoningShouldStayOpen=MTKreasoningShouldStayOpen") ||
+          !appSource.includes("globalThis.__MTKreasoningSubscribe=MTKreasoningSubscribe")) {
+        return "needs-reasoning-policy-bridge";
+      }
       return appSource.includes(universalSelectionOutlineCss) ? "applied" : "needs-universal-selection-outline";
     }
     if (
@@ -464,6 +472,7 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
     'function MTKsidebarArchiveProtected(e,t=MTKsidebarPalette){return typeof e==="string"&&t!=null&&t.rules.some(t=>t.protectSidebarArchive&&t.taskId===e)}globalThis.__MTKsidebarArchiveProtected=MTKsidebarArchiveProtected;function MTKensurePaletteStyle()',
     "palette archive classifier bridge"
   );
+  domOnlyHelper = addReasoningPolicyBridge(domOnlyHelper, "MTK");
   if (profile.fixedOwnerRoot === true) {
     const bootstrap = /function MTKusePaletteBootstrap\(\)\{let e=Ss\(Q\),t=Y\(Can\),n=MTKpaletteKey\(t\);return QSl\.useEffect\(\(\)=>\{let r=!1;if\(n\.length===0\)return MTKinstallSidebar\(null\),\(\)=>\{r=!0\};let i=t\.filter\(e=>e\.projectKind==="local"\)\.flatMap\(e=>e\.rootPaths\?\?\[\]\);return MTKpalettePromiseKey!==n&&\(MTKpalettePromiseKey=n,MTKpalettePromise=MTKloadPaletteWhenReady\(e,i\)\),MTKpalettePromise\.then\(e=>\{r\|\|MTKinstallSidebar\(e\)\}\),\(\)=>\{r=!0\}\},\[e,n\]\),null\}/;
     const replacement = `function MTKusePaletteBootstrap(){let e=A_($),t=${JSON.stringify(workspaceRoot)};return x$c.useEffect(()=>{let n=!1;return MTKpalettePromiseKey!==t&&(MTKpalettePromiseKey=t,MTKpalettePromise=MTKloadPaletteWhenReady(e,[t])),MTKpalettePromise.then(e=>{n||MTKinstallSidebar(e)}),()=>{n=!0}},[e]),null}`;
@@ -542,6 +551,45 @@ function patchPaletteArchiveSchema(file) {
     "palette sidebar archive classifier"
   );
   fs.writeFileSync(file, source);
+}
+
+function patchReasoningPolicyBridge(file) {
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, addReasoningPolicyBridge(source, "MTK"));
+}
+
+function addReasoningPolicyBridge(source, prefix) {
+  const visualRuleBefore = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,dark:r,light:i}`;
+  const visualRuleAfter = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,keepReasoningOpen:t.keepReasoningOpen===!0,dark:r,light:i}`;
+  source = replaceOnce(source, visualRuleBefore, visualRuleAfter, "palette reasoning metadata");
+  source = replaceOnce(
+    source,
+    'e!=="taskId"&&e!=="protectSidebarArchive")',
+    'e!=="taskId"&&e!=="protectSidebarArchive"&&e!=="keepReasoningOpen")',
+    "palette reasoning key"
+  );
+  source = replaceOnce(
+    source,
+    'r.protectSidebarArchive!==void 0&&typeof r.protectSidebarArchive!=="boolean"||r.protectSidebarArchive===!0&&r.taskId===void 0',
+    'r.protectSidebarArchive!==void 0&&typeof r.protectSidebarArchive!=="boolean"||r.protectSidebarArchive===!0&&r.taskId===void 0||r.keepReasoningOpen!==void 0&&typeof r.keepReasoningOpen!=="boolean"||r.keepReasoningOpen===!0&&r.taskId===void 0',
+    "palette reasoning validation"
+  );
+  source = replaceOnce(
+    source,
+    'protectSidebarArchive:r.protectSidebarArchive},a))',
+    'protectSidebarArchive:r.protectSidebarArchive,keepReasoningOpen:r.keepReasoningOpen},a))',
+    "palette reasoning projection"
+  );
+  const archiveBridge = `function ${prefix}sidebarArchiveProtected(e,t=${prefix}sidebarPalette){return typeof e==="string"&&t!=null&&t.rules.some(t=>t.protectSidebarArchive&&t.taskId===e)}globalThis.__MTKsidebarArchiveProtected=${prefix}sidebarArchiveProtected;`;
+  const reasoningBridge = `const ${prefix}reasoningListeners=new Set;function MTKreasoningShouldStayOpen(e,t=${prefix}sidebarPalette){return typeof e==="string"&&t!=null&&t.rules.some(t=>t.keepReasoningOpen===!0&&t.taskId===e)}function ${prefix}reasoningSubscribe(e){return ${prefix}reasoningListeners.add(e),()=>${prefix}reasoningListeners.delete(e)}globalThis.__MTKreasoningShouldStayOpen=MTKreasoningShouldStayOpen;globalThis.__MTKreasoningSubscribe=${prefix}reasoningSubscribe;`;
+  source = replaceOnce(source, archiveBridge, archiveBridge + reasoningBridge, "palette reasoning bridge");
+  source = replaceOnce(
+    source,
+    `function ${prefix}installSidebar(e){if(${prefix}sidebarPalette=e,e==null){`,
+    `function ${prefix}installSidebar(e){${prefix}sidebarPalette=e;for(let t of ${prefix}reasoningListeners)t();if(e==null){`,
+    "palette reasoning update notification"
+  );
+  return source;
 }
 
 function patchSidebarArchiveAffordances(file, primaryFile) {

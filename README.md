@@ -37,6 +37,8 @@ Codex Desktop build named below; it is not a promise about another build.
 | --- | --- | --- | --- |
 | [Cross-task attribution](patches/cross-task-attribution/) | **Active** | Replaces anonymous delegated-message attribution with an authoritative source-agent name when task metadata supplies one. | **Yes** |
 | [Task visual palette](patches/task-visual-palette/) | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | **Yes** |
+| [Reasoning retention](patches/reasoning-retention/) | **Active** | Keeps completed reasoning open by default for exact configured continuing tasks while preserving manual collapse. | **Yes** |
+| [macOS menu title](patches/macos-menu-title/) | **Active** | Restores the leading macOS application-menu label to `Codex` without renaming the app or its data. | **Yes** |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | **Yes** |
 | [Task attention policy](patches/task-attention-policy/) | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
@@ -49,9 +51,9 @@ Codex Desktop build named below; it is not a promise about another build.
 | [Renderer patch registry](patches/renderer-patch-registry/) | **Infrastructure** | Lets independent renderer patches expose tiny immutable descriptors and optional capabilities without becoming an event system. | **Yes** |
 
 **Active** means the repair is installed and still earns its maintenance cost. **Upstream-owned**
-means the stock application now satisfies the recognized contract, so the local implementation is
-dormant. **Benched** means the machinery is retained but performs no configured work. The registry
-is counted separately because it has no user-facing behavior of its own.
+means the stock application now satisfies the recognized contract, so the local implementation is dormant.
+**Benched** means the machinery is retained but performs no configured work. The registry is counted
+separately because it has no user-facing behavior of its own.
 
 Every extracted patch has its own maintenance README with the owned seam, compatibility evidence,
 checks, and non-goals. See [`patches/`](patches/).
@@ -67,6 +69,7 @@ This is a **source toolkit, not an installer**. The repository can currently:
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
 - stage selected repairs into a new app outside `/Applications`, repack, seal, ad-hoc sign, and verify it;
+- check or apply the macOS menu-title repair to an explicitly supplied staged application bundle;
 - check or apply the cross-task-attribution repair to an extracted ASAR directory;
 - check or apply the native app-tools peer authorization repair to an extracted ASAR directory;
 - check or apply the outgoing-message receipt to an extracted ASAR directory;
@@ -74,6 +77,7 @@ This is a **source toolkit, not an installer**. The repository can currently:
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
 - check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
+- check or apply exact-task reasoning retention after the task-visual-palette identity registry;
 - check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory;
 - optionally check or apply the deliberately benched task supervisor;
@@ -87,7 +91,7 @@ separate operator decision. See the [MIT license](LICENSE) and [security policy]
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all twelve extracted transforms and byte-identical second application. The sidebar, attention,
+prove all fourteen portable transforms and byte-identical second application. The sidebar, attention,
 and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
@@ -124,6 +128,18 @@ Inspection reports the bundle identifier, version, build, complete ASAR hash, ra
 recorded Electron integrity value, and code-signature validity. It does not extract or rewrite the
 application.
 
+## Work on a staged application bundle
+
+The macOS menu-title transform owns bundle metadata rather than packaged JavaScript:
+
+```sh
+node bin/toolkit.mjs patch macos-menu-title check /path/to/Staged-ChatGPT.app
+node bin/toolkit.mjs patch macos-menu-title apply /path/to/Staged-ChatGPT.app
+```
+
+It should normally be selected through the complete staged-candidate workflow below so the result
+is signed and verified before launch.
+
 ## Work on an extracted ASAR tree
 
 Each patch accepts an explicitly supplied extracted tree and owns its own compatibility check.
@@ -145,6 +161,8 @@ node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extra
 node bin/toolkit.mjs patch task-visual-palette check /path/to/extracted-asar
 node bin/toolkit.mjs patch task-visual-palette apply /path/to/disposable-extracted-asar \
   --config /path/to/toolkit.local.json
+node bin/toolkit.mjs patch reasoning-retention check /path/to/extracted-asar
+node bin/toolkit.mjs patch reasoning-retention apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch tinrelay-pointer-presentation check /path/to/extracted-asar
 node bin/toolkit.mjs patch tinrelay-pointer-presentation apply /path/to/disposable-extracted-asar \
   --config /path/to/toolkit.local.json
@@ -168,17 +186,19 @@ Personal paths and policy stay outside the repository. Copy [`toolkit.example.js
 to an ignored `toolkit.local.json` (or another private path) and fill only the values required by
 the patches you use. `enabledPatches` is the explicit staging selection and is applied in the
 toolkit's dependency-safe order. The task-attention and task-visual-palette patches consume `workspaceRoot`;
+reasoning retention consumes exact-ID opt-ins from that palette;
 the Tinrelay pointer presentation consumes `tinrelay.client` and `tinrelay.localShip`; the other
-extracted patches need no configuration.
+patches need no configuration.
 
 ## Stage a candidate
 
 Staging copies a valid source app to a new destination outside `/Applications`, extracts its ASAR,
-requires every selected patch to begin pristine, applies them in dependency-safe order, runs their
-focused probes, proves a second application leaves the complete extracted tree byte-identical,
-requires and preserves the exact recognized native-package tree, repacks it, restores the terminal
-helper's executable bit, writes Electron's raw-header integrity seal, ad-hoc signs, extracts the
-result again, and reruns checks and probes.
+requires every selected ASAR and application-bundle patch to begin pristine, applies them in
+dependency-safe order, runs their focused probes, proves a second application leaves the complete
+extracted tree byte-identical, and preserves the exact recognized native-package tree. When ASAR
+patches are selected, it repacks the archive, restores the terminal helper's executable bit, and
+writes Electron's raw-header integrity seal; a bundle-only patch leaves the ASAR byte-identical.
+It then ad-hoc signs the candidate and reruns checks and probes.
 
 ```sh
 node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app /path/to/Staged-ChatGPT.app \

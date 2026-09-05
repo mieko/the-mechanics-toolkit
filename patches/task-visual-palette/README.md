@@ -32,7 +32,9 @@ Rule keys are regular expressions tested against the complete task title or task
 requires a six-digit hex `color` and may include:
 
 - `taskId`: an exact UUID also matched by the rule;
-- `protectSidebarArchive`: a boolean requiring `taskId`; and
+- `protectSidebarArchive`: a boolean requiring `taskId`;
+- `keepReasoningOpen`: a boolean requiring `taskId`, consumed by the separate
+  [reasoning-retention patch](../reasoning-retention/); and
 - `mark`: a safe relative path to an SVG below `workspaceRoot`.
 
 Calibration values are bounded percentages. Unknown keys, invalid expressions, duplicate task IDs,

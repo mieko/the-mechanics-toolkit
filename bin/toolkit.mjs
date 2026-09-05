@@ -14,7 +14,7 @@ if (command === "inspect" && args.length === 1) {
 } else if (command === "stage" && args.length === 4 && args[2] === "--config") {
   print(stageApp({sourceApp: args[0], destinationApp: args[1], configPath: args[3], repositoryRoot: root}));
 } else if (command === "patch" && (args.length === 3 || args.length === 5)) {
-  const [patchName, action, extractedRoot, ...patchArgs] = args;
+  const [patchName, action, patchRoot, ...patchArgs] = args;
   const definition = patchDefinition(patchName);
   if (!definition) fail(`Unknown patch: ${patchName}`);
   if (!new Set(["check", "apply"]).has(action)) fail(`Unknown patch action: ${action}`);
@@ -22,7 +22,7 @@ if (command === "inspect" && args.length === 1) {
     fail("Optional patch arguments must be: --config TOOLKIT_CONFIG");
   }
   const patch = path.join(root, definition.script);
-  const result = spawnSync(process.execPath, [patch, action, extractedRoot, ...patchArgs], { encoding: "utf8" });
+  const result = spawnSync(process.execPath, [patch, action, patchRoot, ...patchArgs], { encoding: "utf8" });
   if (result.status !== 0) fail((result.stderr || result.stdout).trim());
   process.stdout.write(result.stdout);
 } else {
@@ -30,7 +30,7 @@ if (command === "inspect" && args.length === 1) {
     "usage:\n" +
       "  mechanics-toolkit inspect CHATGPT_APP\n" +
       "  mechanics-toolkit stage SOURCE_CHATGPT_APP STAGED_CHATGPT_APP --config TOOLKIT_CONFIG\n" +
-      "  mechanics-toolkit patch PATCH_NAME check|apply EXTRACTED_ASAR_ROOT [--config TOOLKIT_CONFIG]"
+      "  mechanics-toolkit patch PATCH_NAME check|apply PATCH_ROOT [--config TOOLKIT_CONFIG]"
   );
 }
 

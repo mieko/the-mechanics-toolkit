@@ -13,6 +13,18 @@ const definitions = [
     requires: ["cross-task-attribution"]
   },
   {
+    name: "reasoning-retention",
+    script: "patches/reasoning-retention/patch.mjs",
+    probe: "test/reasoning-retention.test.mjs",
+    requires: ["task-visual-palette"]
+  },
+  {
+    name: "macos-menu-title",
+    script: "patches/macos-menu-title/patch.mjs",
+    probe: "test/macos-menu-title.test.mjs",
+    scope: "app"
+  },
+  {
     name: "sidebar-action-collapse",
     script: "patches/sidebar-action-collapse/patch.mjs",
     probe: "test/sidebar-action-collapse.test.mjs"
@@ -71,9 +83,13 @@ const definitions = [
 if (new Set(definitions.map(definition => definition.name)).size !== definitions.length) {
   throw new Error("Patch catalog contains duplicate names");
 }
+if (definitions.some(definition => !new Set(["asar", "app"]).has(definition.scope ?? "asar"))) {
+  throw new Error("Patch catalog contains an unknown scope");
+}
 
 export const patchDefinitions = Object.freeze(definitions.map(definition => Object.freeze({
   ...definition,
+  scope: definition.scope ?? "asar",
   requires: Object.freeze(definition.requires ?? [])
 })));
 
