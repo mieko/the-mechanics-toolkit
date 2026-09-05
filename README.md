@@ -19,7 +19,7 @@ boundary.
 | Patch | State | What it changes | Extracted here |
 | --- | --- | --- | --- |
 | Cross-task attribution | **Active** | Replaces anonymous delegated-message attribution with the actual source task or agent. | Not yet |
-| Task visual palette | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | Not yet |
+| [Task visual palette](patches/task-visual-palette/) | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | **Yes** |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | **Yes** |
 | [Task attention policy](patches/task-attention-policy/) | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
@@ -47,6 +47,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
 - check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
+- check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
 
 It cannot yet stage, sign, install, replace, launch, or roll back an application. The private
@@ -56,8 +57,8 @@ a time. No license has been selected yet; choose one before publication.
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all three extracted transforms and byte-identical second application. The sidebar and
-attention fixtures target the exact build-`7942` ownership contracts, but the installed private
+prove all four extracted transforms and byte-identical second application. The sidebar, attention,
+and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
 this claims support for an uninspected build or proves that this repository can yet produce a
@@ -89,6 +90,9 @@ node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-ext
 node bin/toolkit.mjs patch task-attention-policy check /path/to/extracted-asar
 node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extracted-asar \
   --config /path/to/toolkit.local.json
+node bin/toolkit.mjs patch task-visual-palette check /path/to/extracted-asar
+node bin/toolkit.mjs patch task-visual-palette apply /path/to/disposable-extracted-asar \
+  --config /path/to/toolkit.local.json
 node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
 ```
@@ -101,8 +105,8 @@ focused behavioral probe and exact current evidence.
 
 Personal paths and policy stay outside the repository. Copy [`toolkit.example.json`](toolkit.example.json)
 to an ignored `toolkit.local.json` (or another private path) and fill only the values required by
-the patches you use. The task-attention patch currently consumes `workspaceRoot`; other extracted
-patches need no configuration yet.
+the patches you use. The task-attention and task-visual-palette patches consume `workspaceRoot`;
+the other extracted patches need no configuration yet.
 
 ## What belongs here
 

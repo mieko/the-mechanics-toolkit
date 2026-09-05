@@ -11,7 +11,7 @@ public boundary; it is not a promise to extract every historical patch.
 | Staging, repacking, signing | Not extracted | Separate generic packaging from patch selection |
 | Native app-tools peer authorization | Not extracted | Security review, then include with signing support |
 | Cross-task attribution and send receipts | Not extracted | Separate independent patches from optional palette use |
-| Task palette | Not extracted | Replace private owner roots and crew data with local config |
+| Task palette | Extracted; config-backed build-7942 fixture red/green | Extract cross-task attribution prerequisite |
 | Task attention policy | Extracted; config-backed build-7942 fixture red/green | Integrate with the staged patch runner |
 | Tinrelay pointer presentation | Not extracted | Make client path and local ship explicit configuration |
 | Sidebar action collapse | Extracted; build-7942 fixture red/green | Integrate with the staged patch runner |
