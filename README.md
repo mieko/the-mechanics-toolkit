@@ -18,7 +18,7 @@ boundary.
 
 | Patch | State | What it changes | Extracted here |
 | --- | --- | --- | --- |
-| Cross-task attribution | **Active** | Replaces anonymous delegated-message attribution with the actual source task or agent. | Not yet |
+| [Cross-task attribution](patches/cross-task-attribution/) | **Active** | Replaces anonymous delegated-message attribution with an authoritative source-agent name when task metadata supplies one. | **Yes** |
 | [Task visual palette](patches/task-visual-palette/) | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | **Yes** |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | **Yes** |
 | [Task attention policy](patches/task-attention-policy/) | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | **Yes** |
@@ -45,6 +45,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
+- check or apply the cross-task-attribution repair to an extracted ASAR directory;
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
 - check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
@@ -87,6 +88,8 @@ Each patch accepts an explicitly supplied extracted tree and owns its own compat
 ```sh
 node bin/toolkit.mjs patch sidebar-action-collapse check /path/to/extracted-asar
 node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch cross-task-attribution check /path/to/extracted-asar
+node bin/toolkit.mjs patch cross-task-attribution apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch task-attention-policy check /path/to/extracted-asar
 node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extracted-asar \
   --config /path/to/toolkit.local.json

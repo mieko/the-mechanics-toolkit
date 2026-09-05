@@ -42,10 +42,9 @@ shell, the delegated-message wrapper, and the thread footer fade. It also owns e
 archive affordance for the supported build so exact-ID protection cannot disappear from only one
 menu or hover action.
 
-Mapped delegated-message color depends on the cross-task attribution patch's provenance surface.
-Apply attribution first; palette application refuses when that exact prerequisite is absent. The
-attribution transform is still being extracted, so this repository does not yet provide the whole
-two-command sequence by itself.
+Mapped delegated-message color depends on the
+[cross-task attribution patch](../cross-task-attribution/)'s provenance surface. Apply attribution
+first; palette application refuses when that exact prerequisite is absent.
 
 ## Check and apply
 

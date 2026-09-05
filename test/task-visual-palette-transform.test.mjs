@@ -32,6 +32,7 @@ try {
   fs.copyFileSync(examplePalette, path.join(paletteDirectory, "task-visual-palette.json"));
 
   assert.equal(runToolkit("check", false).state, "needs-apply");
+  assert.equal(runAttribution().state, "applied", "public attribution patch supplies the palette provenance seam");
   const withoutConfig = spawnSync(
     process.execPath,
     [toolkit, "patch", "task-visual-palette", "apply", extracted],
@@ -67,19 +68,32 @@ try {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     return JSON.parse(result.stdout);
   }
+
+  function runAttribution() {
+    const result = spawnSync(
+      process.execPath,
+      [toolkit, "patch", "cross-task-attribution", "apply", extracted],
+      { encoding: "utf8" }
+    );
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    return JSON.parse(result.stdout);
+  }
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
 }
 
 function initialFixture() {
   return [
+    "const x=0,Q=Symbol(`scope`),EI=Symbol(`title`);",
+    "function hb(e){return e}",
     "function Oks(){let e=(0,jks.c)(12),value=0;return e}",
-    "export const fixture=true;"
+    "export{x as x,hb as h,Q as q,EI as title};"
   ].join("");
 }
 
 function primaryFixture() {
   return [
+    'import{title as ap}from"./app-initial-fixture.js";',
     "function VAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,x}){let m=1,T=false;return {archive:T?void 0:{id:`archive-thread`,onSelect:()=>i()}}}",
     "function rjn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i}){return r.length<2?e:e.filter(e=>e.id!==`rename-thread`)}",
     "function localSelection(T,r){return rjn({items:[],onArchive:null,onSelect:null,selectedThreadKeys:BTn(T,r),threadKey:r})}",
@@ -103,13 +117,18 @@ function localFixture() {
 
 function delegationFixture() {
   return [
-    "const labels=[`localConversation.codexDelegationUserMessage.app`,`sourceThreadId`];",
-    "function MTKsender(e){return e}",
-    "const MTKdelegatedBubbleStyle={};",
-    "function Cb(e){let t=(0,wb.c)(14),l,n,o,s,i,a,m,p,h,r,MTKtitle;",
-    "t[5]!==l||t[6]!==n||t[7]!==o||t[8]!==s||t[9]!==i||t[10]!==a||t[11]!==m||t[13]!==p?(h=(0,Tb.jsx)(vb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m,messageBubbleStyle:MTKdelegatedBubbleStyle}),t[5]=l,t[6]=n,t[7]=o,t[8]=s,t[9]=i,t[10]=a,t[11]=m,t[13]=p,t[12]=h):h=t[12];return h}",
-    "function vb(e){let t=(0,yb.c)(17),p,m,h;let {onLabelClick:l,messageBubbleStyle:MTKbubbleStyleOverride}=e,z=1;",
+    'import{fixture as P}from"./app-primary-fixture.js";',
+    'import{h as H,q as S}from"./app-initial-fixture.js";',
+    "const stock={defaultMessage:`Sent by {appName} from another task`};",
+    "function Cb(e){let t=(0,wb.c)(13),{conversationId:n,sourceThreadId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c}=e,l,p,f,m,h,d=go()?`/hotkey-window/thread/${r}`:`/local/${r}`;",
+    "t[1]!==f?(p=(0,Tb.jsx)(Fmt,{id:`localConversation.codexDelegationUserMessage.app`}),t[1]=p):p=t[1];",
+    "t[5]!==l||t[6]!==n||t[7]!==o||t[8]!==s||t[9]!==i||t[10]!==a||t[11]!==m?(h=(0,Tb.jsx)(vb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m}),t[5]=l,t[6]=n,t[7]=o,t[8]=s,t[9]=i,t[10]=a,t[11]=m,t[12]=h):h=t[12];return h}",
+    "function vb(e){let t=(0,yb.c)(16),{label:n,conversationId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c,onLabelClick:l}=e,f=true,u=c,m,p;",
+    "m=f?(0,bb.jsx)(Eg,{message:i,sentAtMs:a,collapsedLineCount:xb,compactActions:u,cwd:o,hostId:s,threadId:r}):null;",
+    "t[5]!==u||t[6]!==r||t[7]!==o||t[8]!==s||t[9]!==i||t[10]!==a||t[11]!==f?(p=m,t[5]=u,t[6]=r,t[7]=o,t[8]=s,t[9]=i,t[10]=a,t[11]=f,t[12]=m):p=t[12];",
     "t[13]!==p||t[14]!==m?(h=(0,bb.jsxs)(`div`,{className:`flex w-full flex-col items-end justify-end gap-1`,children:[p,m]}),t[13]=p,t[14]=m,t[15]=h):h=t[15];return h}",
+    "function Eg(e){let t=(0,Og.c)(127),{message:A,cwd:E,hostId:D}=e,de,oe,_e,ve;if(t[42]!==de||t[43]!==oe||t[44]!==_e){",
+    "ve=(0,Z.jsx)(`div`,{\"data-user-message-bubble\":!0,className:`max-w-full`}),t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve}return ve}",
     "export const fixture=true;"
   ].join("");
 }
