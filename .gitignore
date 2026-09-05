@@ -1,0 +1,13 @@
+# Local ship configuration will live here once its schema is implemented.
+toolkit.local.json
+
+# Staged or extracted application material must never enter the repository.
+.work/
+*.app/
+*.asar
+*.asar.unpacked/
+
+# Ordinary local noise.
+.DS_Store
+node_modules/
+npm-debug.log*

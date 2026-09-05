@@ -1,0 +1,18 @@
+{
+  "name": "the-mechanics-toolkit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fail-closed local repairs for Codex Desktop",
+  "type": "module",
+  "bin": {
+    "mechanics-toolkit": "bin/toolkit.mjs"
+  },
+  "scripts": {
+    "check": "node --check bin/toolkit.mjs && node --check src/app-bundle.mjs && node --check src/asar-integrity.mjs && node --check patches/terminal-toggle/patch.mjs",
+    "test": "node test/asar-integrity.test.mjs && node test/app-bundle.test.mjs && node test/terminal-toggle-transform.test.mjs",
+    "inspect:installed": "node bin/toolkit.mjs inspect /Applications/ChatGPT.app"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
