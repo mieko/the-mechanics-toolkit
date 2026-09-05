@@ -26,7 +26,7 @@ boundary.
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | **Active** | Leaves a compact, hover-previewable routing receipt after a cross-task send instead of letting it vanish. | **Yes** |
 | [Tinrelay pointer presentation](patches/tinrelay-pointer-presentation/) | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | **Yes** |
 | [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) | **Active** | Preserves native task tools after local signing through one narrow official-helper fallback; other peers and pipes retain stock rejection. | **Yes** |
-| Task supervisor | **Benched** | Can wake exact persistent tasks, but the model-free Tinrelay bridge removed its current job. Its installed configuration is empty. | No; retained privately |
+| [Task supervisor](patches/task-supervisor/) | **Benched** | Can wake exact persistent tasks, but the model-free Tinrelay bridge removed its current job. It is excluded from the example staging fleet. | **Yes** |
 | Full-history drain suppression | **Upstream-owned** | Older builds needed protection from eagerly draining complete task history; build `7942` supplies the accepted paginated path. | No active extraction planned |
 | Renderer turn window | **Upstream-owned** | Older builds needed a bounded mounted turn window; build `7942` supplies the accepted paginated rendering path. | No active extraction planned |
 | [Renderer patch registry](patches/renderer-patch-registry/) | **Infrastructure** | Lets independent renderer patches expose tiny immutable descriptors and optional capabilities without becoming an event system. | **Yes** |
@@ -55,6 +55,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
 - check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
+- optionally check or apply the deliberately benched task supervisor.
 
 It cannot install, replace, launch, or roll back an application. The private operational kit
 remains authoritative while the public boundary is extracted one coherent slice at a time. No
@@ -63,7 +64,7 @@ license has been selected yet; choose one before publication.
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all nine extracted transforms and byte-identical second application. The sidebar, attention,
+prove all ten extracted transforms and byte-identical second application. The sidebar, attention,
 and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
@@ -112,6 +113,8 @@ node bin/toolkit.mjs patch tinrelay-pointer-presentation apply /path/to/disposab
   --config /path/to/toolkit.local.json
 node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch task-supervisor check /path/to/extracted-asar
+node bin/toolkit.mjs patch task-supervisor apply /path/to/disposable-extracted-asar
 ```
 
 `apply` modifies that extracted directory. It does not repack or touch an application bundle.
@@ -133,8 +136,8 @@ Staging copies a valid source app to a new destination outside `/Applications`, 
 requires every selected patch to begin pristine, applies them in dependency-safe order, runs their
 focused probes, proves a second application leaves the complete extracted tree byte-identical,
 requires and preserves the exact recognized native-package tree, repacks it, restores the terminal
-helper's executable bit, writes Electron's raw-header
-integrity seal, ad-hoc signs, extracts the result again, and reruns checks and probes.
+helper's executable bit, writes Electron's raw-header integrity seal, ad-hoc signs, extracts the
+result again, and reruns checks and probes.
 
 ```sh
 node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app /path/to/Staged-ChatGPT.app \
@@ -154,7 +157,7 @@ See [staging and authority](docs/staging.md).
 
 - portable patch transforms and causal probes;
 - exact compatibility evidence by application version and build;
-- staging, integrity, signing, and rollback mechanics once extracted and verified;
+- staging, integrity, and signing mechanics once extracted and verified;
 - fictional example configuration for optional ship-local behavior.
 
 What does not belong here:

@@ -17,7 +17,7 @@ public boundary; it is not a promise to extract every historical patch.
 | Tinrelay pointer presentation | Extracted; config-backed renderer/main fixture red/green | Qualify with the selected renderer and main-process stack |
 | Sidebar action collapse | Extracted; build-7942 fixture red/green | Qualify with the selected renderer stack |
 | Patch registry | Extracted; per-realm API and current marker fixture green | Qualify after the selected behavior patches |
-| Task supervisor | Benched | Retain privately unless a real current use returns |
+| Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
 | History and renderer-window performance patches | Dormant upstream-owned | Do not publish as active repairs |
 
 ## Extraction rule

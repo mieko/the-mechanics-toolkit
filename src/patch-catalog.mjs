@@ -46,6 +46,12 @@ const definitions = [
     probe: "test/native-app-tools-peer-authorization.test.mjs"
   },
   {
+    name: "task-supervisor",
+    script: "patches/task-supervisor/patch.mjs",
+    probe: "test/task-supervisor.test.mjs",
+    requires: ["task-attention-policy", "task-visual-palette"]
+  },
+  {
     name: "renderer-patch-registry",
     script: "patches/renderer-patch-registry/patch.mjs",
     probe: "test/renderer-patch-registry.test.mjs"
