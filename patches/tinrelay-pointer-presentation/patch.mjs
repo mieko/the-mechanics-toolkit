@@ -157,7 +157,8 @@ function inspectPristineMain(source) {
   for (const contract of [
     'let x=require("node:child_process")',
     "var mQ=i.i(`electron-message-handler`)",
-    "case`show-plan-summary`:break;case`update-diff-if-open`:break;case`electron-add-new-workspace-root-option`:"
+    "case`show-plan-summary`:break;case`update-diff-if-open`:break;",
+    "case`electron-add-new-workspace-root-option`:"
   ]) {
     if (count(source, contract) !== 1) {
       throw new Error(`Upstream changed: Tinrelay main-process contract is not unique: ${contract}`);
@@ -270,8 +271,8 @@ function patchMain(value, config) {
   );
   patched = replaceOnce(
     patched,
-    "case`show-plan-summary`:break;case`update-diff-if-open`:break;case`electron-add-new-workspace-root-option`:",
-    "case`show-plan-summary`:break;case`update-diff-if-open`:break;case`mtk-tinrelay-pointer-inspect`:{let n;try{let r=await MTKtinrelayInspect(t);n={type:`mtk-tinrelay-pointer-result`,requestId:t.requestId,ok:!0,transmission:r}}catch(r){n={type:`mtk-tinrelay-pointer-result`,requestId:typeof t.requestId===`string`?t.requestId:``,ok:!1,error:r instanceof Error?r.message:`Tinrelay inspection failed.`}}this.windowManager.sendMessageToWebContents(e,n);break}case`electron-add-new-workspace-root-option`:",
+    "case`electron-add-new-workspace-root-option`:",
+    "case`mtk-tinrelay-pointer-inspect`:{let n;try{let r=await MTKtinrelayInspect(t);n={type:`mtk-tinrelay-pointer-result`,requestId:t.requestId,ok:!0,transmission:r}}catch(r){n={type:`mtk-tinrelay-pointer-result`,requestId:typeof t.requestId===`string`?t.requestId:``,ok:!1,error:r instanceof Error?r.message:`Tinrelay inspection failed.`}}this.windowManager.sendMessageToWebContents(e,n);break}case`electron-add-new-workspace-root-option`:",
     "Tinrelay main message handler"
   );
   return patched;

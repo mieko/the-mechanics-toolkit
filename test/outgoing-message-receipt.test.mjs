@@ -30,7 +30,7 @@ assert.match(
 );
 assert.match(
   collapsedOwner,
-  /[$A-Z_a-z][$\w]*\.length===0\?null:\(0,[$A-Z_a-z][$\w]*\.jsx\)\([$A-Z_a-z][$\w]*,\{units:[$A-Z_a-z][$\w]*\}\)/,
+  /[$A-Z_a-z][$\w]*\.length===0\?null:\(0,[$A-Z_a-z][$\w]*\.jsx\)\([$A-Z_a-z][$\w]*,\{[\s\S]{0,300}?units:[$A-Z_a-z][$\w]*\}\)/,
   "stock persistent-unit renderer"
 );
 const styles = fs.readdirSync(assets).filter(name => name.endsWith(".css"))

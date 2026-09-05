@@ -5,12 +5,18 @@ const definitions = [
     probe: "test/cross-task-attribution.test.mjs"
   },
   {
+    name: "runtime-json-reload",
+    script: "patches/runtime-json-reload/patch.mjs",
+    probe: "test/runtime-json-reload.test.mjs",
+    config: true
+  },
+  {
     name: "task-visual-palette",
     script: "patches/task-visual-palette/patch.mjs",
     probe: "test/task-visual-palette.test.mjs",
     config: true,
     probeWorkspaceRoot: true,
-    requires: ["cross-task-attribution"]
+    requires: ["cross-task-attribution", "runtime-json-reload"]
   },
   {
     name: "reasoning-retention",
@@ -34,7 +40,8 @@ const definitions = [
     script: "patches/task-attention-policy/patch.mjs",
     probe: "test/task-attention-policy.test.mjs",
     config: true,
-    probeWorkspaceRoot: true
+    probeWorkspaceRoot: true,
+    requires: ["runtime-json-reload"]
   },
   {
     name: "terminal-toggle",

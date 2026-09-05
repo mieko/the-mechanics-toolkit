@@ -40,6 +40,11 @@ policy keys, unsafe filesystem metadata, a policy over 16 KiB, or a missing file
 Codex attention. Current builds have one explicit configured owner; older retained profiles may
 discover exactly one owner among local project roots.
 
+With [runtime JSON reload](../runtime-json-reload/) selected, a complete valid external save takes
+effect without restarting Codex. The existing parser is the acceptance callback: malformed,
+partial, missing, oversized, or unsafe replacements are rejected while the last-good policy keeps
+running.
+
 ## Owned seam
 
 The transform joins four stock ownership surfaces:
@@ -85,6 +90,5 @@ that the separately namespaced public transform has been installed.
 - muting approvals, questions, errors, or active work;
 - matching message bodies or sender labels;
 - editing policy from the Codex UI;
-- watching the policy file live;
 - patching an application bundle in place;
 - accepting an approximately matching future build.

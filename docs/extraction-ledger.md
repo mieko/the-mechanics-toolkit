@@ -12,6 +12,7 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Native app-tools peer authorization | Extracted; two current main-process profiles red/green | Runtime native-message acceptance after staged qualification |
 | Cross-task attribution | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
 | Outgoing send receipt | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
+| Runtime JSON reload | Extracted; build-7942 renderer/main fixture and consumer acceptance red/green | Stage, adopt, and verify one valid and one rejected live save |
 | Task palette | Extracted; config-backed build-7942 fixture red/green | Qualify with the selected renderer stack |
 | Reasoning retention | Extracted; exact-task build-7942 fixture red/green | Live configured completion and manual-collapse check |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |

@@ -41,6 +41,11 @@ Calibration values are bounded percentages. Unknown keys, invalid expressions, d
 unsafe paths or symlinks, a palette over 64 KiB, a mark over 64 KiB, or anything other than exactly
 one owning palette leaves Codex on native styles.
 
+With [runtime JSON reload](../runtime-json-reload/) selected, saving a complete valid palette from
+an external editor updates the open app without a restart. Validation runs before publication; a
+partial or invalid save leaves the last-good colors, archive protection, and reasoning-retention
+decisions in place.
+
 ## Owned seam
 
 The transform recognizes four renderer owners: the application/sidebar bootstrap, the task-room
@@ -87,5 +92,5 @@ the design, not a claim that this separately namespaced public transform is inst
 - recoloring message text or dimming room contents;
 - hiding, deleting, pausing, or archiving tasks;
 - loading remote marks or files outside the configured workspace;
-- editing the palette live from the Codex UI;
+- editing the palette from the Codex UI;
 - accepting an approximately matching future build.

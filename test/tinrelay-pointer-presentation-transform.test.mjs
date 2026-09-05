@@ -30,6 +30,10 @@ try {
   }));
 
   assert.equal(runToolkit("check").state, "needs-apply");
+  const runtimeApplied = runPatch("runtime-json-reload", "apply", true);
+  assert.equal(runtimeApplied.state, "applied", "the earlier runtime watcher owns the shared main-process seam first");
+  const initialAfterRuntime = fs.readFileSync(initialTarget);
+  assert.equal(runToolkit("check").state, "needs-apply", "Tinrelay remains applicable after runtime watcher composition");
   const missingConfig = spawnSync(process.execPath, [toolkit, "patch", "tinrelay-pointer-presentation", "apply", extracted], { encoding: "utf8" });
   assert.notEqual(missingConfig.status, 0);
   assert.match(missingConfig.stderr, /requires --config/);
@@ -64,11 +68,15 @@ try {
   assert.equal(runToolkit("apply").state, "applied", "an applied tree needs no config to verify");
   assert.deepEqual(fs.readFileSync(rendererTarget), rendererOnce, "renderer is byte-identical after second application");
   assert.deepEqual(fs.readFileSync(mainTarget), mainOnce, "main process is byte-identical after second application");
-  assert.deepEqual(fs.readFileSync(initialTarget), Buffer.from(initialFixture()), "host-bus owner stays untouched");
+  assert.deepEqual(fs.readFileSync(initialTarget), initialAfterRuntime, "Tinrelay leaves the composed host-bus owner untouched");
   process.stdout.write("Tinrelay pointer presentation transform probe passed\n");
 
   function runToolkit(action, withConfig = false) {
-    const args = [toolkit, "patch", "tinrelay-pointer-presentation", action, extracted];
+    return runPatch("tinrelay-pointer-presentation", action, withConfig);
+  }
+
+  function runPatch(name, action, withConfig = false) {
+    const args = [toolkit, "patch", name, action, extracted];
     if (withConfig) args.push("--config", config);
     const result = spawnSync(process.execPath, args, { encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -80,7 +88,8 @@ try {
 
 function initialFixture() {
   return [
-    "const x=0,U={subscribe(){},dispatchMessage(){}};",
+    "const x=0,H={getInstance(){return U}},y=e=>e;let U={subscribe(){},dispatchMessage(){}};",
+    "U=H.getInstance(),y((e,t)=>{U.dispatchMessage(e,t)});",
     "export{x as x,U as host};"
   ].join("");
 }

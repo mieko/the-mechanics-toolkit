@@ -13,7 +13,6 @@ const expectedNativePackages = Object.freeze([
   "node-pty",
   "objc-js"
 ]);
-const nativePackages = `node_modules/{${expectedNativePackages.join(",")}}`;
 
 export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}) {
   const source = path.resolve(sourceApp);
@@ -35,6 +34,8 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   const sourceUnpacked = `${sourceBefore.archive.path}.unpacked`;
   verifyNativePackages(sourceUnpacked);
   const sourceNativeSnapshot = treeSnapshot(sourceUnpacked);
+  const sourceUnpackedHeaderPaths = unpackedHeaderPaths(asar, sourceBefore.archive.path);
+  const unpackRules = deriveUnpackRules(sourceUnpackedHeaderPaths, sourceUnpacked);
 
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-stage-"));
   let destinationCreated = false;
@@ -76,6 +77,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     }
 
     if (hasAsarPatches) {
+      restoreUnpackedModes(extracted, sourceNativeSnapshot);
       const extractedTerminalHelper = path.join(extracted, terminalHelperRelative);
       requireFile(extractedTerminalHelper, "node-pty spawn-helper in extracted ASAR");
       fs.chmodSync(extractedTerminalHelper, 0o755);
@@ -84,19 +86,27 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
       const stagedUnpacked = `${stagedArchive}.unpacked`;
       fs.rmSync(stagedArchive, {force: true});
       fs.rmSync(stagedUnpacked, {recursive: true, force: true});
-      run(asar, ["pack", extracted, stagedArchive, "--unpack-dir", nativePackages]);
+      run(asar, ["pack", extracted, stagedArchive, ...unpackArguments(unpackRules)]);
+      if (!equalRecords(sourceUnpackedHeaderPaths, unpackedHeaderPaths(asar, stagedArchive))) {
+        throw new Error("ASAR repack did not preserve the source unpacked-header paths");
+      }
       requireDirectory(stagedUnpacked, "repacked native-module directory");
       verifyNativePackages(stagedUnpacked);
       if (!isExecutable(path.join(stagedUnpacked, terminalHelperRelative))) {
         throw new Error("ASAR repack did not preserve the executable node-pty spawn-helper");
       }
+      run("/usr/bin/ditto", [sourceUnpacked, stagedUnpacked]);
 
       fs.renameSync(stagedArchive, copied.archive.path);
       fs.rmSync(`${copied.archive.path}.unpacked`, {recursive: true, force: true});
       fs.renameSync(stagedUnpacked, `${copied.archive.path}.unpacked`);
+      const repackedNativeSnapshot = treeSnapshot(`${copied.archive.path}.unpacked`);
+      if (!equalRecords(sourceNativeSnapshot, repackedNativeSnapshot)) {
+        throw new Error(`ASAR repack did not preserve the source native-module tree: ${recordDifferences(sourceNativeSnapshot, repackedNativeSnapshot)}`);
+      }
       writeAsarIntegrity(destination, asarHeaderSha256(copied.archive.path));
     }
-    run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", destination]);
+    run("/usr/bin/codesign", ["--force", "--sign", "-", destination]);
 
     const finalInspection = inspectAppBundle(destination);
     if (finalInspection.signature.state !== "valid" || finalInspection.asarIntegrity.state !== "valid") {
@@ -109,7 +119,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
       throw new Error("Final staged application lost the executable node-pty spawn-helper");
     }
     if (!equalRecords(sourceNativeSnapshot, treeSnapshot(`${finalInspection.archive.path}.unpacked`))) {
-      throw new Error("Final staged application did not preserve the source native-module tree");
+      throw new Error(`Final staged application did not preserve the source native-module tree: ${recordDifferences(sourceNativeSnapshot, treeSnapshot(`${finalInspection.archive.path}.unpacked`))}`);
     }
 
     const verified = path.join(scratch, "verified");
@@ -290,6 +300,62 @@ function equalRecords(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function recordDifferences(left, right) {
+  const names = [...new Set([...Object.keys(left), ...Object.keys(right)])].sort();
+  const changed = names.filter(name => JSON.stringify(left[name]) !== JSON.stringify(right[name]));
+  return changed.slice(0, 8).map(name => `${name} (${JSON.stringify(left[name])} -> ${JSON.stringify(right[name])})`).join(", ") +
+    (changed.length > 8 ? `, plus ${changed.length - 8} more` : "");
+}
+
+function exactGlob(paths, prefix = "") {
+  if (paths.length === 0) return null;
+  const unsafe = paths.find(file => /[{},!\[\]*?\\]/.test(file));
+  if (unsafe) {
+    throw new Error(`Cannot safely preserve unpacked native path in an ASAR glob: ${unsafe}`);
+  }
+  return paths.length === 1 ? `${prefix}${paths[0]}` : `${prefix}{${paths.join(",")}}`;
+}
+
+function unpackedHeaderPaths(asar, archive) {
+  const prefix = "unpack : /";
+  return run(asar, ["list", "--is-pack", archive]).stdout
+    .split("\n")
+    .filter(line => line.startsWith(prefix))
+    .map(line => line.slice(prefix.length))
+    .sort();
+}
+
+function deriveUnpackRules(headerPaths, unpackedRoot) {
+  if (headerPaths.length === 0) throw new Error("Source application has no unpacked ASAR entries");
+  const directories = headerPaths.filter(relative => fs.statSync(path.join(unpackedRoot, relative)).isDirectory())
+    .sort((left, right) => left.length - right.length || left.localeCompare(right));
+  const directoryRoots = [];
+  for (const relative of directories) {
+    if (!directoryRoots.some(root => relative === root || relative.startsWith(`${root}/`))) {
+      directoryRoots.push(relative);
+    }
+  }
+  const files = headerPaths.filter(relative => !fs.statSync(path.join(unpackedRoot, relative)).isDirectory())
+    .filter(relative => !directoryRoots.some(root => relative.startsWith(`${root}/`)));
+  return {directories: directoryRoots.sort(), files: files.sort()};
+}
+
+function unpackArguments({directories, files}) {
+  const args = [];
+  const directoryGlob = exactGlob(directories);
+  const fileGlob = exactGlob(files, "**/");
+  if (directoryGlob) args.push("--unpack-dir", directoryGlob);
+  if (fileGlob) args.push("--unpack", fileGlob);
+  return args;
+}
+
+function restoreUnpackedModes(extracted, snapshot) {
+  for (const [relative, record] of Object.entries(snapshot)) {
+    const target = path.join(extracted, relative);
+    if (record.type === "file" && fs.existsSync(target)) fs.chmodSync(target, record.mode);
+  }
+}
+
 function writeAsarIntegrity(app, hash) {
   const info = path.join(app, "Contents/Info.plist");
   run("/usr/libexec/PlistBuddy", [
@@ -347,7 +413,7 @@ function jsonCommand(program, args, label) {
 }
 
 function run(program, args) {
-  const result = spawnSync(program, args, {encoding: "utf8"});
+  const result = spawnSync(program, args, {encoding: "utf8", maxBuffer: 64 * 1024 * 1024});
   if (result.status !== 0) {
     const cause = result.error?.message ?? (result.stderr || result.stdout).trim();
     throw new Error(`${path.basename(program)} ${args.join(" ")} failed: ${cause}`);

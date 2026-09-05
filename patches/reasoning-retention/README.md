@@ -34,7 +34,9 @@ enable it.
 ```
 
 The palette is the one identity registry; this patch does not create a second roster or duplicate
-its selectors. It requires the task-visual-palette patch in the selected fleet.
+its selectors. It requires the task-visual-palette patch in the selected fleet. When runtime JSON
+reload is selected through that dependency, valid external palette saves update the exact-ID
+reasoning decision without restarting Codex.
 
 ## Owned seam
 

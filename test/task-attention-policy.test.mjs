@@ -33,11 +33,20 @@ const helper = build7942 ? rawHelper.replaceAll("7942", "") : build7746 ? rawHel
 const selectorNames = build7942 ? ["XU", "$P"] : build7746 ? ["aW"] : build7345 ? ["VN", "AH"] : ["Rx", "Lx"];
 const api = Function(
   ...selectorNames,
+  "Db", "Eb", "Tb", "wb", "Fb", "Pb", "Hg", "Vg", "$g", "Qg", "Rg", "Lg", "Bg", "zg",
   "build7345",
-  `${helper};MTKattentionPolicyAtom={test:!0};return build7345?{MTKloadAttentionPolicy:MTKloadAttentionPolicy7345,MTKparseAttentionPolicy:MTKparseAttentionPolicy7345,MTKattentionMatch:MTKattentionMatch7345,MTKattentionIgnoredThread:MTKattentionIgnoredThread7345,MTKinstallAttentionPolicy:MTKinstallAttentionPolicy7345,MTKattentionPolicyAtom}:{MTKloadAttentionPolicy,MTKparseAttentionPolicy,MTKattentionMatch,MTKattentionIgnoredThread,MTKinstallAttentionPolicy,MTKattentionPolicyAtom}`
+  `${helper};MTKattentionPolicyAtom={test:!0};return build7345?{MTKloadAttentionPolicy:MTKloadAttentionPolicy7345,MTKparseAttentionPolicy:MTKparseAttentionPolicy7345,MTKattentionMatch:MTKattentionMatch7345,MTKattentionIgnored:MTKattentionIgnored7345,MTKattentionIgnoredThread:MTKattentionIgnoredThread7345,MTKinstallAttentionPolicy:MTKinstallAttentionPolicy7345,MTKacceptAttentionReload:MTKacceptAttentionReload7345,MTKattentionPolicyAtom}:{MTKloadAttentionPolicy,MTKparseAttentionPolicy,MTKattentionMatch,MTKattentionIgnored,MTKattentionIgnoredThread,MTKinstallAttentionPolicy,MTKacceptAttentionReload,MTKattentionPolicyAtom}`
 )(...selectorNames.map(name => name === "$P" ? key => key == null ? null : key.startsWith("local:")
   ? { kind: "local", threadId: key.slice(6) }
-  : key.startsWith("remote:") ? { kind: "remote", taskId: key.slice(7) } : null : Symbol(name)), build7345);
+  : key.startsWith("remote:") ? { kind: "remote", taskId: key.slice(7) } : null : Symbol(name)),
+  Symbol("Db"), () => client,
+  Symbol("Tb"), () => client,
+  Symbol("Fb"), () => client,
+  Symbol("Hg"), () => client,
+  Symbol("$g"), () => client,
+  Symbol("Rg"), () => client,
+  Symbol("Bg"), () => client,
+  build7345);
 
 const owner = "/policy-owner";
 const policy = fs.readFileSync(path.join(projectRoot, ".codex/task-attention-policy.json"), "utf8");
@@ -62,13 +71,17 @@ const client = {
 const loaded = await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 ? owner : [owner, owner]);
 assert.ok(loaded, "one unique valid owner loads");
 assert.equal(loaded.length, policyObject.ignore.length, "every configured ignore rule loads");
-assert.equal(api.MTKattentionMatch(loaded, "quiet-worker", "task-local-ignore"), true);
-assert.equal(api.MTKattentionMatch(loaded, "research-desk", "task-remote-ignore"), true);
-assert.equal(api.MTKattentionMatch(loaded, "radio-room", "task-radio-ignore"), true);
-assert.equal(api.MTKattentionMatch(loaded, "quiet-worker", "other"), false, "same title outside the selected task stays ordinary");
-assert.equal(api.MTKattentionMatch(loaded, "ordinary", "task-local-other"), false,
+const behaviorPolicy = api.MTKparseAttentionPolicy(Buffer.from(JSON.stringify({
+  ignore: ["^task-local-ignore$", "^task-remote-ignore$", "^task-radio-ignore$"]
+})).toString("base64"));
+assert.ok(behaviorPolicy, "bounded behavior policy parses independently of operator configuration");
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "quiet-worker", "task-local-ignore"), true);
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "research-desk", "task-remote-ignore"), true);
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "radio-room", "task-radio-ignore"), true);
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "quiet-worker", "other"), false, "same title outside the selected task stays ordinary");
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "ordinary", "task-local-other"), false,
   "similar task IDs do not match");
-assert.equal(api.MTKattentionMatch(loaded, "ordinary", "other"), false);
+assert.equal(api.MTKattentionMatch(behaviorPolicy, "ordinary", "other"), false);
 
 const currentFlattenedEntries = build7345 || build7746 || helper.includes("r.conversationId!=null");
 const entries = new Map([
@@ -111,12 +124,12 @@ const localKey = build7942 ? "local:task-local-ignore" : "ignored-local";
 const remoteKey = build7942 ? "remote:task-remote-ignore" : "ignored-remote";
 const ordinaryKey = build7942 ? "local:ordinary-local" : "ordinary-local";
 const pendingKey = build7942 ? "local:pending-local" : "pending-local";
-assert.equal(api.MTKattentionIgnoredThread(getEntry, localKey, loaded), true,
+assert.equal(api.MTKattentionIgnoredThread(getEntry, localKey, behaviorPolicy), true,
   "dock filtering uses genuine local task title and ID metadata");
-assert.equal(api.MTKattentionIgnoredThread(getEntry, remoteKey, loaded), true,
+assert.equal(api.MTKattentionIgnoredThread(getEntry, remoteKey, behaviorPolicy), true,
   "dock filtering uses genuine remote task title and ID metadata");
-assert.equal(api.MTKattentionIgnoredThread(getEntry, ordinaryKey, loaded), false);
-assert.equal(api.MTKattentionIgnoredThread(getEntry, pendingKey, loaded), false,
+assert.equal(api.MTKattentionIgnoredThread(getEntry, ordinaryKey, behaviorPolicy), false);
+assert.equal(api.MTKattentionIgnoredThread(getEntry, pendingKey, behaviorPolicy), false,
   "pending local entries without a conversation stay ordinary");
 if (currentFlattenedEntries) {
   assert.ok(!helper.includes("r.conversation.title"),
@@ -132,9 +145,33 @@ if (currentFlattenedEntries) {
 }
 
 const policyWrites = [];
-api.MTKinstallAttentionPolicy(loaded, { set: (...args) => policyWrites.push(args) });
-assert.deepEqual(policyWrites, [[api.MTKattentionPolicyAtom, loaded]],
+const policyScope = {
+  get() { return {}; },
+  set: (...args) => policyWrites.push(args),
+  when() { throw new Error("manager is already ready"); }
+};
+api.MTKinstallAttentionPolicy(behaviorPolicy, policyScope);
+assert.deepEqual(policyWrites, [[api.MTKattentionPolicyAtom, behaviorPolicy]],
   "async policy installation invalidates the shared unread-count selector");
+file(`${owner}/.codex/task-attention-policy.json`, "{partial");
+assert.equal(await api.MTKacceptAttentionReload(
+  policyScope,
+  build7345 || build7746 || build7942 ? owner : [owner],
+  { initial: false },
+  () => true
+), false, "invalid external saves are rejected by the consumer acceptance callback");
+assert.equal(policyWrites.length, 1, "an invalid save preserves the last-good policy");
+assert.equal(api.MTKattentionIgnored("quiet-worker", "task-local-ignore"), true);
+file(`${owner}/.codex/task-attention-policy.json`, '{"ignore":["^replacement$"]}');
+assert.equal(await api.MTKacceptAttentionReload(
+  policyScope,
+  build7345 || build7746 || build7942 ? owner : [owner],
+  { initial: false },
+  () => true
+), true, "a complete valid external save is accepted");
+assert.equal(policyWrites.length, 2, "accepted policy is published through the shared atom");
+assert.equal(api.MTKattentionIgnored("quiet-worker", "task-local-ignore"), false);
+assert.equal(api.MTKattentionIgnored("replacement", "other"), true);
 
 assert.equal(await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 ? "/missing" : ["/missing"]), null, "zero owners are vanilla");
 directory("/second/.codex");
@@ -206,7 +243,8 @@ process.stdout.write(`${JSON.stringify({
   matches: "full-title-or-full-task-id",
   suppressed: ["sidebar-completion-attention", "sidebar-waiting-treatment", "native-turn-complete-notification", "dock-and-collapsed-sidebar-unread-count"],
   preserved: ["running", "failure", "task-output", "approval-and-input-notification-owners", "destination-task-alerts", "automation-and-unrelated-global-unread-counts"],
-  fallback: "invalid-missing-or-ambiguous-policy-is-vanilla"
+  startupFallback: "invalid-missing-or-ambiguous-policy-is-vanilla",
+  reloadFallback: "invalid-missing-or-ambiguous-replacement-keeps-last-good-policy"
 }, null, 2)}\n`);
 
 function directory(target) {

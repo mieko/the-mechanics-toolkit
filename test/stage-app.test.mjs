@@ -154,10 +154,13 @@ function makeSourceApp(app, rendererSource) {
   fs.mkdirSync(resources, {recursive: true});
   fs.writeFileSync(path.join(assets, "app-initial-fixture.js"), rendererSource);
   fs.writeFileSync(helper, "fixture helper\n", {mode: 0o755});
+  const unpackedFixtures = [helper];
   for (const packageName of ["@worklouder/device-kit-oai", "better-sqlite3", "objc-js"]) {
     const nativeFixture = path.join(sourceTree, "node_modules", packageName, "fixture.node");
     fs.mkdirSync(path.dirname(nativeFixture), {recursive: true});
     fs.writeFileSync(nativeFixture, `${packageName} fixture\n`);
+    fs.writeFileSync(path.join(sourceTree, "node_modules", packageName, "README.md"), `${packageName} packed fixture\n`);
+    unpackedFixtures.push(nativeFixture);
   }
   const executable = path.join(contents, "MacOS/ChatGPT");
   fs.writeFileSync(executable, "#!/bin/sh\nexit 0\n", {mode: 0o755});
@@ -166,9 +169,14 @@ function makeSourceApp(app, rendererSource) {
     "pack",
     sourceTree,
     archive,
-    "--unpack-dir",
-    "node_modules/{@worklouder/device-kit-oai,better-sqlite3,node-pty,objc-js}"
+    "--unpack",
+    `**/{${unpackedFixtures.map(file => path.relative(sourceTree, file)).join(",")}}`
   ]);
+  const externalModeFixture = path.join(`${archive}.unpacked`, path.relative(sourceTree, unpackedFixtures[1]));
+  fs.chmodSync(externalModeFixture, 0o755);
+  const externalOrphanFixture = path.join(`${archive}.unpacked`, "node_modules/node-pty/build/Release/fixture.node.dSYM/Contents/Info.plist");
+  fs.mkdirSync(path.dirname(externalOrphanFixture), {recursive: true});
+  fs.writeFileSync(externalOrphanFixture, "external debug metadata\n");
   writeInfo(path.join(contents, "Info.plist"), asarHeaderSha256(archive));
   run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", app]);
 }

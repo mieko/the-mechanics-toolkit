@@ -1,6 +1,7 @@
 {
   "enabledPatches": [
     "cross-task-attribution",
+    "runtime-json-reload",
     "task-visual-palette",
     "reasoning-retention",
     "macos-menu-title",

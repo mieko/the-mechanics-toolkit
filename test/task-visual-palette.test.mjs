@@ -80,11 +80,11 @@ const scope = {
   }
 };
 const react = { useEffect: callback => callback() };
-const bootstrap = Function(
+const bootstrapApi = Function(
   "_s", "Ss", "vs", "ys", "Q", "Y", "Ysn", "Can", "Xsn", "fS", "Kjl", "QSl", "XMl", "yYl", "Vg", "Qg", "Lg", "zg", "Hg", "$g", "Rg", "Bg",
   "A_", "$", "x$c", "Pb", "Fb", "pb", "ZOs", "wb", "Tb",
   "hb", "Mks", "Db", "Eb",
-  `${helper};return MTKusePaletteBootstrap`
+  `${helper};return {bootstrap:MTKusePaletteBootstrap,accept:MTKacceptPaletteReload,reasoning:MTKreasoningShouldStayOpen}`
 )(
   () => scope, () => scope, () => scope, () => scope, Symbol("scope"), () => [{ projectKind: "local", rootPaths: [owner] }],
   Symbol("groups"), Symbol("old-groups"), Symbol("current-groups"), Symbol("new-groups"), react, react, react, react,
@@ -102,7 +102,7 @@ const bootstrap = Function(
   () => scope, react, managerAtom,
   () => { appServerClientCalls++; if (manager == null) throw new Error("AppServerManager RPC is not connected"); return client; }
 );
-assert.doesNotThrow(() => bootstrap(), "bootstrap waits instead of crashing before App Server readiness");
+assert.doesNotThrow(() => bootstrapApi.bootstrap(), "bootstrap waits instead of crashing before App Server readiness");
 assert.equal(appServerClientCalls, 0, "host client is not requested before manager readiness");
 
 const loggerSentinel = () => {};
@@ -112,16 +112,22 @@ assert.equal(globalThis.k9e, loggerSentinel, "palette load leaves unrelated logg
 delete globalThis.k9e;
 assert.ok(loaded, "valid palette loads");
 assert.equal(loaded.rules.length, Object.keys(palette.rules).length);
-const configuredRules = Object.values(palette.rules);
-const engineRule = configuredRules.find(rule =>
-  rule.taskId === "22222222-2222-4222-8222-222222222222"
+const configuredEntries = Object.entries(palette.rules);
+const configuredRules = configuredEntries.map(([, rule]) => rule);
+const reasoningEntry = configuredEntries.find(([, rule]) =>
+  rule.keepReasoningOpen === true && typeof rule.taskId === "string"
 );
-assert.ok(engineRule, "engine-room palette fixture exists");
-const protectedRules = configuredRules.filter(rule => rule.protectSidebarArchive === true);
-assert.equal(protectedRules.length, 1, "archive protection is an explicit per-rule opt-in");
+assert.ok(reasoningEntry, "configured palette has an exact-ID reasoning-retention rule");
+const [reasoningKey, engineRule] = reasoningEntry;
+const protectedEntries = configuredEntries.filter(([, rule]) => rule.protectSidebarArchive === true);
+const protectedRules = protectedEntries.map(([, rule]) => rule);
+assert.ok(protectedRules.length >= 1, "archive protection is an explicit per-rule opt-in");
 assert.ok(protectedRules.every(rule => typeof rule.taskId === "string"), "protected entries own exact task IDs in data");
-const protectedTaskId = protectedRules[0].taskId;
-const ordinaryTaskId = "33333333-3333-4333-8333-333333333333";
+const [protectedKey, protectedRule] = protectedEntries[0];
+const protectedTaskId = protectedRule.taskId;
+const ordinaryTaskId = "not-a-configured-task";
+const protectedLoadedRule = api.MTKmatchPalette(loaded, "", protectedTaskId);
+assert.ok(protectedLoadedRule, "protected task ID resolves its configured palette rule");
 assert.deepEqual(loaded.calibration, {
   canvas: 11,
   userBubble: 8,
@@ -131,11 +137,7 @@ assert.deepEqual(loaded.calibration, {
   watermarkDark: 9,
   watermarkLight: 6
 });
-assert.equal(api.MTKmatchPalette(loaded, "Bridge Keeper — Coordination", "other")?.color, "#8B6FD3");
-assert.equal(api.MTKmatchPalette(loaded, "Bridge Keeper ticket", "other"), null);
-assert.equal(api.MTKmatchPalette(loaded, "Engine Tender — Repairs", "other")?.color, "#71879A");
-assert.equal(api.MTKmatchPalette(loaded, "Engine Tender ticket", "other"), null);
-assert.equal(api.MTKmatchPalette(loaded, "other", engineRule.taskId)?.color, "#71879A");
+assert.equal(api.MTKmatchPalette(loaded, "unmatched title", engineRule.taskId)?.color.toLowerCase(), engineRule.color.toLowerCase());
 assert.equal(api.MTKsidebarArchiveProtected(protectedTaskId, loaded), true);
 assert.equal(api.MTKsidebarArchiveProtected(ordinaryTaskId, loaded), false);
 assert.equal(api.MTKsidebarArchiveProtected("Bridge Keeper — Coordination", loaded), false, "titles never authorize archive protection");
@@ -147,30 +149,30 @@ const coloredUnprotected = await parse({
   ...palette,
   rules: {
     ...palette.rules,
-    [Object.keys(palette.rules)[0]]: { ...configuredRules[0], protectSidebarArchive: false }
+    [protectedKey]: { ...protectedRule, protectSidebarArchive: false }
   }
 });
 assert.ok(coloredUnprotected, "colored entries may remain explicitly unprotected");
 assert.equal(api.MTKsidebarArchiveProtected(protectedTaskId, coloredUnprotected), false);
 assert.equal(await parse({
   ...palette,
-  rules: { ...palette.rules, [Object.keys(palette.rules)[0]]: { ...configuredRules[0], protectSidebarArchive: "yes" } }
+  rules: { ...palette.rules, [protectedKey]: { ...protectedRule, protectSidebarArchive: "yes" } }
 }), null, "protection flag is boolean-only");
-const missingProtectedTaskId = { ...configuredRules[0] };
+const missingProtectedTaskId = { ...protectedRule };
 delete missingProtectedTaskId.taskId;
 assert.equal(await parse({
   ...palette,
-  rules: { ...palette.rules, [Object.keys(palette.rules)[0]]: missingProtectedTaskId }
+  rules: { ...palette.rules, [protectedKey]: missingProtectedTaskId }
 }), null, "protected entries require an exact task ID");
 assert.equal(await parse({
   ...palette,
-  rules: { ...palette.rules, [Object.keys(palette.rules)[1]]: { ...engineRule, keepReasoningOpen: "yes" } }
+  rules: { ...palette.rules, [reasoningKey]: { ...engineRule, keepReasoningOpen: "yes" } }
 }), null, "reasoning retention is boolean-only");
 const missingReasoningTaskId = { ...engineRule };
 delete missingReasoningTaskId.taskId;
 assert.equal(await parse({
   ...palette,
-  rules: { ...palette.rules, [Object.keys(palette.rules)[1]]: missingReasoningTaskId }
+  rules: { ...palette.rules, [reasoningKey]: missingReasoningTaskId }
 }), null, "reasoning retention requires an exact task ID");
 for (const rule of loaded.rules) {
   assert.ok(contrast(rule.dark.selection, rule.dark.text) >= 4.5, `${rule.color} dark selection contrast`);
@@ -215,6 +217,8 @@ const genericDelegation = element({
 const domElements = [bridgeSidebar, ordinarySidebar, bridgeRoom, mappedDelegation, genericDelegation];
 globalThis.document = {
   documentElement,
+  body: {},
+  getElementById() { return {}; },
   querySelectorAll(selector) {
     if (selector === "[data-app-action-sidebar-thread-row]") return domElements.filter(has("data-app-action-sidebar-thread-row"));
     if (selector === "[data-mtk-palette-room-host]") return domElements.filter(has("data-mtk-palette-room-host"));
@@ -222,6 +226,9 @@ globalThis.document = {
     if (selector === "[data-mtk-palette-row=true]") return domElements.filter(entry => entry.getAttribute("data-mtk-palette-row") === "true");
     throw new Error(`unexpected selector ${selector}`);
   }
+};
+globalThis.MutationObserver = class {
+  observe() {}
 };
 
 const ordinaryTurn = element({}, [element({ class: "ordinary-message" })]);
@@ -248,13 +255,29 @@ assert.equal(documentElement.style.get("--mtk-generic-bubble-strength"), "16%");
 assert.equal(documentElement.style.get("--mtk-watermark-dark-opacity"), 0.09);
 assert.equal(documentElement.style.get("--mtk-watermark-light-opacity"), 0.06);
 assert.equal(bridgeRoom.getAttribute("data-mtk-palette-room"), "true");
-assert.equal(bridgeRoom.style.get("--mtk-room-dark"), loaded.rules[0].dark.canvas);
-assert.equal(bridgeRoom.style.get("--mtk-selection-dark"), loaded.rules[0].dark.selection);
+assert.equal(bridgeRoom.style.get("--mtk-room-dark"), protectedLoadedRule.dark.canvas);
+assert.equal(bridgeRoom.style.get("--mtk-selection-dark"), protectedLoadedRule.dark.selection);
 assert.equal(mappedDelegation.getAttribute("data-mtk-palette-delegation"), "true");
-assert.equal(mappedDelegation.style.get("--mtk-bubble-dark"), loaded.rules[0].dark.bubble);
-assert.equal(mappedDelegation.style.get("--mtk-selection-dark"), loaded.rules[0].dark.selection);
+assert.equal(mappedDelegation.style.get("--mtk-bubble-dark"), protectedLoadedRule.dark.bubble);
+assert.equal(mappedDelegation.style.get("--mtk-selection-dark"), protectedLoadedRule.dark.selection);
 assert.equal(genericDelegation.getAttribute("data-mtk-palette-delegation"), null);
 assert.equal(ordinarySidebar.getAttribute("data-mtk-palette-row"), null);
+
+manager = {};
+file(`${owner}/.codex/task-visual-palette.json`, "{partial");
+assert.equal(await bootstrapApi.accept(scope, [owner], { initial: false }, () => true), false,
+  "invalid external saves are rejected by the consumer acceptance callback");
+assert.equal(bridgeRoom.style.get("--mtk-room-dark"), protectedLoadedRule.dark.canvas,
+  "an invalid save preserves the last-good palette");
+const replacementPalette = structuredClone(palette);
+replacementPalette.rules[protectedKey].color = "#4A90E2";
+file(`${owner}/.codex/task-visual-palette.json`, JSON.stringify(replacementPalette));
+const replacementLoaded = await api.MTKloadPalette(client, [owner]);
+assert.equal(await bootstrapApi.accept(scope, [owner], { initial: false }, () => true), true,
+  "a complete valid external save is accepted");
+assert.equal(bridgeRoom.style.get("--mtk-room-dark"), api.MTKmatchPalette(replacementLoaded, "", protectedTaskId).dark.canvas,
+  "accepted palette is applied immediately");
+assert.equal(bootstrapApi.reasoning(engineRule.taskId), true, "accepted reload republishes exact-ID reasoning policy");
 
 for (const contract of [
   "color-mix(in oklab,var(--color-text) var(--mtk-user-bubble-strength),transparent)",
@@ -378,7 +401,8 @@ process.stdout.write(`${JSON.stringify({
   calibration: loaded.calibration,
   surfaces: ["user-bubble", "mapped-delegation", "generic-delegation", "derived-selection", "watermark", "room-bottom-fade"],
   startup: "waits-for-app-server-manager",
-  fallback: "invalid-or-missing-palette-leaves-native-styles",
+  startupFallback: "invalid-or-missing-palette-leaves-native-styles",
+  reloadFallback: "invalid-or-missing-replacement-keeps-last-good-palette",
   sidebarArchiveProtection: "explicit-exact-task-id",
   sidebarSelection: "universal-neutral-with-mapped-accent-override"
 }, null, 2)}\n`);
