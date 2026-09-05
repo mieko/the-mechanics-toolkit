@@ -20,7 +20,7 @@ boundary.
 | --- | --- | --- | --- |
 | Cross-task attribution | **Active** | Replaces anonymous delegated-message attribution with the actual source task or agent. | Not yet |
 | Task visual palette | **Active** | Gives selected task rooms, sidebar rows, and provenanced messages a stable visual identity. | Not yet |
-| Sidebar action collapse | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | Not yet |
+| [Sidebar action collapse](patches/sidebar-action-collapse/) | **Active** | Folds the stock global action group away without hiding Projects or task navigation. | **Yes** |
 | Task attention policy | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | Not yet |
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
 | Outgoing-message receipt | **Active** | Leaves a compact, hover-previewable routing receipt after a cross-task send instead of letting it vanish. | Not yet |
@@ -45,6 +45,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
+- check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
 
 It cannot yet stage, sign, install, replace, launch, or roll back an application. The private
@@ -53,9 +54,12 @@ a time. No license has been selected yet; choose one before publication.
 
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
-as applied and passed its focused bundled-contract probe. A synthetic pristine fixture separately
-proves the transform and byte-identical second application. This does not claim support for an
-uninspected build or prove that this new repository can yet produce a launchable staged app.
+as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
+prove both extracted transforms and byte-identical second application. The sidebar fixture targets
+the exact build-`7942` ownership contract, but the installed private patch uses deliberately
+different markers and is not treated as evidence that this public transform is installed. None of
+this claims support for an uninspected build or proves that this repository can yet produce a
+launchable staged app.
 
 ## Inspect an application
 
@@ -75,17 +79,18 @@ application.
 
 ## Work on an extracted ASAR tree
 
-The first extracted behavioral patch makes the configured terminal shortcut work from the chat
-composer and behave as a real toggle when the terminal owns focus.
+Each patch accepts an explicitly supplied extracted tree and owns its own compatibility check.
 
 ```sh
+node bin/toolkit.mjs patch sidebar-action-collapse check /path/to/extracted-asar
+node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
-node test/terminal-toggle.test.mjs /path/to/disposable-extracted-asar
 ```
 
 `apply` modifies that extracted directory. It does not repack or touch an application bundle.
-Unknown, duplicated, partial, or changed ownership fails closed.
+Unknown, duplicated, partial, or changed ownership fails closed. Each patch directory documents its
+focused behavioral probe and exact current evidence.
 
 ## What belongs here
 

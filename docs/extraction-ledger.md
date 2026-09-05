@@ -13,7 +13,7 @@ public boundary; it is not a promise to extract every historical patch.
 | Cross-task attribution and send receipts | Not extracted | Separate independent patches from optional palette use |
 | Task palette and attention policy | Not extracted | Replace private owner roots and crew data with local config |
 | Tinrelay pointer presentation | Not extracted | Make client path and local ship explicit configuration |
-| Sidebar action collapse | Not extracted | Replace the private storage namespace |
+| Sidebar action collapse | Extracted; build-7942 fixture red/green | Integrate with the staged patch runner |
 | Patch registry | Not extracted | Rename private package markers without adding dependencies |
 | Task supervisor | Benched | Retain privately unless a real current use returns |
 | History and renderer-window performance patches | Dormant upstream-owned | Do not publish as active repairs |
