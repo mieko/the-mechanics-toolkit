@@ -29,7 +29,8 @@ try {
     "sidebarActionCollapse",
     "taskAttentionPolicy",
     "taskVisualPalette",
-    "terminalToggle"
+    "terminalToggle",
+    "tinrelayPointerPresentation"
   ]);
   assert.deepEqual(applied.targets, [
     "webview/assets/app-initial-fixture.js",
@@ -82,6 +83,9 @@ function lazyFixture() {
     "function MTKsender(){}",
     "function MTKoutboundArguments(){}",
     "function MTKOutboundMessageReceipt(){}",
+    'const MTKtinrelayLocalShip="sample-ship";',
+    "function MTKtinrelayPointerFromMessage(){}",
+    'const tinrelay={"data-mtk-tinrelay-pointer":true};',
     "const delegated={messageBubbleStyle:MTKdelegatedBubbleStyle};",
     "var MTKdelegatedBubbleStyle={};",
     "export const fixture=true;"

@@ -82,6 +82,13 @@ function activePackages() {
       anchor: "function MTKoutboundArguments(",
       call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:1,persistence:"mounted-session",visibility:"persistent-when-activity-collapsed",preview:"stock-hover",messageRendering:"recipient-user-message"});`
     });
+    addIf(packages, source.includes("function MTKtinrelayPointerFromMessage(") &&
+      source.includes("data-mtk-tinrelay-pointer"), {
+      name: "tinrelayPointerPresentation",
+      file,
+      anchor: "const MTKtinrelayLocalShip=",
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:1,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"inert-plain-text"});`
+    });
   }
   const names = packages.map(entry => entry.name);
   if (new Set(names).size !== names.length) throw new Error(`Active package ownership is ambiguous: ${names.join(",")}`);

@@ -1,3 +1,7 @@
 {
-  "workspaceRoot": "/absolute/path/to/your/workspace"
+  "workspaceRoot": "/absolute/path/to/your/workspace",
+  "tinrelay": {
+    "client": "/absolute/path/to/tinrelay",
+    "localShip": "example-ship"
+  }
 }

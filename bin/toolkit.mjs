@@ -12,6 +12,7 @@ const patchScripts = new Map([
   ["sidebar-action-collapse", "patches/sidebar-action-collapse/patch.mjs"],
   ["task-attention-policy", "patches/task-attention-policy/patch.mjs"],
   ["task-visual-palette", "patches/task-visual-palette/patch.mjs"],
+  ["tinrelay-pointer-presentation", "patches/tinrelay-pointer-presentation/patch.mjs"],
   ["terminal-toggle", "patches/terminal-toggle/patch.mjs"]
 ]);
 const [command, ...args] = process.argv.slice(2);

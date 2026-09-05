@@ -24,7 +24,7 @@ boundary.
 | [Task attention policy](patches/task-attention-policy/) | **Active** | Mutes routine sidebar, Dock-badge, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | **Active** | Leaves a compact, hover-previewable routing receipt after a cross-task send instead of letting it vanish. | **Yes** |
-| Tinrelay pointer presentation | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | Not yet |
+| [Tinrelay pointer presentation](patches/tinrelay-pointer-presentation/) | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | **Yes** |
 | Native app-tools peer authorization | **Active** | Preserves native task tools after local signing through one narrow official-helper fallback; other peers and pipes retain stock rejection. | Not yet |
 | Task supervisor | **Benched** | Can wake exact persistent tasks, but the model-free Tinrelay bridge removed its current job. Its installed configuration is empty. | No; retained privately |
 | Full-history drain suppression | **Upstream-owned** | Older builds needed protection from eagerly draining complete task history; build `7942` supplies the accepted paginated path. | No active extraction planned |
@@ -51,6 +51,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
 - check or apply the config-backed task-attention-policy repair to an extracted ASAR directory;
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
+- check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory.
 
 It cannot yet stage, sign, install, replace, launch, or roll back an application. The private
@@ -60,7 +61,7 @@ a time. No license has been selected yet; choose one before publication.
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all seven extracted transforms and byte-identical second application. The sidebar, attention,
+prove all eight extracted transforms and byte-identical second application. The sidebar, attention,
 and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
@@ -102,6 +103,9 @@ node bin/toolkit.mjs patch task-attention-policy apply /path/to/disposable-extra
 node bin/toolkit.mjs patch task-visual-palette check /path/to/extracted-asar
 node bin/toolkit.mjs patch task-visual-palette apply /path/to/disposable-extracted-asar \
   --config /path/to/toolkit.local.json
+node bin/toolkit.mjs patch tinrelay-pointer-presentation check /path/to/extracted-asar
+node bin/toolkit.mjs patch tinrelay-pointer-presentation apply /path/to/disposable-extracted-asar \
+  --config /path/to/toolkit.local.json
 node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
 ```
@@ -115,7 +119,8 @@ focused behavioral probe and exact current evidence.
 Personal paths and policy stay outside the repository. Copy [`toolkit.example.json`](toolkit.example.json)
 to an ignored `toolkit.local.json` (or another private path) and fill only the values required by
 the patches you use. The task-attention and task-visual-palette patches consume `workspaceRoot`;
-the other extracted patches need no configuration yet.
+the Tinrelay pointer presentation consumes `tinrelay.client` and `tinrelay.localShip`; the other
+extracted patches need no configuration.
 
 ## What belongs here
 

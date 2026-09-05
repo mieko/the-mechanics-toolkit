@@ -55,6 +55,8 @@ const expectedNames = [
     source.includes("function MTKattentionIgnoredThread7345(") || source.includes("function MTKattentionIgnoredThread7746(") ||
     source.includes("function MTKattentionIgnoredThread7942(")],
   ["taskVisualPalette", source => source.includes("function MTKusePaletteBootstrap(")],
+  ["tinrelayPointerPresentation", source => source.includes("function MTKtinrelayPointerFromMessage(") &&
+    source.includes("data-mtk-tinrelay-pointer")],
   ["terminalToggle", source => source.includes('requiredAccess:`codexLocal`,shortcutScope:`app`,commandMenuGroupKey:`panels`')]
 ].filter(([, active]) => allSources.some(active)).map(([name]) => name).sort();
 assert.deepEqual(names, expectedNames);
@@ -84,6 +86,12 @@ if (registry.packages.outgoingMessageReceipt != null) {
   assert.equal(registry.packages.outgoingMessageReceipt.visibility, "persistent-when-activity-collapsed");
   assert.equal(registry.packages.outgoingMessageReceipt.preview, "stock-hover");
   assert.equal(registry.packages.outgoingMessageReceipt.messageRendering, "recipient-user-message");
+}
+if (registry.packages.tinrelayPointerPresentation != null) {
+  assert.equal(registry.packages.tinrelayPointerPresentation.version, 1);
+  assert.equal(registry.packages.tinrelayPointerPresentation.contract, "tinrelay-local-pointer-v1");
+  assert.equal(registry.packages.tinrelayPointerPresentation.disclosure, "automatic-local-inspection");
+  assert.equal(registry.packages.tinrelayPointerPresentation.rendering, "inert-plain-text");
 }
 assert.ok(!bootstrap.includes("subscribe") && !bootstrap.includes("addEventListener") && !bootstrap.includes("MutationObserver"),
   "registry has no lifecycle or event machinery");

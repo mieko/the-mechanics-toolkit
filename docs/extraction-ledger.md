@@ -14,7 +14,7 @@ public boundary; it is not a promise to extract every historical patch.
 | Outgoing send receipt | Extracted; current renderer-family fixture red/green | Integrate with the staged patch runner |
 | Task palette | Extracted; config-backed build-7942 fixture red/green | Integrate with the staged patch runner |
 | Task attention policy | Extracted; config-backed build-7942 fixture red/green | Integrate with the staged patch runner |
-| Tinrelay pointer presentation | Not extracted | Make client path and local ship explicit configuration |
+| Tinrelay pointer presentation | Extracted; config-backed renderer/main fixture red/green | Integrate with the staged patch runner |
 | Sidebar action collapse | Extracted; build-7942 fixture red/green | Integrate with the staged patch runner |
 | Patch registry | Extracted; per-realm API and current marker fixture green | Apply after selected behavior patches |
 | Task supervisor | Benched | Retain privately unless a real current use returns |
