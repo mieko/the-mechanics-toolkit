@@ -19,7 +19,10 @@ try {
   const destination = path.join(scratch, "Staged ChatGPT.app");
   const config = path.join(scratch, "toolkit.json");
   makeSourceApp(source, terminalFixture());
-  fs.writeFileSync(config, JSON.stringify({enabledPatches: ["terminal-toggle", "macos-menu-title"]}));
+  fs.writeFileSync(config, JSON.stringify({
+    enabledPatches: ["terminal-toggle", "macos-menu-title"],
+    signingIdentity: "-"
+  }));
   const sourceBefore = inspectAppBundle(source);
 
   for (const [label, enabledPatches, expected] of [
@@ -40,6 +43,21 @@ try {
     assert.notEqual(rejected.status, 0, label);
     assert.match(rejected.stderr, expected, label);
   }
+
+  const invalidSigningConfig = path.join(scratch, "invalid-signing-identity.json");
+  fs.writeFileSync(invalidSigningConfig, JSON.stringify({
+    enabledPatches: ["macos-menu-title"],
+    signingIdentity: ""
+  }));
+  const invalidSigning = runToolkitRaw([
+    "stage",
+    source,
+    path.join(scratch, "invalid-signing-identity.app"),
+    "--config",
+    invalidSigningConfig
+  ]);
+  assert.notEqual(invalidSigning.status, 0);
+  assert.match(invalidSigning.stderr, /signingIdentity must be a nonempty string/);
 
   const result = runToolkit(["stage", source, destination, "--config", config]);
   assert.equal(result.state, "staged-static-proof-green");

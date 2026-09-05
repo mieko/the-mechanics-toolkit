@@ -55,7 +55,9 @@ and the rapid-completion fuse.
 node test/task-supervisor-transform.test.mjs
 ```
 
-This is fixture evidence, not a claim that the benched patch is installed or live-qualified.
+The build-`7982` stock bundle was also checked after applying its required palette and attention
+dependencies: the supervisor applied idempotently and its behavioral probe passed. This is static
+evidence, not a claim that the benched patch is installed or live-qualified.
 
 ## Non-goals
 

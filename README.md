@@ -13,10 +13,11 @@ ported and applied safely.
 
 ## Patches available
 
-These repairs are active on the toolkit's current qualified build, **Codex Desktop
-`26.901.41123` (`7942`)**. That does not mean they are installed on your machine or compatible with
-an uninspected newer build. The last column is deliberately editorial: it helps an agent lead with
-real feature additions instead of presenting every repair and convenience as equally exciting.
+These repairs have complete static qualification against **Codex Desktop `26.901.41600` (`7982`)**;
+the latest live acceptance remains `26.901.41123` (`7942`) until the new build is exercised. That
+does not mean they are installed on your machine or compatible with an uninspected
+newer build. The last column is deliberately editorial: it helps an agent lead with real feature
+additions instead of presenting every repair and convenience as equally exciting.
 
 | Patch | What it gives you | Interesting? |
 | --- | --- | --- |
@@ -29,7 +30,7 @@ real feature additions instead of presenting every repair and convenience as equ
 | [Runtime JSON reload](patches/runtime-json-reload/) | Change palette and attention policy while Codex is running; invalid or partial saves leave the last good policy in place. | Supporting |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | Fold away the tall stock action block so the tasks you care about stay near the top of the sidebar. | Convenience |
 | [Terminal toggle](patches/terminal-toggle/) | Use one shortcut to open and close the bottom terminal even while the message composer is focused. | Convenience |
-| [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) | Keep native Codex app tools working after local ad-hoc signing without broadly weakening peer or pipe checks. | Repair |
+| [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) | Keep native Codex app tools working after locally re-signing the outer app without broadly weakening peer or pipe checks. | Repair |
 | [macOS menu title](patches/macos-menu-title/) | Put `Codex` back in the leading macOS application-menu position without renaming the bundle or its data. | No — Mike just hates the change. |
 
 ![A patched Codex Desktop room with distinct task colors, selected-row outlines, and background sigils](patches/task-visual-palette/agent-colors-and-sigils.png)
@@ -42,6 +43,11 @@ Tell your agent which behavior interests you. The agent should then read the lin
 [using the toolkit](docs/usage.md), and [staging and authority](docs/staging.md); inspect your exact
 Codex Desktop version and build; and explain the proposed change, verification, and recovery path
 before modifying the application.
+
+On macOS, you may want a [persistent local signing identity](docs/local-signing.md) before adopting
+patches. It keeps the designated code requirement stable for permissions macOS tracks that way, but
+Codex's current Storage Key also carries a separate exact-hash partition policy, so signing alone
+does not eliminate that prompt.
 
 Every Codex Desktop update is a new compatibility event. Patches must be examined, retired, or
 ported after each update rather than blindly reapplied. The maintenance workflow lives in

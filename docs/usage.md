@@ -41,6 +41,11 @@ dependency-safe order regardless of array order.
 
 Configuration-backed patches use these values:
 
+- `signingIdentity` optionally names a persistent identity from the local macOS Keychain. The
+  default `-` uses ad-hoc signing. A stable identity keeps the designated requirement consistent for
+  permissions macOS tracks that way, but some application items add their own exact-hash or
+  partition policy. Keep the certificate and private key local—only the identity name belongs in the
+  ignored configuration. See [stable local signing](local-signing.md) for the trust boundary;
 - `workspaceRoot` locates `.codex/task-visual-palette.json` and
   `.codex/task-attention-policy.json`;
 - reasoning retention consumes exact task opt-ins from the visual palette;
@@ -81,7 +86,8 @@ proof fails.
 The command requires every selected patch to begin pristine, applies the fleet in dependency-safe
 order, runs syntax and behavioral probes, proves byte-identical second application, preserves the
 source's exact native payload and executable modes, repacks the ASAR, updates Electron's integrity
-seal, ad-hoc signs the candidate, and repeats verification after packing.
+seal, signs the candidate with the configured identity (ad-hoc by default), and repeats verification
+after packing.
 
 A green result is a statically verified candidate, not permission to adopt it and not evidence of
 live behavior. See [staging and authority](staging.md) for the exact proof boundary.

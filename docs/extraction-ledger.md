@@ -24,6 +24,21 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
 | Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
 
+## Current build qualification
+
+Codex Desktop `26.901.41600` (build `7982`) was inspected from the signed vendor archive on
+2026-09-05. Its pristine ASAR SHA-256 is
+`077cc65356aeae34c5d8b4de0b4cc383f6fb137ed1d69a9b3dfe69ffafa058ab`.
+
+The complete example fleet began pristine, applied without matcher changes, passed every focused
+probe before and after repacking, remained byte-identical on a second application, preserved the
+native package tree and executable helper, and produced valid ad-hoc and persistent-local-identity
+signatures with the same valid ASAR seal.
+The two dormant history checks still recognized complete upstream ownership. The benched task
+supervisor also applied idempotently and passed its focused probe after its required dependencies.
+Build `7982` is installed but has not yet been restarted and live-accepted, so build `7942` remains
+the latest live-accepted build.
+
 ## Extraction rule
 
 A slice moves only when it has one portable owner, no personal path or identity data, a focused

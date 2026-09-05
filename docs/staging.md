@@ -27,7 +27,8 @@ the command:
 5. applies the transforms again and compares every extracted file, symlink, and mode;
 6. requires the exact recognized native-package set, preserves its complete tree, repacks it, and
    verifies the node-pty helper is executable;
-7. updates Electron's raw ASAR-header SHA-256 value and ad-hoc signs the candidate;
+7. updates Electron's raw ASAR-header SHA-256 value and signs the candidate with the configured
+   identity (ad-hoc by default);
 8. verifies bundle identity, version/build preservation, integrity, and signature;
 9. extracts the packed result and reruns patch checks, syntax checks, and behavioral probes.
 

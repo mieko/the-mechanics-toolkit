@@ -2,7 +2,7 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for two current main-process profiles
-- **Current evidence:** Codex Desktop `26.901.41123`, build `7942`, inspected 2026-09-05
+- **Current evidence:** Build `7982` static stage green; build `7942` live-accepted, 2026-09-05
 
 ## Why it exists
 

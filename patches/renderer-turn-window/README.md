@@ -7,7 +7,7 @@ turn containers in one mounted conversation. This patch bounded the local render
 1,500 current and inherited-parent turns while leaving persistence, model context, older-page
 loading, and full transcript export untouched.
 
-Current build `7942` supplies the accepted paginated renderer path itself, so this local transform
+Current build `7982` supplies the accepted paginated renderer path itself, so this local transform
 is dormant and deliberately absent from the example `enabledPatches` fleet. It remains here as a
 regression repair and as executable evidence for the distinction between paginated transport and
 bounded mounted rendering.

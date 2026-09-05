@@ -22,6 +22,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   const asar = path.join(repository, "node_modules/.bin/asar");
   requireFile(asar, "repository-local asar CLI; run npm install");
   const config = readConfig(configFile);
+  const signingIdentity = configuredSigningIdentity(config);
   const selected = selectedPatches(config.enabledPatches);
   const hasAsarPatches = selected.some(definition => definition.scope === "asar");
   validatePaths(source, destination);
@@ -106,7 +107,7 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
       }
       writeAsarIntegrity(destination, asarHeaderSha256(copied.archive.path));
     }
-    run("/usr/bin/codesign", ["--force", "--sign", "-", destination]);
+    run("/usr/bin/codesign", ["--force", "--sign", signingIdentity, destination]);
 
     const finalInspection = inspectAppBundle(destination);
     if (finalInspection.signature.state !== "valid" || finalInspection.asarIntegrity.state !== "valid") {
@@ -172,10 +173,18 @@ function readConfig(file) {
   if (config == null || typeof config !== "object" || Array.isArray(config)) {
     throw new Error("Toolkit config must be a JSON object");
   }
-  const allowed = new Set(["enabledPatches", "workspaceRoot", "tinrelay"]);
+  const allowed = new Set(["enabledPatches", "signingIdentity", "workspaceRoot", "tinrelay"]);
   const unknown = Object.keys(config).filter(key => !allowed.has(key));
   if (unknown.length > 0) throw new Error(`Unknown toolkit config keys: ${unknown.join(", ")}`);
   return config;
+}
+
+function configuredSigningIdentity(config) {
+  if (config.signingIdentity === undefined) return "-";
+  if (typeof config.signingIdentity !== "string" || config.signingIdentity.trim() === "") {
+    throw new Error("Toolkit config signingIdentity must be a nonempty string");
+  }
+  return config.signingIdentity;
 }
 
 function selectedPatches(names) {

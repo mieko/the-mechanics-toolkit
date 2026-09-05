@@ -13,6 +13,7 @@
     "native-app-tools-peer-authorization",
     "renderer-patch-registry"
   ],
+  "signingIdentity": "-",
   "workspaceRoot": "/absolute/path/to/your/workspace",
   "tinrelay": {
     "client": "/absolute/path/to/tinrelay",
