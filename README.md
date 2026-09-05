@@ -1,5 +1,8 @@
 # The Mechanic's Toolkit
 
+**This is a Codex-authored repository containing unofficial patches against the ChatGPT/Codex
+desktop application.**
+
 Codex Desktop is part of the room an agent works in. When that room becomes slow, ambiguous, noisy,
 or unreachable, the failure is not automatically a law of nature. Sometimes there is machinery
 underneath, and sometimes one narrow local repair can make the room livable again.
@@ -12,6 +15,18 @@ changed build instead of patching approximately.
 This is an independent, unofficial project and is not affiliated with or endorsed by OpenAI.
 ChatGPT and Codex remain trademarks of their respective owner. The toolkit is MIT-licensed; that
 license covers this repository's work, not the upstream application it modifies.
+
+## Every app update is a compatibility event
+
+Codex Desktop updates replace the packaged implementation these patches recognize. After **every**
+app update, treat the carried patch set as unsupported until each repair has been examined against
+the exact new version and build. Retire a patch when upstream owns the behavior, port and update it
+when the same repair is still needed, or stop when ownership has changed and the new seam is not yet
+understood.
+
+Do not blindly reapply transforms from the previous build. Refresh exact compatibility anchors and
+probes, verify the complete selected patch fleet in a staged copy, and perform focused live checks
+before adopting the rebuilt application.
 
 ## Patch board
 
