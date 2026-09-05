@@ -25,7 +25,7 @@ boundary.
 | [Terminal toggle](patches/terminal-toggle/) | **Active** | Makes the configured terminal shortcut work from the composer and toggle the focused bottom panel closed. | **Yes** |
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | **Active** | Leaves a compact, hover-previewable routing receipt after a cross-task send instead of letting it vanish. | **Yes** |
 | [Tinrelay pointer presentation](patches/tinrelay-pointer-presentation/) | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | **Yes** |
-| Native app-tools peer authorization | **Active** | Preserves native task tools after local signing through one narrow official-helper fallback; other peers and pipes retain stock rejection. | Not yet |
+| [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) | **Active** | Preserves native task tools after local signing through one narrow official-helper fallback; other peers and pipes retain stock rejection. | **Yes** |
 | Task supervisor | **Benched** | Can wake exact persistent tasks, but the model-free Tinrelay bridge removed its current job. Its installed configuration is empty. | No; retained privately |
 | Full-history drain suppression | **Upstream-owned** | Older builds needed protection from eagerly draining complete task history; build `7942` supplies the accepted paginated path. | No active extraction planned |
 | Renderer turn window | **Upstream-owned** | Older builds needed a bounded mounted turn window; build `7942` supplies the accepted paginated rendering path. | No active extraction planned |
@@ -46,6 +46,7 @@ This is an **early extraction workspace**, not a public release yet. The reposit
 - inspect a local Codex Desktop application without modifying it;
 - verify the SHA-256 seal over the raw ASAR header recorded by Electron;
 - check or apply the cross-task-attribution repair to an extracted ASAR directory;
+- check or apply the native app-tools peer authorization repair to an extracted ASAR directory;
 - check or apply the outgoing-message receipt to an extracted ASAR directory;
 - check or apply the renderer patch registry after the selected behavior patches;
 - check or apply the sidebar-action-collapse repair to an explicitly supplied extracted ASAR directory;
@@ -61,7 +62,7 @@ a time. No license has been selected yet; choose one before publication.
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all eight extracted transforms and byte-identical second application. The sidebar, attention,
+prove all nine extracted transforms and byte-identical second application. The sidebar, attention,
 and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
@@ -93,6 +94,8 @@ node bin/toolkit.mjs patch sidebar-action-collapse check /path/to/extracted-asar
 node bin/toolkit.mjs patch sidebar-action-collapse apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch cross-task-attribution check /path/to/extracted-asar
 node bin/toolkit.mjs patch cross-task-attribution apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch native-app-tools-peer-authorization check /path/to/extracted-asar
+node bin/toolkit.mjs patch native-app-tools-peer-authorization apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch outgoing-message-receipt check /path/to/extracted-asar
 node bin/toolkit.mjs patch outgoing-message-receipt apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch renderer-patch-registry check /path/to/extracted-asar

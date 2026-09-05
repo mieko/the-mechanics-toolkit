@@ -9,7 +9,7 @@ public boundary; it is not a promise to extract every historical patch.
 | Read-only app inspection | Extracted and fixture-tested | Record exact accepted builds |
 | Terminal toggle | Extracted; fixture red/green and installed build 7942 green | Integrate with the staged patch runner |
 | Staging, repacking, signing | Not extracted | Separate generic packaging from patch selection |
-| Native app-tools peer authorization | Not extracted | Security review, then include with signing support |
+| Native app-tools peer authorization | Extracted; two current main-process profiles red/green | Include with signing support in the staged runner |
 | Cross-task attribution | Extracted; current renderer-family fixture red/green | Integrate with the staged patch runner |
 | Outgoing send receipt | Extracted; current renderer-family fixture red/green | Integrate with the staged patch runner |
 | Task palette | Extracted; config-backed build-7942 fixture red/green | Integrate with the staged patch runner |
