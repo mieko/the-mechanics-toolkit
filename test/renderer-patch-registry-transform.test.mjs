@@ -25,6 +25,7 @@ try {
   assert.equal(applied.state, "applied");
   assert.deepEqual(applied.packages, [
     "crossTaskAttribution",
+    "outgoingMessageReceipt",
     "sidebarActionCollapse",
     "taskAttentionPolicy",
     "taskVisualPalette",
@@ -79,6 +80,8 @@ function appFixture() {
 function lazyFixture() {
   return [
     "function MTKsender(){}",
+    "function MTKoutboundArguments(){}",
+    "function MTKOutboundMessageReceipt(){}",
     "const delegated={messageBubbleStyle:MTKdelegatedBubbleStyle};",
     "var MTKdelegatedBubbleStyle={};",
     "export const fixture=true;"

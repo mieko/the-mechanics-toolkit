@@ -47,6 +47,7 @@ const names = [...appCalls, ...lazyCalls].map(call => call.name).sort();
 const allSources = files.map(file => fs.readFileSync(file, "utf8"));
 const expectedNames = [
   ["crossTaskAttribution", source => source.includes("function MTKsender(")],
+  ["outgoingMessageReceipt", source => source.includes("function MTKOutboundMessageReceipt(")],
   ["sidebarActionCollapse", source => source.includes("function MTKsidebarActionDisclosure(") ||
     source.includes("function MTKsidebarActionDisclosure7345(") || source.includes("function MTKsidebarActionDisclosure7746(") ||
     source.includes("function MTKsidebarActionDisclosure7942(")],
@@ -77,6 +78,13 @@ for (const call of appCalls.filter(call => call.name !== "taskVisualPalette")) {
 }
 for (const call of lazyCalls) Function("globalThis", call.source)(firstRealm);
 assert.deepEqual(Object.keys(registry.packages).sort(), ["validPackage", ...names].sort());
+if (registry.packages.outgoingMessageReceipt != null) {
+  assert.equal(registry.packages.outgoingMessageReceipt.version, 1);
+  assert.equal(registry.packages.outgoingMessageReceipt.persistence, "mounted-session");
+  assert.equal(registry.packages.outgoingMessageReceipt.visibility, "persistent-when-activity-collapsed");
+  assert.equal(registry.packages.outgoingMessageReceipt.preview, "stock-hover");
+  assert.equal(registry.packages.outgoingMessageReceipt.messageRendering, "recipient-user-message");
+}
 assert.ok(!bootstrap.includes("subscribe") && !bootstrap.includes("addEventListener") && !bootstrap.includes("MutationObserver"),
   "registry has no lifecycle or event machinery");
 

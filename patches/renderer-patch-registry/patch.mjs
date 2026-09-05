@@ -76,6 +76,12 @@ function activePackages() {
       anchor: "var MTKdelegatedBubbleStyle=",
       call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("crossTaskAttribution",{version:1});`
     });
+    addIf(packages, source.includes("function MTKOutboundMessageReceipt("), {
+      name: "outgoingMessageReceipt",
+      file,
+      anchor: "function MTKoutboundArguments(",
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:1,persistence:"mounted-session",visibility:"persistent-when-activity-collapsed",preview:"stock-hover",messageRendering:"recipient-user-message"});`
+    });
   }
   const names = packages.map(entry => entry.name);
   if (new Set(names).size !== names.length) throw new Error(`Active package ownership is ambiguous: ${names.join(",")}`);
