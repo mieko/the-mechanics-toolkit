@@ -7,6 +7,7 @@ import { inspectAppBundle } from "../src/app-bundle.mjs";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const patchScripts = new Map([
   ["cross-task-attribution", "patches/cross-task-attribution/patch.mjs"],
+  ["renderer-patch-registry", "patches/renderer-patch-registry/patch.mjs"],
   ["sidebar-action-collapse", "patches/sidebar-action-collapse/patch.mjs"],
   ["task-attention-policy", "patches/task-attention-policy/patch.mjs"],
   ["task-visual-palette", "patches/task-visual-palette/patch.mjs"],
