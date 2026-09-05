@@ -44,8 +44,8 @@ Codex Desktop build named below; it is not a promise about another build.
 | [Tinrelay pointer presentation](patches/tinrelay-pointer-presentation/) | **Active** | Verifies and opens an exact local Tinrelay pointer as a visibly off-ship, plain-text radio transmission. | **Yes** |
 | [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) | **Active** | Preserves native task tools after local signing through one narrow official-helper fallback; other peers and pipes retain stock rejection. | **Yes** |
 | [Task supervisor](patches/task-supervisor/) | **Benched** | Can wake exact persistent tasks, but the model-free Tinrelay bridge removed its current job. It is excluded from the example staging fleet. | **Yes** |
-| Full-history drain suppression | **Upstream-owned** | Older builds needed protection from eagerly draining complete task history; build `7942` supplies the accepted paginated path. | No active extraction planned |
-| Renderer turn window | **Upstream-owned** | Older builds needed a bounded mounted turn window; build `7942` supplies the accepted paginated rendering path. | No active extraction planned |
+| [Full-history drain suppression](patches/full-history-drain-suppression/) | **Upstream-owned** | Older builds needed protection from eagerly draining complete task history; build `7942` supplies the accepted paginated path. | **Yes — dormant** |
+| [Renderer turn window](patches/renderer-turn-window/) | **Upstream-owned** | Older builds needed a bounded mounted turn window; build `7942` supplies the accepted paginated rendering path. | **Yes — dormant** |
 | [Renderer patch registry](patches/renderer-patch-registry/) | **Infrastructure** | Lets independent renderer patches expose tiny immutable descriptors and optional capabilities without becoming an event system. | **Yes** |
 
 **Active** means the repair is installed and still earns its maintenance cost. **Upstream-owned**
@@ -76,7 +76,9 @@ This is a **source toolkit, not an installer**. The repository can currently:
 - check or apply the config-backed task-visual-palette repair after its attribution prerequisite;
 - check or apply the config-backed Tinrelay pointer presentation across its renderer and main-process owners;
 - check or apply the terminal-toggle repair to an explicitly supplied extracted ASAR directory;
-- optionally check or apply the deliberately benched task supervisor.
+- optionally check or apply the deliberately benched task supervisor;
+- identify current upstream ownership or check/apply the dormant historical full-history-drain and
+  renderer-turn-window repairs.
 
 It intentionally cannot install, replace, launch, or roll back an application. Staging ends with a
 new statically verified candidate outside `/Applications`; every live launch or adoption remains a
@@ -85,7 +87,7 @@ separate operator decision. See the [MIT license](LICENSE) and [security policy]
 Current extraction evidence is intentionally narrow: on 2026-09-05, read-only inspection was green
 against Codex Desktop `26.901.41123` build `7942`; that installed ASAR recognized the terminal patch
 as applied and passed its focused bundled-contract probe. Synthetic pristine fixtures separately
-prove all ten extracted transforms and byte-identical second application. The sidebar, attention,
+prove all twelve extracted transforms and byte-identical second application. The sidebar, attention,
 and palette fixtures target the exact build-`7942` ownership contracts, but the installed private
 patches use deliberately different markers and are not treated as evidence that these public
 transforms are installed. None of
@@ -150,6 +152,10 @@ node bin/toolkit.mjs patch terminal-toggle check /path/to/extracted-asar
 node bin/toolkit.mjs patch terminal-toggle apply /path/to/disposable-extracted-asar
 node bin/toolkit.mjs patch task-supervisor check /path/to/extracted-asar
 node bin/toolkit.mjs patch task-supervisor apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch full-history-drain-suppression check /path/to/extracted-asar
+node bin/toolkit.mjs patch full-history-drain-suppression apply /path/to/disposable-extracted-asar
+node bin/toolkit.mjs patch renderer-turn-window check /path/to/extracted-asar
+node bin/toolkit.mjs patch renderer-turn-window apply /path/to/disposable-extracted-asar
 ```
 
 `apply` modifies that extracted directory. It does not repack or touch an application bundle.

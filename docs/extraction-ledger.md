@@ -18,7 +18,8 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Sidebar action collapse | Extracted; build-7942 fixture red/green | Qualify with the selected renderer stack |
 | Patch registry | Extracted; per-realm API and current marker fixture green | Qualify after the selected behavior patches |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
-| History and renderer-window performance patches | Dormant upstream-owned | Do not publish as active repairs |
+| Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
+| Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
 
 ## Extraction rule
 
