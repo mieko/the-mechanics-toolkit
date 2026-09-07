@@ -6,6 +6,10 @@ import { spawnSync } from "node:child_process";
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
 const id = "[$A-Z_a-z][$\\w]*";
+const legacyRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:1,persistence:"mounted-session",visibility:"persistent-when-activity-collapsed",preview:"stock-hover",messageRendering:"recipient-user-message"});';
+const flatCacheRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:2,persistence:"bounded-private-restart-cache",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
+const acklessRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:3,persistence:"bounded-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
+const currentRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:4,persistence:"acknowledged-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
 if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
   throw new Error("usage: outgoing-message-receipt/patch.mjs check|apply EXTRACTED_ASAR_ROOT");
 }
@@ -13,61 +17,209 @@ if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
 const assets = path.join(root, "webview/assets");
 assertStockStyles();
 const target = uniqueOwner();
+const conversationTarget = uniqueConversationOwner();
+const mainTarget = uniqueMainOwner();
 let source = fs.readFileSync(target, "utf8");
+let conversationSource = fs.readFileSync(conversationTarget, "utf8");
+let mainSource = fs.readFileSync(mainTarget, "utf8");
 const collapseOwner = assertPersistentActivityContract(source);
 const presentation = resolvePresentationOwners(source);
-let state = inspectState(source);
+let state = inspectState();
+
+if (command === "apply" && state === "legacy-applied") {
+  source = removeLegacyOwner(source);
+  state = inspectState();
+  if (state !== "needs-apply") throw new Error("legacy outgoing receipt removal did not verify");
+}
+
+if (command === "apply" && state === "registry-upgrade") {
+  source = replaceOnce(source, legacyRegistryCall, currentRegistryCall, "outgoing receipt registry upgrade");
+  fs.writeFileSync(target, source);
+  syntaxCheck(target);
+  state = inspectState();
+  if (state !== "applied") throw new Error("outgoing receipt registry upgrade did not verify");
+}
+
+if (command === "apply" && state === "task-bucket-upgrade") {
+  if (source.includes(flatCacheRegistryCall)) {
+    source = replaceOnce(source, flatCacheRegistryCall, currentRegistryCall, "outgoing receipt task-bucket registry upgrade");
+  }
+  conversationSource = upgradeConversationCache(conversationSource);
+  mainSource = upgradeMainAcknowledgment(upgradeMainCache(mainSource));
+  fs.writeFileSync(target, source);
+  fs.writeFileSync(conversationTarget, conversationSource);
+  fs.writeFileSync(mainTarget, mainSource);
+  syntaxCheck(target);
+  syntaxCheck(conversationTarget);
+  syntaxCheck(mainTarget);
+  state = inspectState();
+  if (state !== "applied") throw new Error("outgoing receipt task-bucket upgrade did not verify");
+}
+
+if (command === "apply" && state === "acknowledgment-upgrade") {
+  source = replaceOnce(source, acklessRegistryCall, currentRegistryCall, "outgoing receipt acknowledgment registry upgrade");
+  conversationSource = upgradeConversationAcknowledgment(conversationSource);
+  mainSource = upgradeMainAcknowledgment(mainSource);
+  fs.writeFileSync(target, source);
+  fs.writeFileSync(conversationTarget, conversationSource);
+  fs.writeFileSync(mainTarget, mainSource);
+  syntaxCheck(target);
+  syntaxCheck(conversationTarget);
+  syntaxCheck(mainTarget);
+  state = inspectState();
+  if (state !== "applied") throw new Error("outgoing receipt acknowledgment upgrade did not verify");
+}
 
 if (command === "apply" && state === "needs-apply") {
   source = patchSource(source);
+  conversationSource = patchConversation(conversationSource);
+  mainSource = patchMain(mainSource);
   fs.writeFileSync(target, source);
+  fs.writeFileSync(conversationTarget, conversationSource);
+  fs.writeFileSync(mainTarget, mainSource);
   syntaxCheck(target);
-  state = inspectState(source);
+  syntaxCheck(conversationTarget);
+  syntaxCheck(mainTarget);
+  state = inspectState();
   if (state !== "applied") throw new Error("outgoing receipt transform did not verify");
 }
 
 process.stdout.write(`${JSON.stringify({
   state,
-  persistence: "mounted-session",
+  persistence: "acknowledged-private-task-buckets",
   collapsedVisibility: "persistent",
   preview: "stock-interactive-hover",
   messageRendering: "stock-recipient-user-message-formatter",
   collapseOwner: path.relative(root, collapseOwner),
   formatterOwner: path.relative(root, presentation.formatterFile),
-  target: path.relative(root, target)
+  targets: [target, conversationTarget, mainTarget].map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
-function inspectState(value) {
-  const send = sendProfile(value);
+function inspectState() {
+  const send = sendProfile(source);
   const red = `{namespace:${send.namespace},render:${send.genericRender},renderAgentActivityIcon:${send.icon},tool:${send.sendTool}}`;
   const green = `{namespace:${send.namespace},persistentInCollapsedConversation:!0,render:MTKrenderOutboundMessage,renderAgentActivityIcon:${send.icon},standaloneInConversation:!0,tool:${send.sendTool}}`;
-  const helperApplied = value.includes("function MTKOutboundMessageReceipt(") &&
-    value.includes("function MTKoutboundTaskColor(") &&
-    value.includes("MTKoutboundStoreHook(MTKoutboundStoreScope)") &&
-    value.includes(".get(MTKoutboundTaskAtom,") &&
-    value.includes("let n=globalThis.__MTK_PATCH_REGISTRY__") &&
-    value.includes("n.packages?.taskVisualPalette") &&
-    value.includes("MTKoutboundHover") &&
-    value.includes("MTKoutboundFormattedText") &&
-    value.includes("interactive:!0") &&
-    value.includes("delayDuration:800") &&
-    value.includes('maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))"') &&
-    value.includes('overflowY:"auto"') &&
-    value.includes('padding:"0.75rem"') &&
-    value.includes("data-mtk-outgoing-message-receipt");
-  const taskImportsApplied = value.includes(" as MTKoutboundTaskAtom") &&
-    value.includes(" as MTKoutboundLocalThreadKey") &&
-    value.includes(" as MTKoutboundRemoteThreadKey");
-  const presentationImportsApplied = value.includes(" as MTKoutboundHover") &&
-    value.includes(" as MTKoutboundFormattedText");
-  if (count(value, green) === 1 && count(value, red) === 0 && helperApplied &&
-      taskImportsApplied && presentationImportsApplied) return "applied";
-  if (count(value, red) === 1 && count(value, green) === 0 && !helperApplied &&
-      !taskImportsApplied && !presentationImportsApplied) return "needs-apply";
+  const ownerMarkers = [
+    "function MTKOutboundMessageReceipt(",
+    "function MTKoutboundTaskColor(",
+    "globalThis.__MTK_OUTBOUND_REMEMBER__",
+    "MTKOutboundMessageReceipt as MTKoutboundReceipt",
+    "MTKoutboundStoreHook(MTKoutboundStoreScope)",
+    ".get(MTKoutboundTaskAtom,",
+    "n.packages?.taskVisualPalette",
+    "MTKoutboundHover",
+    "MTKoutboundFormattedText",
+    "interactive:!0",
+    "delayDuration:800",
+    'maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))"',
+    'overflowY:"auto"',
+    'padding:"0.75rem"',
+    "data-mtk-outgoing-message-receipt"
+  ];
+  const conversationMarkers = [
+    "const MTKoutboundReceiptContract=",
+    "function MTKoutboundRemember(",
+    "function MTKOutboundTurnReceipts(",
+    'dispatchMessage("mtk-outbound-receipt-remember"',
+    'subscribe("mtk-outbound-receipt-remember-result"',
+    'dispatchMessage("mtk-outbound-receipts-list"',
+    'subscribe("mtk-outbound-receipts-result"',
+    "sourceTurnId:S",
+    "MTKoutboundReceipt as MTKoutboundReceipt"
+  ];
+  const mainMarkers = [
+    "const MTKoutboundReceiptContract=",
+    "function MTKoutboundReceiptWrite(",
+    "function MTKoutboundReceiptList(",
+    '"mechanics-toolkit","task-message-receipts"',
+    "MTKoutboundReceiptLimit=256",
+    "case`mtk-outbound-receipt-remember`:",
+    "type:`mtk-outbound-receipt-remember-result`",
+    "case`mtk-outbound-receipts-list`:"
+  ];
+  const ownerApplied = ownerMarkers.every(marker => source.includes(marker));
+  const conversationApplied = conversationMarkers.every(marker => conversationSource.includes(marker));
+  const mainApplied = mainMarkers.every(marker => mainSource.includes(marker));
+  const conversationCacheStart = conversationSource.indexOf("const MTKoutboundReceiptContract=");
+  const conversationCacheEnd = conversationSource.indexOf("function Oy(", conversationCacheStart);
+  const conversationCache = conversationCacheStart >= 0 && conversationCacheEnd > conversationCacheStart
+    ? conversationSource.slice(conversationCacheStart, conversationCacheEnd) : "";
+  const taskBucketConversationApplied = conversationCache.includes("function MTKOutboundTurnReceipts(") &&
+    !conversationCache.includes("flatMap");
+  const taskBucketMainApplied = mainSource.includes("MTKoutboundReceiptTaskBucketLimit=64") &&
+    mainSource.includes("function MTKoutboundReceiptTaskDir(") && mainSource.includes("function MTKoutboundReceiptMigrateLegacy(");
+  const acklessConversationApplied = conversationMarkers.filter(marker =>
+    marker !== 'subscribe("mtk-outbound-receipt-remember-result"'
+  ).every(marker => conversationSource.includes(marker)) &&
+    !conversationSource.includes('subscribe("mtk-outbound-receipt-remember-result"');
+  const acklessMainApplied = mainMarkers.filter(marker =>
+    marker !== "type:`mtk-outbound-receipt-remember-result`"
+  ).every(marker => mainSource.includes(marker)) &&
+    !mainSource.includes("type:`mtk-outbound-receipt-remember-result`");
+  const anyApplied = ownerMarkers.some(marker => source.includes(marker)) ||
+    conversationMarkers.some(marker => conversationSource.includes(marker)) ||
+    mainMarkers.some(marker => mainSource.includes(marker));
+  if (count(source, green) === 1 && count(source, red) === 0 && ownerApplied &&
+      taskBucketMainApplied && acklessConversationApplied && acklessMainApplied &&
+      source.includes(acklessRegistryCall)) {
+    return "acknowledgment-upgrade";
+  }
+  if (count(source, green) === 1 && count(source, red) === 0 && ownerApplied && conversationApplied && mainApplied &&
+      taskBucketConversationApplied && taskBucketMainApplied) {
+    if (source.includes(legacyRegistryCall)) return "registry-upgrade";
+    if (source.includes(flatCacheRegistryCall)) return "task-bucket-upgrade";
+    return "applied";
+  }
+  if (count(source, green) === 1 && count(source, red) === 0 && ownerApplied && conversationApplied && mainApplied &&
+      (source.includes(flatCacheRegistryCall) || !source.includes('register?.("outgoingMessageReceipt"')) &&
+      !taskBucketConversationApplied && !taskBucketMainApplied) {
+    return "task-bucket-upgrade";
+  }
+  const legacyOwner = count(source, green) === 1 && count(source, red) === 0 &&
+    source.includes("function MTKOutboundMessageReceipt(") &&
+    source.includes("function MTKrenderOutboundMessage(e,t,n,r=!0)") &&
+    source.includes(" as MTKoutboundTaskAtom") &&
+    source.includes(" as MTKoutboundHover") &&
+    source.includes(" as MTKoutboundFormattedText") &&
+    !source.includes("globalThis.__MTK_OUTBOUND_REMEMBER__") &&
+    !conversationApplied && !mainApplied;
+  if (legacyOwner) return "legacy-applied";
+  if (count(source, red) === 1 && count(source, green) === 0 && !anyApplied) {
+    inspectPristineConversation(conversationSource);
+    inspectPristineMain(mainSource);
+    return "needs-apply";
+  }
   throw new Error(
-    `Upstream changed: outgoing receipt seam red=${count(value, red)} green=${count(value, green)} ` +
-      `helper=${helperApplied} taskImports=${taskImportsApplied} presentationImports=${presentationImportsApplied}`
+    `Upstream changed: outgoing receipt seam red=${count(source, red)} green=${count(source, green)} ` +
+      `owner=${ownerApplied} conversation=${conversationApplied} main=${mainApplied}`
   );
+}
+
+function removeLegacyOwner(value) {
+  const send = sendProfile(value);
+  const green = `{namespace:${send.namespace},persistentInCollapsedConversation:!0,render:MTKrenderOutboundMessage,renderAgentActivityIcon:${send.icon},standaloneInConversation:!0,tool:${send.sendTool}}`;
+  const red = `{namespace:${send.namespace},render:${send.genericRender},renderAgentActivityIcon:${send.icon},tool:${send.sendTool}}`;
+  const helperStart = value.indexOf("function MTKoutboundArguments(");
+  const helperEnd = value.indexOf(send.functionText, helperStart);
+  if (helperStart < 0 || helperEnd <= helperStart) throw new Error("Legacy outgoing receipt helper is not localized");
+  let patched = value.slice(0, helperStart) + value.slice(helperEnd);
+  patched = replaceOnce(patched, green, red, "legacy send-message registry entry");
+  for (const binding of [
+    "MTKoutboundStoreHook", "MTKoutboundStoreScope", "MTKoutboundTaskAtom",
+    "MTKoutboundLocalThreadKey", "MTKoutboundRemoteThreadKey", "MTKoutboundHover",
+    "MTKoutboundFormattedText"
+  ]) patched = removeImportBinding(patched, binding);
+  return patched;
+}
+
+function removeImportBinding(value, localName) {
+  const matches = [...value.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>[^"]+)";/g)].filter(match =>
+    match.groups.specifiers.split(",").some(specifier => specifier.endsWith(` as ${localName}`))
+  );
+  if (matches.length !== 1) throw new Error(`Legacy outgoing receipt import ${localName} is not unique`);
+  const kept = matches[0].groups.specifiers.split(",").filter(specifier => !specifier.endsWith(` as ${localName}`));
+  const replacement = kept.length === 0 ? "" : `import{${kept.join(",")}}from"${matches[0].groups.relative}";`;
+  return replaceOnce(value, matches[0][0], replacement, `legacy ${localName} import`);
 }
 
 function patchSource(value) {
@@ -82,12 +234,368 @@ function patchSource(value) {
   patched = replaceOnce(patched, imports.before, imports.after, "outbound task imports");
   patched = addImportSpecifier(patched, presentation.appRelative, `${presentation.tooltipExport} as MTKoutboundHover`, "stock hover import");
   patched = addImportSpecifier(patched, presentation.formatterRelative, `${presentation.formatterExport} as MTKoutboundFormattedText`, "stock message formatter import");
+  patched = replaceOnce(patched, "export{", "export{MTKOutboundMessageReceipt as MTKoutboundReceipt,", "outbound receipt export");
+  if (patched.includes(legacyRegistryCall)) {
+    patched = replaceOnce(patched, legacyRegistryCall, currentRegistryCall, "outgoing receipt registry upgrade");
+  }
   return patched;
 }
 
 function buildHelper(send) {
   return String.raw`
-function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null,o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0){return t==="row"&&MTKoutboundArguments(e.arguments)!=null?(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e}):${send.genericRender}(e,t,n,r)}
+function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null,o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0,i){let a=MTKoutboundArguments(e.arguments);if(t==="row"&&a!=null){if(e.completed&&e.success===!0&&typeof e.callId==="string"&&e.callId.length>0&&i!=null&&typeof i.conversationId==="string"&&i.conversationId.length>0&&typeof i.turnId==="string"&&i.turnId.length>0&&typeof globalThis.__MTK_OUTBOUND_REMEMBER__==="function"){let t={callId:e.callId,contract:"outgoing-message-receipt-v1",prompt:a.prompt,recordedAtMs:Date.now(),sourceThreadId:i.conversationId,sourceTurnId:i.turnId,targetHostId:a.hostId??"local",targetThreadId:a.threadId};if(globalThis.__MTK_OUTBOUND_REMEMBER__(t)===!0)return null}return(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e})}return ${send.genericRender}(e,t,n,r)}
+`;
+}
+
+function inspectPristineConversation(value) {
+  const ownerImport = ownerImportProfile(value);
+  if (ownerImport.specifiers.includes("MTKoutboundReceipt")) {
+    throw new Error("Upstream changed: outgoing receipt import is unexpectedly present");
+  }
+  dynamicRendererProfile(value);
+  assistantProfile(value);
+}
+
+function inspectPristineMain(value) {
+  if (count(value, "case`electron-add-new-workspace-root-option`:") !== 1) {
+    throw new Error("Upstream changed: outgoing receipt main message seam is not unique");
+  }
+  if (count(value, "var mQ=i.i(`electron-message-handler`)") +
+      count(value, "var pQ=i.i(`electron-message-handler`)") !== 1) {
+    throw new Error("Upstream changed: outgoing receipt main helper owner is not unique");
+  }
+  uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner");
+}
+
+function patchConversation(value) {
+  const ownerImport = ownerImportProfile(value);
+  const hostBus = resolveHostBus(value);
+  const dynamic = dynamicRendererProfile(value);
+  const assistant = assistantProfile(value);
+  let patched = replaceOnce(
+    value,
+    ownerImport.text,
+    `import{${ownerImport.specifiers},MTKoutboundReceipt as MTKoutboundReceipt}from"${ownerImport.relative}";`,
+    "outbound receipt component import"
+  );
+  patched = replaceOnce(patched, dynamic.functionText, dynamic.patchedFunction, "dynamic renderer context");
+  patched = replaceOnce(
+    patched,
+    dynamic.callText,
+    dynamic.callText.replace("enableTimelineTargets:xe,item:n", "enableTimelineTargets:xe,item:n,sourceTurnId:S"),
+    "outbound source turn context"
+  );
+  patched = replaceOnce(
+    patched,
+    assistant.children,
+    assistant.children.replace("children:[Ze,", "children:[(0,Yy.jsx)(MTKOutboundTurnReceipts,{conversationId:p,turnId:o}),Ze,"),
+    "durable outbound turn receipts"
+  );
+  const insertion = patched.indexOf("function Oy(");
+  if (insertion < 0) throw new Error("Upstream changed: assistant renderer owner is missing");
+  return patched.slice(0, insertion) + conversationHelpers(hostBus) + patched.slice(insertion);
+}
+
+function upgradeConversationCache(value) {
+  const start = value.indexOf("const MTKoutboundReceiptContract=");
+  const end = value.indexOf("function Oy(", start);
+  if (start < 0 || end <= start || value.indexOf("const MTKoutboundReceiptContract=", start + 1) >= 0 ||
+      !value.slice(start, end).includes("flatMap")) {
+    throw new Error("Upstream changed: flat conversation receipt cache is not uniquely localized");
+  }
+  return value.slice(0, start) + conversationHelpers(resolveHostBus(value)) + value.slice(end);
+}
+
+function upgradeMainCache(value) {
+  const start = value.indexOf("const MTKoutboundReceiptContract=");
+  const ends = [value.indexOf("var mQ=i.i(`electron-message-handler`)", start), value.indexOf("var pQ=i.i(`electron-message-handler`)", start)]
+    .filter(index => index > start);
+  if (start < 0 || ends.length !== 1 || value.indexOf("const MTKoutboundReceiptContract=", start + 1) >= 0 ||
+      value.slice(start, ends[0]).includes("MTKoutboundReceiptTaskBucketLimit")) {
+    throw new Error("Upstream changed: flat main-process receipt cache is not uniquely localized");
+  }
+  const electron = uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner").groups.electron;
+  return value.slice(0, start) + mainHelpers(electron) + value.slice(ends[0]);
+}
+
+function ownerImportProfile(value) {
+  const relative = `./${path.basename(target)}`;
+  const match = uniqueMatch(
+    value,
+    new RegExp(`import\\{(?<specifiers>[^}]+)\\}from"${escapeRegExp(relative)}";`, "g"),
+    "outbound owner import"
+  );
+  return {text: match[0], specifiers: match.groups.specifiers, relative};
+}
+
+function dynamicRendererProfile(value) {
+  const start = value.indexOf("function Ub(");
+  const owner = functionAt(value, start);
+  if (!owner.text.includes("rh(o)?.render(o,l,i,c)")) {
+    throw new Error("Upstream changed: dynamic renderer call is missing");
+  }
+  const patchedFunction = replaceOnce(
+    owner.text,
+    "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=rh(o)?.render(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4]",
+    "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s,sourceTurnId:h}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l||t[4]!==h?(u=rh(o)?.render(o,l,i,c,{conversationId:n,turnId:h}),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=h,t[5]=u):u=t[5]",
+    "dynamic renderer context body"
+  );
+  const call = uniqueMatch(
+    value,
+    /\(e=\(0,[$A-Z_a-z][$\w]*\.jsx\)\(Ub,\{agentActivityIcon:Ne,conversationId:d,enableTimelineTargets:xe,item:n\}\),t\[332\]=Ne,t\[333\]=d,t\[334\]=xe,t\[335\]=n,t\[336\]=e\)/g,
+    "conversation dynamic renderer call"
+  );
+  return {functionText: owner.text, patchedFunction, callText: call[0]};
+}
+
+function assistantProfile(value) {
+  const start = value.indexOf("function Oy(");
+  const owner = functionAt(value, start);
+  const children = uniqueMatch(
+    owner.text,
+    /children:\[Ze,/g,
+    "assistant message children"
+  );
+  return {children: children[0]};
+}
+
+function resolveHostBus(value) {
+  const imported = uniqueMatch(value, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "conversation app-initial import");
+  const appInitial = fs.readFileSync(path.resolve(path.dirname(conversationTarget), imported.groups.relative), "utf8");
+  const exported = exportedAs(appInitial, "U");
+  return uniqueMatch(
+    imported.groups.specifiers,
+    new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"),
+    "conversation host bus import"
+  ).groups.local;
+}
+
+function acklessConversationHelpers(hostBus) {
+  return String.raw`const MTKoutboundReceiptContract="outgoing-message-receipt-v1",MTKoutboundReceiptLimit=256,MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;function MTKoutboundReceiptRecord(e){if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="callId\0contract\0prompt\0recordedAtMs\0sourceThreadId\0sourceTurnId\0targetHostId\0targetThreadId"||e.contract!==MTKoutboundReceiptContract||typeof e.callId!=="string"||e.callId.length===0||e.callId.length>256||typeof e.sourceThreadId!=="string"||e.sourceThreadId.length===0||typeof e.sourceTurnId!=="string"||e.sourceTurnId.length===0||typeof e.targetThreadId!=="string"||e.targetThreadId.length===0||typeof e.targetHostId!=="string"||e.targetHostId.length===0||typeof e.prompt!=="string"||!Number.isSafeInteger(e.recordedAtMs)||e.recordedAtMs<=0)return null;return e}function MTKoutboundReceiptState(e){let t=MTKoutboundReceiptStates.get(e);return t==null&&(t={loaded:!1,loading:!1,records:new Map,listeners:new Set},MTKoutboundReceiptStates.set(e,t)),t}function MTKoutboundReceiptValues(e){return[...e.records.values()].sort((e,t)=>e.recordedAtMs-t.recordedAtMs||e.callId.localeCompare(t.callId))}function MTKoutboundReceiptNotify(e){let t=MTKoutboundReceiptValues(e);for(let n of e.listeners)n(t)}function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);t.records.set(e.callId,e);let r=MTKoutboundReceiptValues(t);for(let e of r.slice(0,Math.max(0,r.length-MTKoutboundReceiptLimit)))t.records.delete(e.callId);MTKoutboundReceiptNotify(t),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{record:e});return!0}function MTKoutboundLoad(e){let t=MTKoutboundReceiptState(e);if(t.loaded||t.loading)return;t.loading=!0;let n=crypto.randomUUID();MTKoutboundReceiptRequests.set(n,e),${hostBus}.dispatchMessage("mtk-outbound-receipts-list",{requestId:n,sourceThreadId:e})}globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRequests.delete(e.requestId);let n=MTKoutboundReceiptState(t);n.loading=!1,n.loaded=!0;if(e.ok===!0&&Array.isArray(e.records))for(let r of e.records){r=MTKoutboundReceiptRecord(r);r!=null&&r.sourceThreadId===t&&!n.records.has(r.callId)&&n.records.set(r.callId,r)}MTKoutboundReceiptNotify(n)});function MTKOutboundTurnReceipts({conversationId:e,turnId:t}){let n=typeof e==="string"&&e.length>0&&typeof t==="string"&&t.length>0,r=n?MTKoutboundReceiptState(e):null,[i,a]=Jy.useState(()=>r==null?[]:MTKoutboundReceiptValues(r).filter(e=>e.sourceTurnId===t));return Jy.useEffect(()=>{if(r==null)return;let n=e=>a(e.filter(e=>e.sourceTurnId===t));return r.listeners.add(n),MTKoutboundLoad(e),n(MTKoutboundReceiptValues(r)),()=>r.listeners.delete(n)},[e,t,r]),i.length===0?null:(0,Yy.jsx)("div",{"data-mtk-outgoing-message-receipts":!0,className:"mb-3 flex min-w-0 flex-col items-start gap-2",children:i.map(e=>(0,Yy.jsx)(MTKoutboundReceipt,{item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,success:!0}},e.callId))})}`;
+}
+
+function conversationHelpers(hostBus) {
+  const ackless = acklessConversationHelpers(hostBus);
+  const current = ackless
+    .replace(
+      "MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;",
+      "MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map,MTKoutboundReceiptRememberRequests=new Map;"
+    )
+    .replace(
+      `function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);t.records.set(e.callId,e);let r=MTKoutboundReceiptValues(t);for(let e of r.slice(0,Math.max(0,r.length-MTKoutboundReceiptLimit)))t.records.delete(e.callId);MTKoutboundReceiptNotify(t),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{record:e});return!0}`,
+      `function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);for(let t of MTKoutboundReceiptRememberRequests.values())if(t.sourceThreadId===e.sourceThreadId&&t.callId===e.callId)return!1;let r=crypto.randomUUID();return MTKoutboundReceiptRememberRequests.set(r,e),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{requestId:r,record:e}),!1}`
+    )
+    .replace(
+      `globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result"`,
+      `globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipt-remember-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRememberRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRememberRequests.delete(e.requestId);let n=MTKoutboundReceiptRecord(e.record);if(e.ok!==!0||n==null||JSON.stringify(n)!==JSON.stringify(t))return;let r=MTKoutboundReceiptState(t.sourceThreadId);r.records.set(n.callId,n);let i=MTKoutboundReceiptValues(r);for(let e of i.slice(0,Math.max(0,i.length-MTKoutboundReceiptLimit)))r.records.delete(e.callId);MTKoutboundReceiptNotify(r)});${hostBus}.subscribe("mtk-outbound-receipts-result"`
+    );
+  if (current === ackless || !current.includes('subscribe("mtk-outbound-receipt-remember-result"')) {
+    throw new Error("acknowledged outgoing receipt renderer helper construction failed");
+  }
+  return current;
+}
+
+function upgradeConversationAcknowledgment(value) {
+  const start = value.indexOf("const MTKoutboundReceiptContract=");
+  const end = value.indexOf("function Oy(", start);
+  const hostBus = resolveHostBus(value);
+  if (start < 0 || end <= start || value.slice(start, end) !== acklessConversationHelpers(hostBus)) {
+    throw new Error("Upstream changed: unacknowledged outgoing receipt renderer helper is not uniquely localized");
+  }
+  return value.slice(0, start) + conversationHelpers(hostBus) + value.slice(end);
+}
+
+function patchMain(value) {
+  const electron = uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner").groups.electron;
+  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)"].find(marker => value.includes(marker));
+  if (helperOwner == null) throw new Error("Upstream changed: outgoing receipt main helper owner is not recognized");
+  let patched = replaceOnce(value, helperOwner, `${mainHelpers(electron)}${helperOwner}`, "outgoing receipt main helper owner");
+  return replaceOnce(
+    patched,
+    "case`electron-add-new-workspace-root-option`:",
+    `${currentMainHandlers()}case\`electron-add-new-workspace-root-option\`:`,
+    "outgoing receipt main message handler"
+  );
+}
+
+function acklessMainHandlers() {
+  return "case`mtk-outbound-receipt-remember`:{MTKoutboundReceiptRemember(t?.record);break}case`mtk-outbound-receipts-list`:{let n=MTKoutboundReceiptList(t?.sourceThreadId);this.windowManager.sendMessageToWebContents(e,{type:`mtk-outbound-receipts-result`,requestId:typeof t?.requestId===`string`?t.requestId:``,ok:n!=null,records:n??[]});break}";
+}
+
+function currentMainHandlers() {
+  return "case`mtk-outbound-receipt-remember`:{let n=MTKoutboundReceiptRemember(t?.record);this.windowManager.sendMessageToWebContents(e,{type:`mtk-outbound-receipt-remember-result`,requestId:typeof t?.requestId===`string`?t.requestId:``,ok:n!=null,record:n});break}case`mtk-outbound-receipts-list`:{let n=MTKoutboundReceiptList(t?.sourceThreadId);this.windowManager.sendMessageToWebContents(e,{type:`mtk-outbound-receipts-result`,requestId:typeof t?.requestId===`string`?t.requestId:``,ok:n!=null,records:n??[]});break}";
+}
+
+function upgradeMainAcknowledgment(value) {
+  return replaceOnce(
+    value,
+    acklessMainHandlers(),
+    currentMainHandlers(),
+    "outgoing receipt acknowledged main handler"
+  );
+}
+
+function mainHelpers(electron) {
+  return String.raw`
+const MTKoutboundReceiptContract="outgoing-message-receipt-v1";
+const MTKoutboundReceiptLimit=256;
+const MTKoutboundReceiptMaxBytes=131072;
+const MTKoutboundReceiptTaskMaxBytes=8388608;
+const MTKoutboundReceiptTaskBucketLimit=64;
+const MTKoutboundReceiptFs=require("node:fs");
+const MTKoutboundReceiptPath=require("node:path");
+const MTKoutboundReceiptCrypto=require("node:crypto");
+let MTKoutboundReceiptDir=null;
+let MTKoutboundReceiptMigrating=!1;
+function MTKoutboundReceiptRecord(e){
+  if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="callId\0contract\0prompt\0recordedAtMs\0sourceThreadId\0sourceTurnId\0targetHostId\0targetThreadId"||e.contract!==MTKoutboundReceiptContract||typeof e.callId!=="string"||e.callId.length===0||e.callId.length>256||typeof e.sourceThreadId!=="string"||e.sourceThreadId.length===0||typeof e.sourceTurnId!=="string"||e.sourceTurnId.length===0||typeof e.targetThreadId!=="string"||e.targetThreadId.length===0||typeof e.targetHostId!=="string"||e.targetHostId.length===0||typeof e.prompt!=="string"||!Number.isSafeInteger(e.recordedAtMs)||e.recordedAtMs<=0)return null;
+  return e;
+}
+function MTKoutboundReceiptHash(e){return MTKoutboundReceiptCrypto.createHash("sha256").update(e).digest("hex")}
+function MTKoutboundReceiptPrepare(){
+  if(MTKoutboundReceiptDir!=null)return!0;
+  try{
+    let e=MTKoutboundReceiptPath.join(${electron}.app.getPath("userData"),"mechanics-toolkit","task-message-receipts");
+    MTKoutboundReceiptFs.mkdirSync(e,{recursive:!0,mode:448});
+    MTKoutboundReceiptFs.chmodSync(e,448);
+    let t=MTKoutboundReceiptFs.lstatSync(e);
+    if(!t.isDirectory()||(t.mode&63)!==0)return!1;
+    MTKoutboundReceiptDir=e;
+    MTKoutboundReceiptMigrating=!0;
+    MTKoutboundReceiptMigrateLegacy();
+    MTKoutboundReceiptMigrating=!1;
+    MTKoutboundReceiptPruneBuckets(null);
+    return!0;
+  }catch{
+    MTKoutboundReceiptMigrating=!1;
+    MTKoutboundReceiptDir=null;
+    return!1;
+  }
+}
+function MTKoutboundReceiptTaskDir(e,t){
+  if(!MTKoutboundReceiptPrepare()||typeof e!=="string"||e.length===0)return null;
+  let n=MTKoutboundReceiptPath.join(MTKoutboundReceiptDir,MTKoutboundReceiptHash(e)),r=!1,i;
+  try{i=MTKoutboundReceiptFs.lstatSync(n)}catch(e){
+    if(!t||e?.code!=="ENOENT")return null;
+    try{MTKoutboundReceiptFs.mkdirSync(n,{mode:448}),r=!0,i=MTKoutboundReceiptFs.lstatSync(n)}catch{return null}
+  }
+  try{MTKoutboundReceiptFs.chmodSync(n,448),i=MTKoutboundReceiptFs.lstatSync(n)}catch{return null}
+  if(!i.isDirectory()||(i.mode&63)!==0)return null;
+  if(r&&!MTKoutboundReceiptMigrating)MTKoutboundReceiptPruneBuckets(n);
+  return n;
+}
+function MTKoutboundReceiptFile(e,t,n){
+  let r=MTKoutboundReceiptTaskDir(e,n);
+  return r==null||typeof t!=="string"?null:MTKoutboundReceiptPath.join(r,MTKoutboundReceiptHash(t)+".json");
+}
+function MTKoutboundReceiptReadFile(e){
+  let t,n;
+  try{
+    t=MTKoutboundReceiptFs.lstatSync(e);
+    if(!t.isFile()||(t.mode&63)!==0||t.size<2||t.size>MTKoutboundReceiptMaxBytes)return null;
+    n=MTKoutboundReceiptFs.readFileSync(e,"utf8");
+  }catch{return null}
+  if(!n.endsWith("\n")||n.slice(0,-1).includes("\n")||n.includes("\r"))return null;
+  let r;
+  try{r=JSON.parse(n.slice(0,-1))}catch{return null}
+  return MTKoutboundReceiptRecord(r);
+}
+function MTKoutboundReceiptEntries(e){
+  let t=[];
+  try{
+    for(let n of MTKoutboundReceiptFs.readdirSync(e)){
+      if(!/^[0-9a-f]{64}\.json$/.test(n))continue;
+      let r=MTKoutboundReceiptPath.join(e,n),i=MTKoutboundReceiptFs.lstatSync(r);
+      if(i.isFile())t.push({path:r,mtime:i.mtimeMs,size:i.size});
+    }
+  }catch{}
+  return t;
+}
+function MTKoutboundReceiptPruneTask(e,t){
+  let n=MTKoutboundReceiptEntries(e),r=n.reduce((e,t)=>e+t.size,0);
+  n.sort((e,n)=>e.path===t?1:n.path===t?-1:e.mtime-n.mtime||e.path.localeCompare(n.path));
+  while(n.length>MTKoutboundReceiptLimit||r>MTKoutboundReceiptTaskMaxBytes){
+    let e=n.shift();
+    if(e==null)break;
+    try{MTKoutboundReceiptFs.unlinkSync(e.path),r-=e.size}catch{}
+  }
+}
+function MTKoutboundReceiptRemoveBucket(e){
+  let t;
+  try{
+    t=MTKoutboundReceiptFs.lstatSync(e);
+    if(!t.isDirectory()||(t.mode&63)!==0)return!1;
+    let n=MTKoutboundReceiptFs.readdirSync(e);
+    if(n.some(e=>!/^[0-9a-f]{64}\.json$/.test(e)))return!1;
+    for(let t of n){let n=MTKoutboundReceiptPath.join(e,t),r=MTKoutboundReceiptFs.lstatSync(n);if(!r.isFile())return!1}
+    for(let t of n)MTKoutboundReceiptFs.unlinkSync(MTKoutboundReceiptPath.join(e,t));
+    MTKoutboundReceiptFs.rmdirSync(e);
+    return!0;
+  }catch{return!1}
+}
+function MTKoutboundReceiptPruneBuckets(e){
+  if(MTKoutboundReceiptDir==null)return;
+  let t=[];
+  try{
+    for(let n of MTKoutboundReceiptFs.readdirSync(MTKoutboundReceiptDir)){
+      if(!/^[0-9a-f]{64}$/.test(n))continue;
+      let r=MTKoutboundReceiptPath.join(MTKoutboundReceiptDir,n),i=MTKoutboundReceiptFs.lstatSync(r);
+      i.isDirectory()&&(i.mode&63)===0&&t.push({path:r,mtime:i.mtimeMs});
+    }
+  }catch{return}
+  t.sort((t,n)=>t.path===e?1:n.path===e?-1:t.mtime-n.mtime||t.path.localeCompare(n.path));
+  while(t.length>MTKoutboundReceiptTaskBucketLimit){
+    let e=t.shift();
+    if(e==null)break;
+    MTKoutboundReceiptRemoveBucket(e.path);
+  }
+}
+function MTKoutboundReceiptMigrateLegacy(){
+  if(MTKoutboundReceiptDir==null)return;
+  let e=[];
+  try{e=MTKoutboundReceiptFs.readdirSync(MTKoutboundReceiptDir)}catch{return}
+  for(let t of e){
+    if(!/^[0-9a-f]{64}\.json$/.test(t))continue;
+    let n=MTKoutboundReceiptPath.join(MTKoutboundReceiptDir,t),r=MTKoutboundReceiptReadFile(n);
+    if(r==null)continue;
+    let i=MTKoutboundReceiptFile(r.sourceThreadId,r.callId,!0);
+    if(i==null)continue;
+    let a=MTKoutboundReceiptReadFile(i);
+    try{
+      if(a==null)MTKoutboundReceiptFs.renameSync(n,i);
+      else MTKoutboundReceiptFs.unlinkSync(n);
+      MTKoutboundReceiptPruneTask(MTKoutboundReceiptPath.dirname(i),i);
+    }catch{}
+  }
+}
+function MTKoutboundReceiptWrite(e){
+  if((e=MTKoutboundReceiptRecord(e))==null)return null;
+  let t=MTKoutboundReceiptFile(e.sourceThreadId,e.callId,!0);
+  if(t==null)return null;
+  let n=MTKoutboundReceiptReadFile(t);
+  if(n!=null)return n;
+  let r=JSON.stringify(e)+"\n";
+  if(Buffer.byteLength(r,"utf8")>MTKoutboundReceiptMaxBytes)return null;
+  let i=MTKoutboundReceiptPath.join(MTKoutboundReceiptPath.dirname(t),"."+process.pid+"."+MTKoutboundReceiptCrypto.randomUUID()+".tmp");
+  try{
+    MTKoutboundReceiptFs.writeFileSync(i,r,{encoding:"utf8",mode:384,flag:"wx"});
+    MTKoutboundReceiptFs.renameSync(i,t);
+    MTKoutboundReceiptPruneTask(MTKoutboundReceiptPath.dirname(t),t);
+    return MTKoutboundReceiptReadFile(t);
+  }catch{
+    try{MTKoutboundReceiptFs.unlinkSync(i)}catch{}
+    return null;
+  }
+}
+function MTKoutboundReceiptRemember(e){return MTKoutboundReceiptWrite(e)}
+function MTKoutboundReceiptList(e){
+  if(typeof e!=="string"||e.length===0||!MTKoutboundReceiptPrepare())return null;
+  let t=MTKoutboundReceiptTaskDir(e,!1);
+  if(t==null)return[];
+  let n=[];
+  for(let r of MTKoutboundReceiptEntries(t)){let t=MTKoutboundReceiptReadFile(r.path);t?.sourceThreadId===e&&n.push(t)}
+  return n.sort((e,t)=>e.recordedAtMs-t.recordedAtMs||e.callId.localeCompare(t.callId));
+}
 `;
 }
 
@@ -424,6 +932,27 @@ function uniqueOwner() {
   });
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} outbound-message owners`);
   return path.join(assets, matches[0]);
+}
+
+function uniqueConversationOwner() {
+  const matches = fs.readdirSync(assets).filter(name => {
+    if (!name.endsWith(".js")) return false;
+    const value = fs.readFileSync(path.join(assets, name), "utf8");
+    return value.includes("function Ub(") && value.includes("function Oy(") &&
+      value.includes("toolActivityTurnKey") && value.includes(`from"./${path.basename(target)}"`);
+  });
+  if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} conversation renderer owners`);
+  return path.join(assets, matches[0]);
+}
+
+function uniqueMainOwner() {
+  const directory = path.join(root, ".vite/build");
+  if (!fs.existsSync(directory) || !fs.statSync(directory).isDirectory()) {
+    throw new Error(`Missing extracted main directory: ${directory}`);
+  }
+  const matches = fs.readdirSync(directory).filter(name => /^main-.*\.js$/.test(name));
+  if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} main owners`);
+  return path.join(directory, matches[0]);
 }
 
 function assertStockStyles() {

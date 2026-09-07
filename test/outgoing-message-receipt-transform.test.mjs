@@ -14,33 +14,47 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-outgoin
 try {
   const extracted = path.join(scratch, "extracted");
   const assets = path.join(extracted, "webview/assets");
+  const mainDirectory = path.join(extracted, ".vite/build");
   fs.mkdirSync(assets, { recursive: true });
+  fs.mkdirSync(mainDirectory, { recursive: true });
   const initialTarget = path.join(assets, "app-initial-fixture.js");
   const ownerTarget = path.join(assets, "app-control-fixture.js");
+  const conversationTarget = path.join(assets, "conversation-fixture.js");
   const activityTarget = path.join(assets, "activity-fixture.js");
   const formatterTarget = path.join(assets, "message-fixture.js");
   const consumerTarget = path.join(assets, "message-consumer-fixture.js");
   const styleTarget = path.join(assets, "styles-fixture.css");
+  const mainTarget = path.join(mainDirectory, "main-fixture.js");
   fs.writeFileSync(initialTarget, initialFixture());
   fs.writeFileSync(ownerTarget, ownerFixture());
+  fs.writeFileSync(conversationTarget, conversationFixture());
   fs.writeFileSync(activityTarget, activityFixture());
   fs.writeFileSync(formatterTarget, formatterFixture());
   fs.writeFileSync(consumerTarget, consumerFixture());
   fs.writeFileSync(styleTarget, styleFixture());
+  fs.writeFileSync(mainTarget, mainFixture());
 
   assert.equal(runToolkit("check").state, "needs-apply");
   const applied = runToolkit("apply");
   assert.equal(applied.state, "applied");
-  assert.equal(applied.target, "webview/assets/app-control-fixture.js");
+  assert.deepEqual(applied.targets, [
+    "webview/assets/app-control-fixture.js",
+    "webview/assets/conversation-fixture.js",
+    ".vite/build/main-fixture.js"
+  ]);
   assert.equal(applied.collapseOwner, "webview/assets/activity-fixture.js");
   assert.equal(applied.formatterOwner, "webview/assets/message-fixture.js");
   const once = fs.readFileSync(ownerTarget);
+  const conversationOnce = fs.readFileSync(conversationTarget);
+  const mainOnce = fs.readFileSync(mainTarget);
 
   const probe = spawnSync(process.execPath, [behavioralProbe, extracted], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
 
   assert.equal(runToolkit("apply").state, "applied");
   assert.deepEqual(fs.readFileSync(ownerTarget), once, "second application is byte-identical");
+  assert.deepEqual(fs.readFileSync(conversationTarget), conversationOnce, "second conversation application is byte-identical");
+  assert.deepEqual(fs.readFileSync(mainTarget), mainOnce, "second main application is byte-identical");
   assert.deepEqual(fs.readFileSync(initialTarget), Buffer.from(initialFixture()), "task and hover owner stays untouched");
   assert.deepEqual(fs.readFileSync(activityTarget), Buffer.from(activityFixture()), "collapsed-activity owner stays untouched");
   assert.deepEqual(fs.readFileSync(formatterTarget), Buffer.from(formatterFixture()), "message formatter owner stays untouched");
@@ -66,6 +80,7 @@ try {
 function initialFixture() {
   return [
     "const x=0,Q=Symbol(`scope`);",
+    "const U={subscribe(){return()=>{}},dispatchMessage(){}};",
     "function hb(e){return e}",
     "function ZP(e){return `local:${e}`}",
     "function QP(e){return `remote:${e}`}",
@@ -73,7 +88,7 @@ function initialFixture() {
     "function Oks(){}",
     "function Hover(e){return e}",
     "const preview=(0,J.jsx)(Hover,{align:`center`,closeOnTriggerBlur:!1,delayDuration:Delay,children:0,interactive:!0,skipDelayKey:`diff-preview`,tooltipContent:0,variant:`unstyled`});",
-    "export{x as x,hb as h,Q as q,XU as task,ZP as local,QP as remote,Hover as hover};"
+    "export{x as x,hb as h,Q as q,XU as task,ZP as local,QP as remote,Hover as hover,U as bus};"
   ].join("");
 }
 
@@ -92,6 +107,18 @@ function ownerFixture() {
     "const registry={namespace:N,render:X,renderAgentActivityIcon:I,tool:Send};",
     "const label=`localConversation.appControlToolCall.threadsSendMessage.active`;",
     "export{x as x,PC as persistent};"
+  ].join("");
+}
+
+function conversationFixture() {
+  return [
+    'import{x as x,persistent as rh}from"./app-control-fixture.js";',
+    'import{bus as HostBus}from"./app-initial-fixture.js";',
+    "const Jy={useState(e){return[typeof e===`function`?e():e,()=>{}]},useEffect(){}},Yy={jsx(){return{}},jsxs(){return{}}},Compiler={c(){return[]}};",
+    "function Ub(e){let t=(0,Compiler.c)(16),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=rh(o)?.render(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4];let d=u;if(d!=null)return d;if(l===`row`&&i!==void 0){let e;return e}let f;return f}",
+    "function Oy(e){let t=(0,Compiler.c)(195),{turnId:o,conversationId:p}=e,Ze=null,Qe=!1,ft,Rr=()=>null;return ft=Qe?(0,Yy.jsx)(`div`,{className:`flex w-full items-center justify-center pt-8`,children:(0,Yy.jsx)(Rr,{className:`icon-sm`})}):(0,Yy.jsxs)(Yy.Fragment,{children:[Ze,null]}),ft}",
+    "function YT(e){let t=(0,Compiler.c)(349),{item:n,conversationId:d,turnId:S,enableTimelineTargets:xe}=e,Ne=null;switch(n.type){case`dynamic-tool-call`:{let e;return t[332]!==Ne||t[333]!==d||t[334]!==xe||t[335]!==n?(e=(0,Yy.jsx)(Ub,{agentActivityIcon:Ne,conversationId:d,enableTimelineTargets:xe,item:n}),t[332]=Ne,t[333]=d,t[334]=xe,t[335]=n,t[336]=e):e=t[336]}}}",
+    "const toolActivityTurnKey=true;export{YT};"
   ].join("");
 }
 
@@ -123,4 +150,15 @@ function consumerFixture() {
 
 function styleFixture() {
   return "bg-surface-secondary\\/40 border-border\\/70 text-text-tertiary\\/90 focus-visible\\:ring-ring";
+}
+
+function mainFixture() {
+  return [
+    "const l={app:{getPath(){return `/tmp/user-data`},whenReady(){return Promise.resolve()}}};",
+    "const i={i(){return{}}};",
+    "var mQ=i.i(`electron-message-handler`);",
+    "async function ready(){await l.app.whenReady()}",
+    "class Handler{handle(e,t){switch(t.type){case`electron-add-new-workspace-root-option`:break}}}",
+    "export{Handler};"
+  ].join("");
 }

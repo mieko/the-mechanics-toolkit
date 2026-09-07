@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 
 const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: outgoing-message-receipt.test.mjs EXTRACTED_ASAR_ROOT");
 
 const assets = path.join(root, "webview/assets");
+const require = createRequire(import.meta.url);
 const owners = fs.readdirSync(assets).filter(name => {
   if (!name.endsWith(".js")) return false;
   const source = fs.readFileSync(path.join(assets, name), "utf8");
@@ -50,7 +54,7 @@ const jsxName = unique(
 ).groups.name;
 const genericRenderName = unique(
   helper,
-  /function MTKrenderOutboundMessage\(e,t,n,r=!0\)\{return[\s\S]*?:(?<name>[$A-Z_a-z][$\w]*)\(e,t,n,r\)\}/g,
+  /function MTKrenderOutboundMessage\(e,t,n,r=!0,i\)\{[\s\S]*?return (?<name>[$A-Z_a-z][$\w]*)\(e,t,n,r\)\}/g,
   "generic tool renderer"
 ).groups.name;
 const navigation = unique(
@@ -186,6 +190,26 @@ assert.equal(api.MTKrenderOutboundMessage({arguments: {threadId: "bridge-keeper"
   "valid send gets the dedicated standalone component");
 assert.deepEqual(api.MTKrenderOutboundMessage({arguments: {threadId: "bridge-keeper"}}, "row"), {type: "stock-fallback"},
   "unrecognized send shape retains stock rendering");
+const remembered = [];
+globalThis.__MTK_OUTBOUND_REMEMBER__ = record => { remembered.push(record); return true; };
+assert.equal(api.MTKrenderOutboundMessage({
+  arguments: {threadId: "bridge-keeper", prompt},
+  callId: "call-1",
+  completed: true,
+  success: true
+}, "row", null, true, {conversationId: "source-thread", turnId: "source-turn"}), null,
+"completed sends hand rendering to the durable turn receipt");
+assert.deepEqual({...remembered[0], recordedAtMs: 1}, {
+  callId: "call-1",
+  contract: "outgoing-message-receipt-v1",
+  prompt,
+  recordedAtMs: 1,
+  sourceThreadId: "source-thread",
+  sourceTurnId: "source-turn",
+  targetHostId: "local",
+  targetThreadId: "bridge-keeper"
+});
+delete globalThis.__MTK_OUTBOUND_REMEMBER__;
 
 for (const contract of [
   "standaloneInConversation:!0",
@@ -196,6 +220,7 @@ for (const contract of [
   "globalThis.__MTK_PATCH_REGISTRY__",
   "MTKoutboundHover",
   "MTKoutboundFormattedText",
+  "globalThis.__MTK_OUTBOUND_REMEMBER__",
   "interactive:!0",
   "delayDuration:800",
   "navigate-to-route"
@@ -203,9 +228,167 @@ for (const contract of [
 assert.ok(!helper.includes("innerHTML") && !helper.includes("dangerouslySetInnerHTML"), "message text is never parsed as markup");
 assert.ok(!helper.includes("\"details\"") && !helper.includes("\"pre\""), "no parallel click disclosure or monospace body remains");
 
+const conversationOwners = fs.readdirSync(assets).filter(name => {
+  const source = name.endsWith(".js") ? fs.readFileSync(path.join(assets, name), "utf8") : "";
+  return source.includes("function MTKOutboundTurnReceipts(") && source.includes("sourceTurnId:S");
+});
+assert.equal(conversationOwners.length, 1, "unique durable turn-receipt owner");
+const conversation = fs.readFileSync(path.join(assets, conversationOwners[0]), "utf8");
+for (const contract of [
+  'dispatchMessage("mtk-outbound-receipt-remember"',
+  'subscribe("mtk-outbound-receipt-remember-result"',
+  'dispatchMessage("mtk-outbound-receipts-list"',
+  'subscribe("mtk-outbound-receipts-result"',
+  "MTKoutboundReceiptLimit=256",
+  "MTKoutboundReceipt as MTKoutboundReceipt"
+]) assert.ok(conversation.includes(contract), contract);
+const receiptPresentation = conversation.indexOf("children:[(0,Yy.jsx)(MTKOutboundTurnReceipts,{conversationId:p,turnId:o}),");
+assert.ok(receiptPresentation >= 0, "durable receipts lead the assistant turn presentation");
+assert.ok(conversation.indexOf(",Ze,", receiptPresentation) > receiptPresentation,
+  "durable receipts remain ahead of the stock assistant content when another presentation composes between them");
+const conversationCacheStart = conversation.indexOf("const MTKoutboundReceiptContract=");
+const conversationCacheEnd = conversation.indexOf("function Oy(", conversationCacheStart);
+const conversationHelper = conversation.slice(conversationCacheStart, conversationCacheEnd);
+assert.ok(conversationHelper.includes("length-MTKoutboundReceiptLimit"),
+  "renderer bounds acknowledged receipts per source task");
+assert.ok(!conversation.slice(conversationCacheStart, conversationCacheEnd).includes("flatMap"),
+  "renderer does not enforce one global receipt pool");
+const hostBusName = unique(
+  conversationHelper,
+  /(?<name>[$A-Z_a-z][$\w]*)\.dispatchMessage\("mtk-outbound-receipt-remember"/g,
+  "receipt host bus"
+).groups.name;
+const receiptDispatches = [];
+const receiptListeners = new Map();
+const receiptBus = {
+  dispatchMessage(type, payload) { receiptDispatches.push({type, payload}); },
+  subscribe(type, callback) { receiptListeners.set(type, callback); return () => receiptListeners.delete(type); }
+};
+const conversationApi = Function(
+  hostBusName, "Jy", "Yy", "MTKoutboundReceipt",
+  `${conversationHelper};return {remember:MTKoutboundRemember,state:MTKoutboundReceiptState,values:MTKoutboundReceiptValues}`
+)(receiptBus, {useState() { return [[], () => {}]; }, useEffect() {}}, {jsx() { return null; }}, () => null);
+
+const mainDirectory = path.join(root, ".vite/build");
+const mainOwners = fs.readdirSync(mainDirectory).filter(name => {
+  const source = /^main-.*\.js$/.test(name) ? fs.readFileSync(path.join(mainDirectory, name), "utf8") : "";
+  return source.includes("function MTKoutboundReceiptWrite(") && source.includes("function MTKoutboundReceiptList(");
+});
+assert.equal(mainOwners.length, 1, "unique durable receipt cache owner");
+const main = fs.readFileSync(path.join(mainDirectory, mainOwners[0]), "utf8");
+const mainStart = main.indexOf('const MTKoutboundReceiptContract=');
+const mainEnds = [main.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart)].filter(index => index > mainStart);
+assert.equal(mainEnds.length, 1, "localized durable receipt main helper");
+const mainHelper = main.slice(mainStart, mainEnds[0]);
+const mainHandlerStart = main.indexOf("case`mtk-outbound-receipt-remember`:");
+const mainListHandlerStart = main.indexOf("case`mtk-outbound-receipts-list`:", mainHandlerStart);
+const mainHandlerEnd = main.indexOf("case`", mainListHandlerStart + 5);
+assert.ok(mainHandlerStart >= 0 && mainHandlerEnd > mainHandlerStart, "localized durable receipt main handlers");
+const electronName = unique(mainHelper, /MTKoutboundReceiptPath\.join\((?<name>[$A-Z_a-z][$\w]*)\.app\.getPath\("userData"\)/g, "Electron app binding").groups.name;
+const cacheScratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-outbound-cache-test-"));
+try {
+  const makeCache = () => Function("require", "process", "Buffer", electronName,
+    `${mainHelper};return {remember:MTKoutboundReceiptRemember,list:MTKoutboundReceiptList}`)(
+      require, process, Buffer, {app: {getPath() { return cacheScratch; }}}
+    );
+  const first = {
+    callId: "call-persisted",
+    contract: "outgoing-message-receipt-v1",
+    prompt: "Coordinator → Engine Tender — durable hello",
+    recordedAtMs: 100,
+    sourceThreadId: "source-thread",
+    sourceTurnId: "source-turn",
+    targetHostId: "local",
+    targetThreadId: "coordinator-thread"
+  };
+  const cache = makeCache();
+  assert.equal(conversationApi.remember(first), false, "renderer waits for durable acknowledgment before hoisting");
+  assert.equal(receiptDispatches.length, 1, "renderer sends one persistence request");
+  assert.equal(conversationApi.remember(first), false, "a pending receipt does not dispatch twice");
+  assert.equal(receiptDispatches.length, 1, "pending persistence remains single-flight");
+  assert.deepEqual(conversationApi.values(conversationApi.state("source-thread")), [],
+    "unacknowledged receipts do not enter the durable presentation state");
+  assert.equal(receiptDispatches[0].type, "mtk-outbound-receipt-remember");
+  assert.deepEqual(receiptDispatches[0].payload.record, first);
+  assert.equal(typeof receiptDispatches[0].payload.requestId, "string");
+  const mainResponses = [];
+  const mainHandler = Function(
+    "MTKoutboundReceiptRemember", "MTKoutboundReceiptList",
+    `return function(type,t,e){switch(type){${main.slice(mainHandlerStart, mainHandlerEnd)}default:break}}`
+  )(cache.remember, cache.list);
+  mainHandler.call({windowManager: {sendMessageToWebContents(_webContents, response) {
+    mainResponses.push(response);
+  }}}, receiptDispatches[0].type, receiptDispatches[0].payload, {});
+  assert.deepEqual(mainResponses, [{
+    type: "mtk-outbound-receipt-remember-result",
+    requestId: receiptDispatches[0].payload.requestId,
+    ok: true,
+    record: first
+  }], "main process acknowledges only the receipt it durably wrote");
+  receiptListeners.get("mtk-outbound-receipt-remember-result")(mainResponses[0]);
+  assert.deepEqual(conversationApi.values(conversationApi.state("source-thread")), [first],
+    "renderer accepts the acknowledged durable record");
+  assert.equal(conversationApi.remember(first), true, "acknowledged receipt can hand off to the durable turn surface");
+  const failed = {...first, callId: "call-write-failed", recordedAtMs: 101};
+  assert.equal(conversationApi.remember(failed), false);
+  const failedDispatch = receiptDispatches.at(-1);
+  receiptListeners.get("mtk-outbound-receipt-remember-result")({
+    type: "mtk-outbound-receipt-remember-result",
+    requestId: failedDispatch.payload.requestId,
+    ok: false,
+    record: null
+  });
+  assert.deepEqual(conversationApi.values(conversationApi.state("source-thread")), [first],
+    "a failed persistence acknowledgment leaves the receipt on its stock activity path");
+  assert.deepEqual(cache.list("source-thread"), [first], "same-process list returns the receipt");
+  assert.deepEqual(makeCache().list("source-thread"), [first], "new main-process instance reconstructs the receipt");
+  const cacheDir = path.join(cacheScratch, "mechanics-toolkit", "task-message-receipts");
+  const taskDir = sourceThreadId => path.join(cacheDir, createHash("sha256").update(sourceThreadId).digest("hex"));
+  assert.equal(fs.statSync(cacheDir).mode & 0o077, 0, "cache directory is private");
+  assert.equal(fs.statSync(taskDir("source-thread")).mode & 0o077, 0, "task bucket is private");
+  const files = fs.readdirSync(taskDir("source-thread")).filter(name => name.endsWith(".json"));
+  assert.equal(files.length, 1);
+  assert.equal(fs.statSync(path.join(taskDir("source-thread"), files[0])).mode & 0o077, 0, "cache file is private");
+  assert.deepEqual(cache.remember({...first, prompt: "conflicting rewrite"}), first, "first call identity wins");
+  fs.writeFileSync(path.join(taskDir("source-thread"), "f".repeat(64) + ".json"), "not-json\n", {mode: 0o600});
+  assert.deepEqual(makeCache().list("source-thread"), [first], "corrupt cache entry is ignored");
+
+  const legacy = {
+    ...first,
+    callId: "legacy-call",
+    recordedAtMs: 200,
+    sourceThreadId: "legacy-source"
+  };
+  fs.writeFileSync(path.join(cacheDir, "e".repeat(64) + ".json"), `${JSON.stringify(legacy)}\n`, {mode: 0o600});
+  assert.deepEqual(makeCache().list("legacy-source"), [legacy], "flat-cache receipt migrates into its task bucket");
+  assert.equal(fs.existsSync(path.join(cacheDir, "e".repeat(64) + ".json")), false, "migrated flat receipt is removed");
+
+  const other = {...first, callId: "other-call", sourceThreadId: "other-source", recordedAtMs: 300};
+  assert.deepEqual(cache.remember(other), other, "another source task gets an independent bucket");
+  for (let index = 0; index < 260; index += 1) {
+    cache.remember({...first, callId: `call-${index}`, recordedAtMs: 1000 + index});
+  }
+  assert.ok(fs.readdirSync(taskDir("source-thread")).filter(name => name.endsWith(".json")).length <= 256,
+    "busy source task remains independently bounded");
+  assert.deepEqual(cache.list("other-source"), [other], "busy source task does not evict another task's receipt");
+  const sourceBytes = fs.readdirSync(taskDir("source-thread"))
+    .filter(name => name.endsWith(".json"))
+    .reduce((total, name) => total + fs.statSync(path.join(taskDir("source-thread"), name)).size, 0);
+  assert.ok(sourceBytes <= 8 * 1024 * 1024, "task bucket remains within its byte ceiling");
+
+  for (let index = 0; index < 70; index += 1) {
+    cache.remember({...first, callId: `bucket-call-${index}`, sourceThreadId: `bucket-source-${index}`, recordedAtMs: 2000 + index});
+  }
+  const buckets = fs.readdirSync(cacheDir).filter(name => /^[0-9a-f]{64}$/.test(name));
+  assert.ok(buckets.length <= 64, "global task-bucket ceiling bounds abandoned source tasks");
+  assert.equal(cache.list("bucket-source-69").length, 1, "current task bucket survives global pruning");
+} finally {
+  fs.rmSync(cacheScratch, {recursive: true, force: true});
+}
+
 process.stdout.write(`${JSON.stringify({
   state: "green",
-  persistence: "mounted-session",
+  persistence: "acknowledged-private-task-buckets",
   collapsedVisibility: "persistent-via-stock-activity-contract",
   layout: "left-aligned-neutral-hover-receipt",
   recipientMetadata: "stock-task-selector",
