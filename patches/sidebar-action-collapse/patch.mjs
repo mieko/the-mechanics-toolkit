@@ -29,16 +29,21 @@ process.stdout.write(`${JSON.stringify({
 }, null, 2)}\n`);
 
 function inspectState(value) {
+  if (value.includes('const MTK_SIDEBAR_ACTIONS_STORAGE_KEY=') &&
+      (!hasDisclosurePointerCursor(value) || hasLegacyDisclosureOrder(value))) {
+    return "needs-apply";
+  }
   const build8109Markers = [
     'const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1"',
     "function MTKuseSidebarActionCollapse8109()",
     "function MTKsidebarActionDisclosure8109(",
     "function MTKsidebarCollapsedDestinations8109(",
+    'className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer"',
     "function par(e){let t=(0,_ar.c)(145),",
     "[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse8109()",
     "let De=MTKsidebarCollapsedDestinations8109(MTKsidebarActionsCollapsed,$Sn(Ee),Hy.projects),Oe;",
     "MTKsidebarActionsCollapsed?null:(0,M4.jsx)(tTn,",
-    "(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})",
+    '!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null,(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "t[144]!==MTKsidebarActionsCollapsed",
     "t[144]=MTKsidebarActionsCollapsed,t[101]=Ge"
   ];
@@ -50,11 +55,12 @@ function inspectState(value) {
     'const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1"',
     "function MTKuseSidebarActionCollapse7942()",
     "function MTKsidebarActionDisclosure7942(",
+    'className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer"',
     "function dar(e){let t=(0,har.c)(145),",
     "[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7942()",
     "let MTKsidebarDestinations=ZSn(we),Te=MTKsidebarActionsCollapsed?[]:MTKsidebarDestinations",
     "MTKsidebarActionsCollapsed?null:(0,N4.jsx)($wn,",
-    "(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})",
+    '!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null,(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "t[144]!==MTKsidebarActionsCollapsed",
     "t[144]=MTKsidebarActionsCollapsed,t[101]=Ue"
   ];
@@ -66,11 +72,12 @@ function inspectState(value) {
     'const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1"',
     "function MTKuseSidebarActionCollapse7746()",
     "function MTKsidebarActionDisclosure7746(",
+    'className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer"',
     "function ear(e){let t=(0,iar.c)(145),",
     "[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7746()",
     "let MTKsidebarDestinations=$Cn(we),Te=MTKsidebarActionsCollapsed?[]:MTKsidebarDestinations",
     "MTKsidebarActionsCollapsed?null:(0,O4.jsx)(zTn,",
-    "(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})",
+    '!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null,(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "t[144]!==MTKsidebarActionsCollapsed",
     "t[144]=MTKsidebarActionsCollapsed,t[101]=Ue"
   ];
@@ -86,6 +93,7 @@ function inspectState(value) {
     "let se=MTKsidebarActionsCollapsed?[]:oe,ce;",
     '"aria-expanded":!e',
     'children:(0,x7.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor"',
+    'className:"cursor-pointer"',
     "MTKsidebarActionsCollapsed?null:",
     "MTKsidebarActionDisclosure,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}"
   ];
@@ -96,11 +104,12 @@ function inspectState(value) {
       'function MTKuseSidebarActionCollapse7345()',
       'function MTKsidebarActionDisclosure7345(',
       'function MTKsidebarCollapsedDestinations7345(',
+      'className:"cursor-pointer"',
       'let t=(0,b$c.c)(115),',
       '[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7345()',
       'let be=MTKsidebarCollapsedDestinations7345(MTKsidebarActionsCollapsed,ye,x6.projects)',
       'MTKsidebarActionsCollapsed?null:(0,h7.jsx)(gMc,',
-      '(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})',
+      '!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null,(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
       't[114]!==MTKsidebarActionsCollapsed',
       't[114]=MTKsidebarActionsCollapsed,t[109]=Ve'
     ];
@@ -143,6 +152,12 @@ function inspectState(value) {
 }
 
 function patchSource(value) {
+  if (value.includes('const MTK_SIDEBAR_ACTIONS_STORAGE_KEY=')) {
+    let patched = value;
+    if (!hasDisclosurePointerCursor(patched)) patched = addPointerCursor(patched);
+    if (hasLegacyDisclosureOrder(patched)) patched = moveDisclosureLast(patched);
+    if (patched !== value) return patched;
+  }
   if (current8109Contracts().every(contract => value.includes(contract))) return patch8109(value);
   if (current7942Contracts().every(contract => value.includes(contract))) return patch7942(value);
   if (current7746Contracts().every(contract => value.includes(contract))) return patch7746(value);
@@ -150,7 +165,7 @@ function patchSource(value) {
   const candidates = profiles(value).filter(profile => profile.contracts.every(contract => value.includes(contract)));
   if (candidates.length !== 1) throw new Error(`Upstream changed: found ${candidates.length} sidebar ownership profiles`);
   const profile = candidates[0];
-  let helper = String.raw`const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1";function MTKreadSidebarActionsCollapsed(){try{return localStorage.getItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY)==="1"}catch{return!1}}function MTKuseSidebarActionCollapse(){let[e,t]=(0,fql.useState)(MTKreadSidebarActionsCollapsed);return fql.useEffect(()=>{let e=e=>{e.key===MTK_SIDEBAR_ACTIONS_STORAGE_KEY&&t(MTKreadSidebarActionsCollapsed)};return addEventListener("storage",e),()=>removeEventListener("storage",e)},[]),[e,fql.useCallback(()=>{t(e=>{let t=!e;try{localStorage.setItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY,t?"1":"0")}catch{}return t})},[])]}function MTKsidebarActionDisclosure({collapsed:e,onToggle:t}){let n=vd(),r=n.formatMessage(e?{id:"sidebarElectron.globalActions.show",defaultMessage:"Show navigation actions",description:"Accessible label and tooltip for expanding the sidebar navigation action group"}:{id:"sidebarElectron.globalActions.hide",defaultMessage:"Hide navigation actions",description:"Accessible label and tooltip for collapsing the sidebar navigation action group"}),i=(0,x7.jsx)("svg",{"aria-hidden":!0,className:"icon-xs transition-transform "+(e?"":"rotate-90"),viewBox:"0 0 16 16",fill:"none",children:(0,x7.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round"})});return(0,x7.jsx)(uI,{tooltipContent:r,children:(0,x7.jsx)(tX,{color:"ghost",size:"compact",uniform:!0,"aria-label":r,"aria-expanded":!e,onClick:t,children:i})})}`;
+  let helper = String.raw`const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1";function MTKreadSidebarActionsCollapsed(){try{return localStorage.getItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY)==="1"}catch{return!1}}function MTKuseSidebarActionCollapse(){let[e,t]=(0,fql.useState)(MTKreadSidebarActionsCollapsed);return fql.useEffect(()=>{let e=e=>{e.key===MTK_SIDEBAR_ACTIONS_STORAGE_KEY&&t(MTKreadSidebarActionsCollapsed)};return addEventListener("storage",e),()=>removeEventListener("storage",e)},[]),[e,fql.useCallback(()=>{t(e=>{let t=!e;try{localStorage.setItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY,t?"1":"0")}catch{}return t})},[])]}function MTKsidebarActionDisclosure({collapsed:e,onToggle:t}){let n=vd(),r=n.formatMessage(e?{id:"sidebarElectron.globalActions.show",defaultMessage:"Show navigation actions",description:"Accessible label and tooltip for expanding the sidebar navigation action group"}:{id:"sidebarElectron.globalActions.hide",defaultMessage:"Hide navigation actions",description:"Accessible label and tooltip for collapsing the sidebar navigation action group"}),i=(0,x7.jsx)("svg",{"aria-hidden":!0,className:"icon-xs transition-transform "+(e?"":"rotate-90"),viewBox:"0 0 16 16",fill:"none",children:(0,x7.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round"})});return(0,x7.jsx)(uI,{tooltipContent:r,children:(0,x7.jsx)(tX,{color:"ghost",size:"compact",uniform:!0,className:"cursor-pointer","aria-label":r,"aria-expanded":!e,onClick:t,children:i})})}`;
   for (const [before, after] of profile.helperReplacements) helper = replaceOnce(helper, before, after, `${profile.name} helper alias ${before}`);
 
   let patched = replaceOnce(value, profile.owner, `${helper}${profile.appliedOwner}`, "sidebar owner and helper seam");
@@ -210,13 +225,13 @@ function current8109Contracts() {
 
 function patch8109(value) {
   const helper = String.raw`const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1";function MTKreadSidebarActionsCollapsed8109(){try{return localStorage.getItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY)==="1"}catch{return!1}}function MTKuseSidebarActionCollapse8109(){let[e,t]=(0,j4.useState)(MTKreadSidebarActionsCollapsed8109);return j4.useEffect(()=>{let e=e=>{e.key===MTK_SIDEBAR_ACTIONS_STORAGE_KEY&&t(MTKreadSidebarActionsCollapsed8109())};return addEventListener("storage",e),()=>removeEventListener("storage",e)},[]),[e,j4.useCallback(()=>{t(e=>{let t=!e;try{localStorage.setItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY,t?"1":"0")}catch{}return t})},[])]}function MTKsidebarCollapsedDestinations8109(e,t,n){return e?t.filter(e=>e.id===n):t}function MTKsidebarActionDisclosure8109({collapsed:e,onToggle:t}){let n=me(),r=n.formatMessage(e?{id:"sidebarElectron.globalActions.show",defaultMessage:"Show navigation actions",description:"Accessible label for expanding the sidebar navigation action group"}:{id:"sidebarElectron.globalActions.hide",defaultMessage:"Hide navigation actions",description:"Accessible label for collapsing the sidebar navigation action group"});return(0,M4.jsx)("button",{type:"button",title:r,"aria-label":r,"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary",onClick:t,children:(0,M4.jsx)("svg",{"aria-hidden":!0,className:"icon-xs transition-transform "+(e?"":"rotate-90"),viewBox:"0 0 16 16",fill:"none",children:(0,M4.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round"})})})}`;
-  let patched = replaceOnce(value, "function par(e){let t=(0,_ar.c)(144),", `${helper}function par(e){let t=(0,_ar.c)(145),`, "build-8109 sidebar owner");
+  let patched = replaceOnce(value, "function par(e){let t=(0,_ar.c)(144),", `${addPointerCursor(helper)}function par(e){let t=(0,_ar.c)(145),`, "build-8109 sidebar owner");
   patched = replaceOnce(patched, "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,", "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse8109(),", "build-8109 sidebar state");
   patched = replaceOnce(patched, "let De=$Sn(Ee),Oe;", "let De=MTKsidebarCollapsedDestinations8109(MTKsidebarActionsCollapsed,$Sn(Ee),Hy.projects),Oe;", "build-8109 global destination projection");
   patched = replaceOnce(
     patched,
     '(0,M4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,M4.jsx)(tvn,{}),(0,M4.jsx)(GY,{showCustomizeSidebarAction:Pe,children:(0,M4.jsx)(Dwn,{})}),!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null]})',
-    '(0,M4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,M4.jsx)(tvn,{}),(0,M4.jsx)(GY,{showCustomizeSidebarAction:Pe,children:(0,M4.jsx)(Dwn,{})}),(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null]})',
+    '(0,M4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,M4.jsx)(tvn,{}),(0,M4.jsx)(GY,{showCustomizeSidebarAction:Pe,children:(0,M4.jsx)(Dwn,{})}),!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null,(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "build-8109 header disclosure"
   );
   patched = replaceOnce(patched, '(0,M4.jsx)(tTn,{showCustomizeSidebarAction:Pe,sidebarMode:ce,showSearchNavItem:!1})', 'MTKsidebarActionsCollapsed?null:(0,M4.jsx)(tTn,{showCustomizeSidebarAction:Pe,sidebarMode:ce,showSearchNavItem:!1})', "build-8109 global action block");
@@ -239,13 +254,13 @@ function current7942Contracts() {
 
 function patch7942(value) {
   const helper = String.raw`const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1";function MTKreadSidebarActionsCollapsed7942(){try{return localStorage.getItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY)==="1"}catch{return!1}}function MTKuseSidebarActionCollapse7942(){let[e,t]=(0,M4.useState)(MTKreadSidebarActionsCollapsed7942);return M4.useEffect(()=>{let e=e=>{e.key===MTK_SIDEBAR_ACTIONS_STORAGE_KEY&&t(MTKreadSidebarActionsCollapsed7942())};return addEventListener("storage",e),()=>removeEventListener("storage",e)},[]),[e,M4.useCallback(()=>{t(e=>{let t=!e;try{localStorage.setItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY,t?"1":"0")}catch{}return t})},[])]}function MTKsidebarActionDisclosure7942({collapsed:e,onToggle:t}){let n=Vl(),r=n.formatMessage(e?{id:"sidebarElectron.globalActions.show",defaultMessage:"Show navigation actions",description:"Accessible label for expanding the sidebar navigation action group"}:{id:"sidebarElectron.globalActions.hide",defaultMessage:"Hide navigation actions",description:"Accessible label for collapsing the sidebar navigation action group"});return(0,N4.jsx)("button",{type:"button",title:r,"aria-label":r,"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary",onClick:t,children:(0,N4.jsx)("svg",{"aria-hidden":!0,className:"icon-xs transition-transform "+(e?"":"rotate-90"),viewBox:"0 0 16 16",fill:"none",children:(0,N4.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round"})})})}`;
-  let patched = replaceOnce(value, "function dar(e){let t=(0,har.c)(144),", `${helper}function dar(e){let t=(0,har.c)(145),`, "build-7942 sidebar owner");
+  let patched = replaceOnce(value, "function dar(e){let t=(0,har.c)(144),", `${addPointerCursor(helper)}function dar(e){let t=(0,har.c)(145),`, "build-7942 sidebar owner");
   patched = replaceOnce(patched, "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,", "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7942(),", "build-7942 sidebar state");
   patched = replaceOnce(patched, "let Te=ZSn(we),Ee;", "let MTKsidebarDestinations=ZSn(we),Te=MTKsidebarActionsCollapsed?[]:MTKsidebarDestinations,Ee;", "build-7942 global destination projection");
   patched = replaceOnce(
     patched,
     '(0,N4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,N4.jsx)(Z_n,{}),(0,N4.jsx)(JY,{showCustomizeSidebarAction:Me,children:(0,N4.jsx)(Twn,{})}),!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null]})',
-    '(0,N4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,N4.jsx)(Z_n,{}),(0,N4.jsx)(JY,{showCustomizeSidebarAction:Me,children:(0,N4.jsx)(Twn,{})}),(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null]})',
+    '(0,N4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,N4.jsx)(Z_n,{}),(0,N4.jsx)(JY,{showCustomizeSidebarAction:Me,children:(0,N4.jsx)(Twn,{})}),!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null,(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "build-7942 header disclosure"
   );
   patched = replaceOnce(patched, '(0,N4.jsx)($wn,{showCustomizeSidebarAction:Me,sidebarMode:ce,showSearchNavItem:!1})', 'MTKsidebarActionsCollapsed?null:(0,N4.jsx)($wn,{showCustomizeSidebarAction:Me,sidebarMode:ce,showSearchNavItem:!1})', "build-7942 new-chat row");
@@ -268,13 +283,13 @@ function current7746Contracts() {
 
 function patch7746(value) {
   const helper = String.raw`const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1";function MTKreadSidebarActionsCollapsed7746(){try{return localStorage.getItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY)==="1"}catch{return!1}}function MTKuseSidebarActionCollapse7746(){let[e,t]=(0,D4.useState)(MTKreadSidebarActionsCollapsed7746);return D4.useEffect(()=>{let e=e=>{e.key===MTK_SIDEBAR_ACTIONS_STORAGE_KEY&&t(MTKreadSidebarActionsCollapsed7746())};return addEventListener("storage",e),()=>removeEventListener("storage",e)},[]),[e,D4.useCallback(()=>{t(e=>{let t=!e;try{localStorage.setItem(MTK_SIDEBAR_ACTIONS_STORAGE_KEY,t?"1":"0")}catch{}return t})},[])]}function MTKsidebarActionDisclosure7746({collapsed:e,onToggle:t}){let n=Aa(),r=n.formatMessage(e?{id:"sidebarElectron.globalActions.show",defaultMessage:"Show navigation actions",description:"Accessible label for expanding the sidebar navigation action group"}:{id:"sidebarElectron.globalActions.hide",defaultMessage:"Hide navigation actions",description:"Accessible label for collapsing the sidebar navigation action group"});return(0,O4.jsx)("button",{type:"button",title:r,"aria-label":r,"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary",onClick:t,children:(0,O4.jsx)("svg",{"aria-hidden":!0,className:"icon-xs transition-transform "+(e?"":"rotate-90"),viewBox:"0 0 16 16",fill:"none",children:(0,O4.jsx)("path",{d:"M6 3.5 10.5 8 6 12.5",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round",strokeLinejoin:"round"})})})}`;
-  let patched = replaceOnce(value, "function ear(e){let t=(0,iar.c)(144),", `${helper}function ear(e){let t=(0,iar.c)(145),`, "build-7746 sidebar owner");
+  let patched = replaceOnce(value, "function ear(e){let t=(0,iar.c)(144),", `${addPointerCursor(helper)}function ear(e){let t=(0,iar.c)(145),`, "build-7746 sidebar owner");
   patched = replaceOnce(patched, "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,", "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7746(),", "build-7746 sidebar state");
   patched = replaceOnce(patched, "let Te=$Cn(we),Ee;", "let MTKsidebarDestinations=$Cn(we),Te=MTKsidebarActionsCollapsed?[]:MTKsidebarDestinations,Ee;", "build-7746 global destination projection");
   patched = replaceOnce(
     patched,
     '(0,O4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,O4.jsx)(uyn,{}),(0,O4.jsx)(yJ,{showCustomizeSidebarAction:Me,children:(0,O4.jsx)(pTn,{})}),!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null]})',
-    '(0,O4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,O4.jsx)(uyn,{}),(0,O4.jsx)(yJ,{showCustomizeSidebarAction:Me,children:(0,O4.jsx)(pTn,{})}),(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null]})',
+    '(0,O4.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,O4.jsx)(uyn,{}),(0,O4.jsx)(yJ,{showCustomizeSidebarAction:Me,children:(0,O4.jsx)(pTn,{})}),!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null,(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "build-7746 header disclosure"
   );
   patched = replaceOnce(patched, '(0,O4.jsx)(zTn,{showCustomizeSidebarAction:Me,sidebarMode:se,showSearchNavItem:!1})', 'MTKsidebarActionsCollapsed?null:(0,O4.jsx)(zTn,{showCustomizeSidebarAction:Me,sidebarMode:se,showSearchNavItem:!1})', "build-7746 new-chat row");
@@ -298,13 +313,13 @@ function patch7345(value) {
   const owners = [...value.matchAll(/function g\$c\(e\)\{(?:MTKusePaletteBootstrap\(\);)?let t=\(0,b\$c\.c\)\(114\),/g)];
   if (owners.length !== 1) throw new Error(`Upstream changed: found ${owners.length} build-7345 sidebar owners`);
   const owner = owners[0][0];
-  let patched = replaceOnce(value, owner, helper + owner.replace("(114),", "(115),"), "build-7345 sidebar owner");
+  let patched = replaceOnce(value, owner, addPointerCursor(helper) + owner.replace("(114),", "(115),"), "build-7345 sidebar owner");
   patched = replaceOnce(patched, "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,", "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse7345(),", "build-7345 sidebar state");
   patched = replaceOnce(patched, "let be=ye,xe=be.length>0", "let be=MTKsidebarCollapsedDestinations7345(MTKsidebarActionsCollapsed,ye,x6.projects),xe=be.length>0", "build-7345 global destination projection");
   patched = replaceOnce(
     patched,
     '(0,h7.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,h7.jsx)(xEc,{}),(0,h7.jsx)(VEc,{showCustomizeSidebarAction:Ee,children:(0,h7.jsx)(qjc,{})}),!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null]})',
-    '(0,h7.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,h7.jsx)(xEc,{}),(0,h7.jsx)(VEc,{showCustomizeSidebarAction:Ee,children:(0,h7.jsx)(qjc,{})}),(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null]})',
+    '(0,h7.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,h7.jsx)(xEc,{}),(0,h7.jsx)(VEc,{showCustomizeSidebarAction:Ee,children:(0,h7.jsx)(qjc,{})}),!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null,(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
     "build-7345 header disclosure"
   );
   patched = replaceOnce(patched, '(0,h7.jsx)(gMc,{showCustomizeSidebarAction:Ee,sidebarMode:re,showSearchNavItem:!1})', 'MTKsidebarActionsCollapsed?null:(0,h7.jsx)(gMc,{showCustomizeSidebarAction:Ee,sidebarMode:re,showSearchNavItem:!1})', "build-7345 global action block");
@@ -408,6 +423,58 @@ function replaceOnce(value, before, after, label) {
     throw new Error(`Upstream changed: ${label} is not unique`);
   }
   return value.slice(0, first) + after + value.slice(first + before.length);
+}
+
+function addPointerCursor(value) {
+  const nativeButton = '"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary",onClick:t';
+  if (value.includes(nativeButton)) {
+    return replaceOnce(value, nativeButton, '"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer",onClick:t', "sidebar disclosure pointer cursor");
+  }
+  if (value.includes("function MTKsidebarActionDisclosure7345(")) {
+    return replaceOnce(value, 'color:"ghost",size:"compact",uniform:!0,onClick:t,children:i', 'color:"ghost",size:"compact",uniform:!0,className:"cursor-pointer",onClick:t,children:i', "build-7345 disclosure pointer cursor");
+  }
+  return replaceOnce(value, 'color:"ghost",size:"compact",uniform:!0,"aria-label":r,"aria-expanded":!e,onClick:t', 'color:"ghost",size:"compact",uniform:!0,className:"cursor-pointer","aria-label":r,"aria-expanded":!e,onClick:t', "sidebar disclosure pointer cursor");
+}
+
+function hasDisclosurePointerCursor(value) {
+  if (["8109", "7942", "7746"].some(build => value.includes(`function MTKsidebarActionDisclosure${build}(`))) {
+    return value.includes('"aria-expanded":!e,className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer",onClick:t');
+  }
+  if (value.includes("function MTKsidebarActionDisclosure7345(")) {
+    return value.includes('color:"ghost",size:"compact",uniform:!0,className:"cursor-pointer",onClick:t,children:i');
+  }
+  return value.includes('color:"ghost",size:"compact",uniform:!0,className:"cursor-pointer","aria-label":r,"aria-expanded":!e,onClick:t');
+}
+
+function disclosureOrders() {
+  return [
+    [
+      '(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null',
+      '!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null,(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})'
+    ],
+    [
+      '(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null',
+      '!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null,(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})'
+    ],
+    [
+      '(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null',
+      '!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null,(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})'
+    ],
+    [
+      '(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null',
+      '!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null,(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})'
+    ]
+  ];
+}
+
+function hasLegacyDisclosureOrder(value) {
+  return disclosureOrders().some(([legacy]) => value.includes(legacy));
+}
+
+function moveDisclosureLast(value) {
+  const matches = disclosureOrders().filter(([legacy]) => value.includes(legacy));
+  if (matches.length !== 1) throw new Error(`Unrecognized sidebar disclosure order: found ${matches.length} legacy layouts`);
+  return replaceOnce(value, matches[0][0], matches[0][1], "sidebar disclosure final position");
 }
 
 function count(value, needle) {

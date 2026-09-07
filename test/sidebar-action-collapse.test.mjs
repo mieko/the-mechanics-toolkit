@@ -124,6 +124,7 @@ const collapsedButton = build7746 || build7942 || build8109 ? collapsedDisclosur
 assert.equal(collapsedButton.component, build7746 || build7942 || build8109 ? "button" : "IconButton");
 assert.equal(collapsedButton.props["aria-expanded"], false);
 assert.equal(collapsedButton.props["aria-label"], "Show navigation actions");
+assert.ok(collapsedButton.props.className.includes("cursor-pointer"), "disclosure advertises click interaction with the hand cursor");
 assert.equal(collapsedButton.props.children.component, "svg");
 assert.equal(collapsedButton.props.children.props.children.component, "path");
 assert.equal(collapsedButton.props.children.props.children.props.stroke, "currentColor");
@@ -165,6 +166,8 @@ if (build8109) {
   assert.ok(source.includes("MTKsidebarActionsCollapsed?null:(0,M4.jsx)(tTn,"), "collapsed state hides the stock New chat row");
   assert.ok(source.includes("(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})"),
     "disclosure shares the Codex sidebar header controls");
+  assert.ok(source.includes('!E&&be===`header_icon`?(0,M4.jsx)(yTn,{sidebarMode:ce}):null,(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})'),
+    "disclosure is the final header action after the notification filter");
   assert.ok(source.includes("t[144]!==MTKsidebarActionsCollapsed") && source.includes("t[144]=MTKsidebarActionsCollapsed"),
     "disclosure state participates in the stock memo cache");
 } else if (build7942) {
@@ -173,6 +176,8 @@ if (build8109) {
   assert.ok(source.includes("MTKsidebarActionsCollapsed?null:(0,N4.jsx)($wn,"), "collapsed state hides the stock New chat row");
   assert.ok(source.includes("(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})"),
     "disclosure shares the Codex sidebar header controls");
+  assert.ok(source.includes('!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null,(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})'),
+    "disclosure is the final header action after the notification filter");
   assert.ok(source.includes("t[144]!==MTKsidebarActionsCollapsed") && source.includes("t[144]=MTKsidebarActionsCollapsed"),
     "disclosure state participates in the stock memo cache");
 } else if (build7746) {
@@ -181,6 +186,8 @@ if (build8109) {
   assert.ok(source.includes("MTKsidebarActionsCollapsed?null:(0,O4.jsx)(zTn,"), "collapsed state hides the stock New chat row");
   assert.ok(source.includes("(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})"),
     "disclosure shares the Codex sidebar header controls");
+  assert.ok(source.includes('!E&&ve===`header_icon`?(0,O4.jsx)(eEn,{sidebarMode:se}):null,(0,O4.jsx)(MTKsidebarActionDisclosure7746,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})'),
+    "disclosure is the final header action after the notification filter");
   assert.ok(source.includes("t[144]!==MTKsidebarActionsCollapsed") && source.includes("t[144]=MTKsidebarActionsCollapsed"),
     "disclosure state participates in the stock memo cache");
 } else if (build7345) {
@@ -190,6 +197,8 @@ if (build8109) {
   assert.ok(source.includes("(0,h7.jsx)(TXc,"), "Projects and task content remain independently projected");
   assert.ok(source.includes("MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}"),
     "disclosure shares the Codex sidebar header cluster with notifications and search");
+  assert.ok(source.includes('!T&&Oe===`header_icon`?(0,h7.jsx)(DMc,{sidebarMode:re}):null,(0,h7.jsx)(MTKsidebarActionDisclosure7345,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})'),
+    "disclosure is the final header action after the notification filter");
 } else {
   assert.ok(source.includes("let se=MTKsidebarActionsCollapsed?[]:oe,ce;"), "collapsed state hides the whole stock global destination family");
   assert.ok(source.includes("MTKsidebarActionsCollapsed?null:"), "collapsed state hides the stock New chat row");

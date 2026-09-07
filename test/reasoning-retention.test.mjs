@@ -9,6 +9,7 @@ const assets = path.join(extracted, "webview/assets");
 
 const palette = uniqueSource(source => source.includes("function MTKreasoningShouldStayOpen("), "reasoning policy owner");
 const turn = uniqueSource(source => source.includes("function MTKuseReasoningRetention("), "reasoning turn owner");
+const thread = uniqueSource(source => source.includes("function MTKuseReasoningThreadRetention("), "reasoning thread owner");
 const activity = uniqueSource(source => source.includes("isCollapsed:!r&&(a??!i)"), "stock collapse owner");
 
 const decisionText = functionAt(palette.source, palette.source.indexOf("function MTKreasoningShouldStayOpen("));
@@ -47,6 +48,17 @@ const hook = Function("Ui", "globalThis", `${hookText};return MTKuseReasoningRet
 assert.equal(hook(kept), true);
 assert.equal(hook(ordinary), false);
 assert.equal(subscribed, true, "the turn rerenders when the async palette arrives");
+
+assert.match(
+  thread.source,
+  /if\(!MTKreasoningThreadRetained\)for\(let t of i\)EE\(b,\{conversationId:e,turnSearchKey:t\},!0\)/,
+  "the next-turn transition does not persist an automatic collapse for an opted-in task"
+);
+assert.match(
+  thread.source,
+  /\[e,c,G,b,fe,MTKreasoningThreadRetained\]/,
+  "the auto-collapse effect follows live retention-policy changes"
+);
 
 const collapseText = functionAt(activity.source, containingFunctionStart(activity.source, activity.source.indexOf("isCollapsed:!r&&(a??!i)")));
 const collapse = Function(`${collapseText};return ${functionName(collapseText)}`)();

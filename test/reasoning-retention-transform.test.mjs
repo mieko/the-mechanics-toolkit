@@ -17,20 +17,22 @@ try {
   fs.mkdirSync(assets, {recursive: true});
   const palette = path.join(assets, "app-initial-fixture.js");
   const turn = path.join(assets, "local-conversation-turn-fixture.js");
+  const thread = path.join(assets, "local-conversation-thread-fixture.js");
   const activity = path.join(assets, "subagent-activity-chip-group-fixture.js");
   fs.writeFileSync(palette, paletteFixture());
   fs.writeFileSync(turn, turnFixture());
+  fs.writeFileSync(thread, threadFixture());
   fs.writeFileSync(activity, collapseFixture());
 
   assert.equal(run("check").state, "needs-apply");
   assert.equal(run("apply").state, "applied");
-  const once = [palette, turn, activity].map(file => fs.readFileSync(file));
+  const once = [palette, turn, thread, activity].map(file => fs.readFileSync(file));
 
   const result = spawnSync(process.execPath, [probe, extracted], {encoding: "utf8"});
   assert.equal(result.status, 0, result.stderr || result.stdout);
 
   assert.equal(run("apply").state, "applied");
-  for (const [index, file] of [palette, turn, activity].entries()) {
+  for (const [index, file] of [palette, turn, thread, activity].entries()) {
     assert.deepEqual(fs.readFileSync(file), once[index], `${path.basename(file)} second application is byte-identical`);
   }
   process.stdout.write("reasoning retention transform probe passed\n");
@@ -61,6 +63,16 @@ function turnFixture() {
     'const Ui={useSyncExternalStore(){return false}},bt=()=>null;',
     'function _i(e){let t=(0,Vi.c)(207),{conversationId:a,showFullTranscript:Fe}=e,I=Fe!==void 0&&Fe,ot=bt(le);',
     'return {preventAutoCollapse:kt||yr,I,ot}}',
+    'export const fixture=true;'
+  ].join("");
+}
+
+function threadFixture() {
+  return [
+    'const YO={useEffect(){},useRef(){return{current:null}},useSyncExternalStore(){return false}},Fo=()=>null,Mr=null,al=null;',
+    'function EE(){}function CO(){return false}',
+    'function GO({conversationId:e,isBackgroundSubagentsEnabled:c,usesUnifiedTimeline:y}){let b=Fo(Mr),G=null,fe=[],Ue=YO.useRef(null);',
+    '(0,YO.useEffect)(()=>{let t=b.get(al,{conversationId:e,isBackgroundSubagentsEnabled:c}).visibleTurnEntries,n=Ue.current,r=t.find(e=>e.turnId===n),i=new Set;n!=null&&n!==G&&!CO(r)&&i.add(n);let a=t.at(-4);n!=null&&n!==G&&a?.turnId!=null&&CO(a)&&i.add(a.turnId);for(let t of i)EE(b,{conversationId:e,turnSearchKey:t},!0);Ue.current=G},[e,c,G,b,fe]);return y}',
     'export const fixture=true;'
   ].join("");
 }

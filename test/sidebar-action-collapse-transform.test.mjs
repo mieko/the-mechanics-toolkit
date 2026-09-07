@@ -25,6 +25,21 @@ try {
   const probe = spawnSync(process.execPath, [behavioralProbe, scratch], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
 
+  fs.writeFileSync(target, fs.readFileSync(target, "utf8").replace(" cursor-pointer", ""));
+  assert.equal(runToolkit("check", scratch).state, "needs-apply", "cursor-less prior patch is upgradeable");
+  assert.equal(runToolkit("apply", scratch).state, "applied");
+  assert.deepEqual(fs.readFileSync(target), once, "cursor upgrade restores the current patch exactly");
+
+  const legacyOrder = once.toString().replace(
+    '!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null,(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})',
+    '(0,N4.jsx)(MTKsidebarActionDisclosure7942,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions}),!E&&ve===`header_icon`?(0,N4.jsx)(_Tn,{sidebarMode:ce}):null'
+  );
+  assert.notEqual(legacyOrder, once.toString(), "legacy disclosure-order fixture differs");
+  fs.writeFileSync(target, legacyOrder);
+  assert.equal(runToolkit("check", scratch).state, "needs-apply", "pre-notification disclosure is upgradeable");
+  assert.equal(runToolkit("apply", scratch).state, "applied");
+  assert.deepEqual(fs.readFileSync(target), once, "disclosure-order upgrade restores the current patch exactly");
+
   assert.equal(runToolkit("apply", scratch).state, "applied");
   assert.deepEqual(fs.readFileSync(target), once, "second application is byte-identical");
   process.stdout.write("sidebar action collapse transform probe passed\n");

@@ -14,6 +14,10 @@ const turn = uniqueOwner(source =>
   source.includes("preventAutoCollapse:kt||yr") || source.includes("preventAutoCollapse:Ot||yr") || source.includes("function MTKuseReasoningRetention("),
   "local reasoning-collapse owner"
 );
+const thread = uniqueOwner(source =>
+  source.includes("Ue.current=G},[e,c,G,b,fe])") || source.includes("function MTKuseReasoningThreadRetention("),
+  "local thread auto-collapse owner"
+);
 const collapse = uniqueOwner(source =>
   source.includes("preventAutoCollapse:i,persistedCollapsed:a") &&
     source.includes("isCollapsed:!r&&(a??!i)"),
@@ -25,8 +29,10 @@ if (command === "apply" && state === "needs-apply") {
   const palette = paletteOwner();
   ensurePaletteBridge(palette);
   patchTurn(turn.file);
+  patchThread(thread.file);
   syntaxCheck(palette.file);
   syntaxCheck(turn.file);
+  syntaxCheck(thread.file);
   state = inspectState();
   if (state !== "applied") throw new Error("reasoning retention transform did not verify");
 }
@@ -35,17 +41,28 @@ const palette = paletteOwner(false);
 process.stdout.write(`${JSON.stringify({
   state,
   policy: ".codex/task-visual-palette.json",
-  targets: [palette?.file, turn.file].filter(Boolean).map(file => path.relative(root, file))
+  targets: [palette?.file, turn.file, thread.file].filter(Boolean).map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
 function inspectState() {
   const source = fs.readFileSync(turn.file, "utf8");
-  const markers = [
+  const turnMarkers = [
     source.includes("function MTKuseReasoningRetention("),
     source.includes("MTKreasoningRetained=MTKuseReasoningRetention(a)") || source.includes("MTKreasoningRetained=MTKuseReasoningRetention(c)"),
     source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") || source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained")
   ];
-  if (markers.every(Boolean)) {
+  const threadSource = fs.readFileSync(thread.file, "utf8");
+  const threadMarkers = [
+    threadSource.includes("function MTKuseReasoningThreadRetention("),
+    threadSource.includes("MTKreasoningThreadRetained=MTKuseReasoningThreadRetention(e)"),
+    threadSource.includes("if(!MTKreasoningThreadRetained)for(let t of i)EE(b,{conversationId:e,turnSearchKey:t},!0)"),
+    threadSource.includes("[e,c,G,b,fe,MTKreasoningThreadRetained]")
+  ];
+  const turnApplied = turnMarkers.every(Boolean);
+  const threadApplied = threadMarkers.every(Boolean);
+  if (turnMarkers.some(Boolean) && !turnApplied) throw new Error("Unrecognized reasoning retention patch: partial turn markers");
+  if (threadMarkers.some(Boolean) && !threadApplied) throw new Error("Unrecognized reasoning retention patch: partial thread markers");
+  if (turnApplied) {
     const palette = paletteOwner();
     const paletteSource = fs.readFileSync(palette.file, "utf8");
     for (const marker of [
@@ -57,13 +74,17 @@ function inspectState() {
       if (!paletteSource.includes(marker)) throw new Error(`Unrecognized reasoning retention patch: missing ${marker}`);
     }
     verifyCollapseContract();
-    return "applied";
+    return threadApplied ? "applied" : "needs-apply";
   }
-  if (markers.some(Boolean)) throw new Error("Unrecognized reasoning retention patch: partial turn markers");
+  if (threadApplied) throw new Error("Unrecognized reasoning retention patch: thread guard without turn retention");
   const legacy = source.includes("I=Fe!==void 0&&Fe,ot=bt(le)") && source.includes("preventAutoCollapse:kt||yr");
   const current = source.includes("ut=Re!==void 0&&Re,dt=Je(Fe)") && source.includes("preventAutoCollapse:Ot||yr");
   if (!source.includes("function _i(e){let t=(0,Vi.c)(207),") || (!legacy && !current)) {
     throw new Error("Upstream changed: missing reasoning turn ownership contract");
+  }
+  if (!threadSource.includes("function GO({conversationId:e,") ||
+      !threadSource.includes("Ue.current=G},[e,c,G,b,fe])")) {
+    throw new Error("Upstream changed: missing local thread auto-collapse contract");
   }
   verifyCollapseContract();
   return "needs-apply";
@@ -103,6 +124,7 @@ function ensurePaletteBridge(owner) {
 
 function patchTurn(file) {
   let source = fs.readFileSync(file, "utf8");
+  if (source.includes("function MTKuseReasoningRetention(")) return;
   const helper = "const MTKreasoningNoopSubscribe=()=>()=>{};function MTKuseReasoningRetention(e){let t=globalThis.__MTKreasoningSubscribe??MTKreasoningNoopSubscribe;return Ui.useSyncExternalStore(t,()=>globalThis.__MTKreasoningShouldStayOpen?.(e)===!0,()=>!1)}";
   source = replaceOnce(source, "function _i(e){let t=(0,Vi.c)(207),", `${helper}function _i(e){let t=(0,Vi.c)(207),`, "reasoning turn hook");
   if (source.includes("ut=Re!==void 0&&Re,dt=Je(Fe)")) {
@@ -112,6 +134,21 @@ function patchTurn(file) {
     source = replaceOnce(source, "I=Fe!==void 0&&Fe,ot=bt(le)", "I=Fe!==void 0&&Fe,MTKreasoningRetained=MTKuseReasoningRetention(a),ot=bt(le)", "reasoning task decision");
     source = replaceOnce(source, "preventAutoCollapse:kt||yr", "preventAutoCollapse:kt||yr||MTKreasoningRetained", "reasoning auto-collapse gate");
   }
+  fs.writeFileSync(file, source);
+}
+
+function patchThread(file) {
+  let source = fs.readFileSync(file, "utf8");
+  if (source.includes("function MTKuseReasoningThreadRetention(")) return;
+  const helper = "const MTKreasoningThreadNoopSubscribe=()=>()=>{};function MTKuseReasoningThreadRetention(e){let t=globalThis.__MTKreasoningSubscribe??MTKreasoningThreadNoopSubscribe;return YO.useSyncExternalStore(t,()=>globalThis.__MTKreasoningShouldStayOpen?.(e)===!0,()=>!1)}";
+  source = replaceOnce(source, "function GO({conversationId:e,", `${helper}function GO({conversationId:e,`, "reasoning thread hook");
+  source = replaceOnce(source, "usesUnifiedTimeline:y}){let b=Fo(Mr)", "usesUnifiedTimeline:y}){let MTKreasoningThreadRetained=MTKuseReasoningThreadRetention(e),b=Fo(Mr)", "reasoning thread decision");
+  source = replaceOnce(
+    source,
+    "for(let t of i)EE(b,{conversationId:e,turnSearchKey:t},!0);Ue.current=G},[e,c,G,b,fe])",
+    "if(!MTKreasoningThreadRetained)for(let t of i)EE(b,{conversationId:e,turnSearchKey:t},!0);Ue.current=G},[e,c,G,b,fe,MTKreasoningThreadRetained])",
+    "next-turn auto-collapse gate"
+  );
   fs.writeFileSync(file, source);
 }
 

@@ -10,8 +10,9 @@ Codex places New Chat and a growing family of global destinations above Projects
 navigation. Those actions are useful, but leaving all of them permanently expanded spends the most
 valuable vertical space in the sidebar and pushes active work down the screen.
 
-This patch adds one native-looking disclosure beside the existing sidebar header controls. When
-collapsed, it hides New Chat and the complete stock global-destination family while preserving
+This patch adds one native-looking disclosure with an explicit pointer cursor beside the existing
+sidebar header controls. When collapsed, it hides New Chat and the complete stock
+global-destination family while preserving
 Projects and task navigation. The choice persists locally and follows the renderer across windows.
 
 ![The Codex sidebar with its global actions collapsed while Projects and colored task rows remain visible](sidebar-collapse.png)

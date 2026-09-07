@@ -2,7 +2,8 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete
-- **Current evidence:** Build `8109` static stage and live use green, 2026-09-07
+- **Current evidence:** Build `8109` static stage and live next-turn/manual-state acceptance green,
+  2026-09-07
 
 ## Why it exists
 
@@ -42,11 +43,15 @@ reasoning decision without restarting Codex.
 
 The palette loader validates and publishes the exact-ID decision through a tiny renderer-local
 subscription. The local turn renderer subscribes and adds that decision to the stock
-`preventAutoCollapse` prop on the agent-activity component.
+`preventAutoCollapse` prop on the agent-activity component. The conversation thread also subscribes
+and suppresses Codex's separate next-turn auto-collapse write for opted-in tasks. Human collapse
+and reopen actions still use the stock persisted state.
 
 The transform also verifies the upstream collapse contract: `preventAutoCollapse` affects the
-default completed state, while an explicit persisted collapse still wins. If the task renderer,
-palette bridge, or collapse semantics move, application refuses.
+default completed state, while an explicit persisted collapse still wins. It patches the automatic
+write at its source rather than overriding all persisted state, so a human choice remains distinct
+from Codex advancing to the next turn. If the task renderer, thread transition, palette bridge, or
+collapse semantics move, application refuses.
 
 ## Check and apply
 
@@ -59,11 +64,11 @@ node test/reasoning-retention.test.mjs /path/to/extracted-asar
 ## Verification
 
 `test/reasoning-retention-transform.test.mjs` proves exact-task opt-in, ordinary-task stock behavior,
-asynchronous policy subscription, the selected turn's expanded completion state, preserved manual
-collapse, module syntax, and byte-identical second application.
+asynchronous policy subscription, the selected turn's expanded completion state, next-turn
+retention, preserved manual collapse, module syntax, and byte-identical second application.
 
-Live acceptance still requires completing a real configured turn and confirming that its reasoning
-stays open while the chevron can close and reopen it.
+Live acceptance on build `8109` completed a real configured turn, sent the next message, and
+confirmed that the prior reasoning stayed open while the chevron could close and reopen it.
 
 ## Non-goals
 
