@@ -9,6 +9,7 @@
     "task-attention-policy",
     "terminal-toggle",
     "outgoing-message-receipt",
+    "wait-thread-roster",
     "tinrelay-pointer-presentation",
     "native-app-tools-peer-authorization",
     "renderer-patch-registry"

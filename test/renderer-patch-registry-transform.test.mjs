@@ -30,7 +30,8 @@ try {
     "taskAttentionPolicy",
     "taskVisualPalette",
     "terminalToggle",
-    "tinrelayPointerPresentation"
+    "tinrelayPointerPresentation",
+    "waitThreadRoster"
   ]);
   assert.deepEqual(applied.targets, [
     "webview/assets/app-initial-fixture.js",
@@ -80,8 +81,12 @@ function appFixture() {
 
 function lazyFixture() {
   return [
+    "function MTKshortTaskTitle(e){return e?.split(` — `)[0]??null}",
     "function MTKsender(){}",
     "function MTKoutboundArguments(){}",
+    "function MTKwaitTargets(){}",
+    "function MTKrenderWaitThreads(){}",
+    'const waitRoster={"data-mtk-wait-thread-roster":true};',
     "function MTKOutboundMessageReceipt(){}",
     'const MTKtinrelayLocalShip="sample-ship";',
     "function MTKtinrelayPointerFromMessage(){}",

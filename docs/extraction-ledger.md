@@ -11,13 +11,14 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Staging, repacking, signing | Extracted; synthetic and build-8109 stages green | Requalify a disposable candidate from the next inspected pristine build |
 | Native app-tools peer authorization | Extracted; two main-process profiles red/green; build-8109 native messaging green | Requalify after the next Codex update |
 | Cross-task attribution | Extracted; current renderer-family fixture and build-8109 live use green | Requalify after the next Codex update |
-| Outgoing send receipt | Extracted; current renderer-family fixture and build-8109 live use green | Requalify after the next Codex update |
+| Outgoing send receipt | Extracted; build-8109 live mounted behavior and disposable acknowledged persistence/restart probes green | Live-accept restart reconstruction, then requalify after the next Codex update |
+| Wait-thread roster | Extracted; build-8109 names, spacing, links, colors, and multi-target behavior live-accepted | Requalify after the next Codex update |
 | Runtime JSON reload | Extracted; renderer/main fixture and build-8109 live save green | Requalify after the next Codex update |
 | Task palette | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
 | Reasoning retention | Extracted; exact-task fixture and build-8109 live use green | Requalify after the next Codex update |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
 | Task attention policy | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
-| Tinrelay presentation | Extracted as one patch; incoming and outgoing fixtures plus build-8109 loopback green | Requalify both directions after the next Codex or Tinrelay observer-contract change |
+| Tinrelay presentation | Extracted as one patch; incoming/outgoing build-8109 surfaces live-accepted; persistence-gated source-turn pagination is statically green | Live restart-plus-pagination check, then requalify after the next Codex or Tinrelay observer-contract change |
 | Sidebar action collapse | Extracted; fixture and build-8109 live use green | Requalify after the next Codex update |
 | Patch registry | Extracted; per-realm API, current marker fixture, and build-8109 composition green | Requalify after the next Codex update |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |

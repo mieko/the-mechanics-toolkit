@@ -14,6 +14,14 @@ const assets = path.join(root, "webview/assets");
 const owner = findOwner();
 let state = inspectState(owner.source);
 
+if (command === "apply" && state === "label-capability-upgrade") {
+  const patched = replaceOnce(owner.source, legacyHelper(), currentHelper(), "shared task-label helper upgrade");
+  fs.writeFileSync(owner.file, patched);
+  syntaxCheck(owner.file);
+  state = inspectState(patched);
+  if (state !== "applied") throw new Error("cross-task attribution label-capability upgrade did not verify");
+}
+
 if (command === "apply" && state === "needs-apply") {
   const details = inspectPristine(owner.source);
   const patched = patchAttribution(owner.source, owner.file, details);
@@ -50,14 +58,14 @@ function findOwner() {
 }
 
 function inspectState(source) {
-  const markers = [
+  const legacyMarkers = [
     "var MTKdelegatedBubbleStyle=",
     "function MTKsender(",
     "MTKstore.get(MTKtitleAtom,{hostId:",
     "messageBubbleStyle:MTKdelegatedBubbleStyle",
     '"data-user-message-bubble":!0,style:MTKbubbleStyleOverride'
   ];
-  const present = markers.map(marker => source.includes(marker));
+  const present = legacyMarkers.map(marker => source.includes(marker));
   if (present.every(Boolean)) {
     if (count(source, "function MTKsender(") !== 1 || count(source, "messageBubbleStyle:MTKdelegatedBubbleStyle") !== 1) {
       throw new Error("Unrecognized attribution patch: helper or style handoff is ambiguous");
@@ -66,7 +74,9 @@ function inspectState(source) {
     if (source.includes("className:`w-full rounded-xl px-2 py-1`") || source.includes("`bg-text/5`) max-w-")) {
       throw new Error("Unrecognized attribution patch: rejected delegated-bubble prototype remains");
     }
-    return "applied";
+    if (count(source, "function MTKshortTaskTitle(") === 1) return "applied";
+    if (count(source, "function MTKshortTaskTitle(") === 0 && source.includes(legacyHelper())) return "label-capability-upgrade";
+    throw new Error("Unrecognized attribution patch: shared task-label helper is partial");
   }
   if (present.some(Boolean)) throw new Error("Unrecognized attribution patch: partial markers");
   inspectPristine(source);
@@ -146,15 +156,26 @@ function patchAttribution(source, ownerFile, details) {
     ["t[42]=fe,t[43]=se,t[44]=ve,t[45]=be", "t[42]=fe,t[43]=se,t[44]=ve,t[127]=MTKbubbleStyleOverride,t[45]=be"];
   bubble = replaceOnce(bubble, ...bubbleStorage, "bubble style storage");
 
-  const helper =
-    "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
-    "function MTKsender(e,t){if(typeof e!==`string`)return null;let n=e.trim();if(n.length===0)return null;" +
-    "let r=n.indexOf(` — `);return r>0?n.slice(0,r).trim():typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
+  const helper = currentHelper();
 
   source = replaceOnce(source, details.bubble.text, bubble, "bubble component");
   source = replaceOnce(source, details.wrapper.text, wrapper, "delegation wrapper component");
   source = replaceOnce(source, details.delegation.text, helper + delegation, "delegation component");
   return replaceOnce(source, imports.before, imports.after, "attribution imports");
+}
+
+function legacyHelper() {
+  return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
+    "function MTKsender(e,t){if(typeof e!==`string`)return null;let n=e.trim();if(n.length===0)return null;" +
+    "let r=n.indexOf(` — `);return r>0?n.slice(0,r).trim():typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
+}
+
+function currentHelper() {
+  return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
+    "function MTKshortTaskTitle(e){if(typeof e!==`string`)return null;let t=e.trim();if(t.length===0)return null;" +
+    "let n=t.indexOf(` — `);return n>0?t.slice(0,n).trim():t}" +
+    "function MTKsender(e,t){let n=MTKshortTaskTitle(e);if(n==null)return null;return n!==e.trim()?n:" +
+    "typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
 }
 
 function resolveImports(ownerSource, ownerFile) {

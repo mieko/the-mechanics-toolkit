@@ -22,8 +22,10 @@ const helperTail = source.slice(helperStart);
 const componentBoundary = helperTail.match(/function [$A-Z_a-z][$\w]*\(e\)\{let t=/);
 assert.ok(helperStart >= 0 && componentBoundary, "attribution helper seam");
 const helper = helperTail.slice(0, componentBoundary.index);
-const api = Function(`${helper};return {MTKsender,MTKdelegatedBubbleStyle}`)();
+const api = Function(`${helper};return {MTKsender,MTKshortTaskTitle,MTKdelegatedBubbleStyle}`)();
 
+assert.equal(api.MTKshortTaskTitle("Bridge Keeper — Coordination"), "Bridge Keeper");
+assert.equal(api.MTKshortTaskTitle("documentation-research"), "documentation-research");
 assert.equal(api.MTKsender("Bridge Keeper — Coordination", "Example Ship"), "Bridge Keeper");
 assert.equal(api.MTKsender("Index repair", "Archive Engine"), "Archive Engine/Index repair");
 assert.equal(api.MTKsender("Index repair", null), null, "missing project metadata retains generic attribution");

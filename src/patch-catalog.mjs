@@ -54,6 +54,11 @@ const definitions = [
     probe: "test/outgoing-message-receipt.test.mjs"
   },
   {
+    name: "wait-thread-roster",
+    script: "patches/wait-thread-roster/patch.mjs",
+    probe: "test/wait-thread-roster.test.mjs"
+  },
+  {
     name: "tinrelay-pointer-presentation",
     script: "patches/tinrelay-pointer-presentation/patch.mjs",
     probe: "test/tinrelay-presentation.test.mjs",

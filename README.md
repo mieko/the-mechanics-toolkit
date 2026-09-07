@@ -13,18 +13,20 @@ ported and applied safely.
 
 ## Patches available
 
-These repairs have complete static qualification against **Codex Desktop `26.901.51231` (`8109`)**,
-and the selected fleet is installed and live-accepted on that build. That does not mean they are
-installed on your machine or compatible with an uninspected newer build. The last column is
-deliberately editorial: it helps an agent lead with real feature additions instead of presenting
-every repair and convenience as equally exciting.
+The current source fleet is statically qualified against **Codex Desktop `26.901.51231` (`8109`)**.
+Its established visual behavior has also been accepted in live use on that build; the newest
+restart-persistence and upgrade-path corrections still require the next deliberate live acceptance.
+That does not mean these patches are installed on your machine or compatible with an uninspected
+newer build. The last column is deliberately editorial: it helps an agent lead with real feature
+additions instead of presenting every repair and convenience as equally exciting.
 
 | Patch | What it gives you | Interesting? |
 | --- | --- | --- |
 | [Tinrelay presentation](patches/tinrelay-pointer-presentation/) | Render verified incoming and accepted outgoing [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/mieko/tinrelay)) transmissions as readable radio messages—even after an app restart—with opposing signal wakes that show which way the message is traveling. | **Especially** |
 | [Task visual palette](patches/task-visual-palette/) | Give important agents and tasks stable colors across rooms, sidebar rows, and provenanced messages, with optional background sigils. | **Yes** |
 | [Cross-task attribution](patches/cross-task-attribution/) | See which agent actually sent a delegated message instead of inferring who “another Codex task” was. | **Yes** |
-| [Outgoing-message receipt](patches/outgoing-message-receipt/) | Keep a compact, hover-previewable record of what an agent sent and where instead of letting the send disappear. | **Yes** |
+| [Outgoing-message receipt](patches/outgoing-message-receipt/) | Keep a compact, hover-previewable record of what an agent sent and where—even after the sending task or app is reopened. | **Yes** |
+| [Wait-thread roster](patches/wait-thread-roster/) | Replace opaque `Wait threads` activity with the names of the agents and tasks actually being awaited, linked and colored when Codex knows them. | **Yes** |
 | [Reasoning retention](patches/reasoning-retention/) | Keep completed reasoning open for selected continuing agents while preserving manual collapse. | **Yes** |
 | [Task attention policy](patches/task-attention-policy/) | Silence routine sidebar badges, Dock badges, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Runtime JSON reload](patches/runtime-json-reload/) | Change palette and attention policy while Codex is running; invalid or partial saves leave the last good policy in place. | Supporting |

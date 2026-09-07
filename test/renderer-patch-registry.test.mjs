@@ -57,7 +57,9 @@ const expectedNames = [
   ["taskVisualPalette", source => source.includes("function MTKusePaletteBootstrap(")],
   ["tinrelayPointerPresentation", source => source.includes("function MTKtinrelayPointerFromMessage(") &&
     source.includes("data-mtk-tinrelay-pointer")],
-  ["terminalToggle", source => source.includes('requiredAccess:`codexLocal`,shortcutScope:`app`,commandMenuGroupKey:`panels`')]
+  ["terminalToggle", source => source.includes('requiredAccess:`codexLocal`,shortcutScope:`app`,commandMenuGroupKey:`panels`')],
+  ["waitThreadRoster", source => source.includes("function MTKrenderWaitThreads(") &&
+    source.includes("data-mtk-wait-thread-roster")]
 ].filter(([, active]) => allSources.some(active)).map(([name]) => name).sort();
 assert.deepEqual(names, expectedNames);
 assert.equal(new Set(names).size, names.length, "one owner registers each active package");
@@ -78,20 +80,31 @@ if (paletteCalls.length === 1) {
 for (const call of appCalls.filter(call => call.name !== "taskVisualPalette")) {
   Function("MTKpatchRegistry", call.source)(registry);
 }
-for (const call of lazyCalls) Function("globalThis", call.source)(firstRealm);
+for (const call of lazyCalls) {
+  if (call.name === "crossTaskAttribution") {
+    Function("globalThis", "MTKshortTaskTitle", call.source)(firstRealm, title => title?.split(" — ")[0] ?? null);
+  } else {
+    Function("globalThis", call.source)(firstRealm);
+  }
+}
 assert.deepEqual(Object.keys(registry.packages).sort(), ["validPackage", ...names].sort());
 if (registry.packages.outgoingMessageReceipt != null) {
-  assert.equal(registry.packages.outgoingMessageReceipt.version, 1);
-  assert.equal(registry.packages.outgoingMessageReceipt.persistence, "mounted-session");
-  assert.equal(registry.packages.outgoingMessageReceipt.visibility, "persistent-when-activity-collapsed");
+  assert.equal(registry.packages.outgoingMessageReceipt.version, 4);
+  assert.equal(registry.packages.outgoingMessageReceipt.persistence, "acknowledged-private-task-buckets");
+  assert.equal(registry.packages.outgoingMessageReceipt.visibility, "persistent-after-restart-and-collapse");
   assert.equal(registry.packages.outgoingMessageReceipt.preview, "stock-hover");
   assert.equal(registry.packages.outgoingMessageReceipt.messageRendering, "recipient-user-message");
 }
+if (registry.packages.crossTaskAttribution != null) {
+  assert.equal(registry.packages.crossTaskAttribution.version, 2);
+  assert.equal(registry.packages.crossTaskAttribution.resolveTaskLabel({title: "Bridge Keeper — Coordination"}), "Bridge Keeper");
+}
 if (registry.packages.tinrelayPointerPresentation != null) {
-  assert.equal(registry.packages.tinrelayPointerPresentation.version, 1);
+  assert.equal(registry.packages.tinrelayPointerPresentation.version, 2);
   assert.equal(registry.packages.tinrelayPointerPresentation.contract, "tinrelay-local-pointer-v1");
   assert.equal(registry.packages.tinrelayPointerPresentation.disclosure, "automatic-local-inspection");
   assert.equal(registry.packages.tinrelayPointerPresentation.rendering, "stock-safe-markdown");
+  assert.equal(registry.packages.tinrelayPointerPresentation.outgoingContinuity, "private-task-turn-anchors");
 }
 assert.ok(!bootstrap.includes("subscribe") && !bootstrap.includes("addEventListener") && !bootstrap.includes("MutationObserver"),
   "registry has no lifecycle or event machinery");
@@ -101,7 +114,10 @@ process.stdout.write(`${JSON.stringify({
   scope: "one-registry-per-renderer-realm",
   apiVersion: registry.apiVersion,
   packages: names,
-  callableCapabilities: paletteCalls.length === 1 ? ["taskVisualPalette.resolveTaskColor"] : [],
+  callableCapabilities: [
+    ...(paletteCalls.length === 1 ? ["taskVisualPalette.resolveTaskColor"] : []),
+    ...(names.includes("crossTaskAttribution") ? ["crossTaskAttribution.resolveTaskLabel"] : [])
+  ],
   subscriptions: false,
   incompatibleRegistryFallback: "packages-remain-independent"
 }, null, 2)}\n`);

@@ -33,6 +33,14 @@ try {
 
   assert.equal(runToolkit("apply").state, "applied");
   assert.deepEqual(fs.readFileSync(ownerTarget), once, "second application is byte-identical");
+
+  const legacy = once.toString().replace(currentHelper(), legacyHelper());
+  assert.notEqual(legacy, once.toString(), "legacy helper fixture differs");
+  fs.writeFileSync(ownerTarget, legacy);
+  assert.equal(runToolkit("check").state, "label-capability-upgrade");
+  assert.equal(runToolkit("apply").state, "applied");
+  assert.deepEqual(fs.readFileSync(ownerTarget), once, "legacy label helper upgrades to the current helper");
+
   assert.deepEqual(fs.readFileSync(initialTarget), Buffer.from(initialFixture()), "metadata owner stays untouched");
   assert.deepEqual(fs.readFileSync(primaryTarget), Buffer.from(primaryFixture()), "secondary metadata owner stays untouched");
   process.stdout.write("cross-task attribution transform probe passed\n");
@@ -44,6 +52,20 @@ try {
   }
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+}
+
+function legacyHelper() {
+  return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
+    "function MTKsender(e,t){if(typeof e!==`string`)return null;let n=e.trim();if(n.length===0)return null;" +
+    "let r=n.indexOf(` — `);return r>0?n.slice(0,r).trim():typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
+}
+
+function currentHelper() {
+  return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
+    "function MTKshortTaskTitle(e){if(typeof e!==`string`)return null;let t=e.trim();if(t.length===0)return null;" +
+    "let n=t.indexOf(` — `);return n>0?t.slice(0,n).trim():t}" +
+    "function MTKsender(e,t){let n=MTKshortTaskTitle(e);if(n==null)return null;return n!==e.trim()?n:" +
+    "typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
 }
 
 function initialFixture() {

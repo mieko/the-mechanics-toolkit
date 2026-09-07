@@ -74,20 +74,39 @@ function activePackages() {
       name: "crossTaskAttribution",
       file,
       anchor: "var MTKdelegatedBubbleStyle=",
-      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("crossTaskAttribution",{version:1});`
+      call: source.includes("function MTKshortTaskTitle(")
+        ? `globalThis.__MTK_PATCH_REGISTRY__?.register?.("crossTaskAttribution",{version:2,resolveTaskLabel(e){try{return MTKshortTaskTitle(e?.title)}catch{return null}}});`
+        : `globalThis.__MTK_PATCH_REGISTRY__?.register?.("crossTaskAttribution",{version:1});`,
+      previousCalls: source.includes("function MTKshortTaskTitle(")
+        ? [`globalThis.__MTK_PATCH_REGISTRY__?.register?.("crossTaskAttribution",{version:1});`]
+        : []
+    });
+    addIf(packages, source.includes("function MTKrenderWaitThreads(") && source.includes("data-mtk-wait-thread-roster"), {
+      name: "waitThreadRoster",
+      file,
+      anchor: "function MTKwaitTargets(",
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("waitThreadRoster",{version:1,names:"hydrated-task-titles",links:"known-tasks",colors:"optional-task-visual-palette"});`
     });
     addIf(packages, source.includes("function MTKOutboundMessageReceipt("), {
       name: "outgoingMessageReceipt",
       file,
       anchor: "function MTKoutboundArguments(",
-      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:1,persistence:"mounted-session",visibility:"persistent-when-activity-collapsed",preview:"stock-hover",messageRendering:"recipient-user-message"});`
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:4,persistence:"acknowledged-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});`,
+      previousCalls: [
+        `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:1,persistence:"mounted-session",visibility:"persistent-when-activity-collapsed",preview:"stock-hover",messageRendering:"recipient-user-message"});`,
+        `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:2,persistence:"bounded-private-restart-cache",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});`,
+        `globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:3,persistence:"bounded-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});`
+      ]
     });
     addIf(packages, source.includes("function MTKtinrelayPointerFromMessage(") &&
       source.includes("data-mtk-tinrelay-pointer"), {
       name: "tinrelayPointerPresentation",
       file,
       anchor: "const MTKtinrelayLocalShip=",
-      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:1,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"stock-safe-markdown"});`
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:2,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"stock-safe-markdown",outgoingContinuity:"private-task-turn-anchors"});`,
+      previousCalls: [
+        `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:1,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"stock-safe-markdown"});`
+      ]
     });
   }
   const names = packages.map(entry => entry.name);
