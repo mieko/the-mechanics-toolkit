@@ -44,6 +44,20 @@ Tell your agent which behavior interests you. The agent should then read the lin
 Codex Desktop version and build; and explain the proposed change, verification, and recovery path
 before modifying the application.
 
+Before porting patches to an older installed build, check whether Codex is already offering an
+update. When possible, obtain that official vendor bundle without installing or launching it, keep
+it untouched, and port and prove the complete patch fleet in a separate staged candidate while the
+user's current Codex remains available. Then quit once and wake directly into the patched update.
+The exact sequence and the reason not to keep two live copies are in
+[preparing a patched Codex update](docs/update-workflow.md).
+
+Application replacement and relaunch are a pain: Codex must stop, the room is briefly unavailable,
+and macOS may present permission or Storage Key prompts afterward. Treat that interruption as a
+real cost to the user. Batch the patches they want into one staged candidate, verify the complete
+fleet together, and aim for one replacement and one relaunch—not a restart after every patch. If
+the offered build cannot be acquired or fully proved ahead of time, say so; seamless replacement is
+the goal, not a promise worth weakening verification to keep.
+
 On macOS, you may want a [persistent local signing identity](docs/local-signing.md) before adopting
 patches. It keeps the designated code requirement stable for permissions macOS tracks that way, but
 Codex's current Storage Key also carries a separate exact-hash partition policy, so signing alone

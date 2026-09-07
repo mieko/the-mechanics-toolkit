@@ -15,6 +15,13 @@ structure changes.**
 - The staging command must refuse a destination inside `/Applications`, must never launch it, and
   must remove a newly created partial destination on failure. A future installation command must
   require an explicit operator action and preserve a recoverable external copy.
+- Prefer acquiring an offered vendor application before interrupting the running app. Keep that
+  vendor bundle untouched, stage and prove the complete selected fleet while the current app stays
+  available, then ask for one final quit-and-relaunch seam.
+- Do not install stock and patched copies side by side under different filenames while both retain
+  `com.openai.codex`. The patched candidate may be named `ChatGPT-MechanicsToolkit.app` while staged
+  and unlaunched, but the adopted application occupies the canonical `/Applications/ChatGPT.app`
+  path. Preserve the pristine vendor installer or another non-live recovery artifact instead.
 - Match semantic owners and complete structural contracts. Unknown, partial, duplicated, or split
   ownership fails closed; never broaden a matcher merely to make a new build pass.
 - Keep local names, task IDs, ship identities, absolute user paths, and private policy out of source.

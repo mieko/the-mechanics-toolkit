@@ -90,7 +90,8 @@ boundary and verification of both directions.
 ## Stage a complete candidate
 
 ```sh
-node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app /path/to/Staged-ChatGPT.app \
+node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app \
+  /path/to/ChatGPT-MechanicsToolkit.app \
   --config /path/to/toolkit.local.json
 ```
 
@@ -105,4 +106,7 @@ seal, signs the candidate with the configured identity (ad-hoc by default), and 
 after packing.
 
 A green result is a statically verified candidate, not permission to adopt it and not evidence of
-live behavior. See [staging and authority](staging.md) for the exact proof boundary.
+live behavior. The candidate name is a staging convention, not a second installed application;
+adoption preserves the one canonical `/Applications/ChatGPT.app` identity. See
+[preparing a patched Codex update](update-workflow.md) and [staging and authority](staging.md) for
+the exact boundaries.

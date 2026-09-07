@@ -15,6 +15,11 @@ Configuration-backed patches read their ordinary sections from the same file. Th
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array
 order, so the renderer registry always sees the completed selected surface.
 
+For an offered update, prefer the untouched application from the official vendor installer as the
+source. The running installed application may remain open throughout staging. A staged candidate
+may be named `ChatGPT-MechanicsToolkit.app`, but it stays outside `/Applications` and unlaunched; it
+is not a second live application. See [preparing a patched Codex update](update-workflow.md).
+
 ## Static proof
 
 The source is inspected before copying and again before success returns. Inside the new candidate,
@@ -38,6 +43,8 @@ false` because runtime behavior remains deliberately unclaimed.
 
 ## Next seam
 
-Launching the candidate is a separate operator decision. Installing it over `/Applications` is a
-different and more consequential decision that also needs an external recovery copy. Neither is
-implied by a successful stage, and neither command exists here yet.
+Launching the candidate is a separate operator decision. Installing it at the canonical
+`/Applications/ChatGPT.app` path is a different and more consequential decision that also needs an
+external recovery artifact. Do not retain a separately named live copy with the same bundle
+identifier. Neither adoption nor launch is implied by a successful stage, and neither command
+exists here yet.
