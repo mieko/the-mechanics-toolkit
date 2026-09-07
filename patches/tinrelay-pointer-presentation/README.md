@@ -2,16 +2,18 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer and main-process families
-- **Current evidence:** Build `8109` unified static stage and live loopback green, 2026-09-07
+- **Current evidence:** Build `8109` unified static stage and live incoming/outgoing presentation
+  green; source-turn restart reconstruction remains pending live acceptance, 2026-09-07
 
 ## Why it exists
 
 Tinrelay messages should feel like correspondence, not plumbing. A verified incoming pointer should
 become the message it identifies, and an accepted outgoing send should remain visible in the
-conversation instead of collapsing into a JSON receipt. Both directions use the same dark radio
-language, but direction is visible before the route is read: incoming cards show the broad arriving
-wavefront, while outgoing cards invert the field and ring colors and expose the small transmitter
-origin on their left edge.
+conversation instead of collapsing into a JSON receipt. Both directions use the same crisp radio
+language, but direction is visible before the route is read: incoming cards use a near-black field
+with fine light rings, while outgoing cards use a gray field with fine dark rings and expose the
+small transmitter origin on their left edge. Two staggered ring layers travel outward continuously;
+each resets only while transparent, so the wake neither stops nor visibly hitches between cycles.
 
 ![An authenticated Tinrelay transmission rendered in Codex as white text over a dark radio-wake card](tinrelay-recv.png)
 
@@ -22,14 +24,21 @@ origin on their left edge.
 The patch recognizes only the exact `tinrelay-local-pointer-v1` shape in a delegated message. The
 main process asks the configured local Tinrelay client to inspect that one inbox item, verifies the
 returned routing and author fields against the pointer, and returns only display-safe fields. The
-renderer shows the route and body through Codex's stock safe Markdown surface. Long bodies collapse
-after six lines behind the stock **Show more** control, and the radio card is deliberately narrower
-than an ordinary conversation bubble. Inspection is automatic and one-shot; malformed or
-mismatched data becomes a small local error rather than approximate rendering.
+renderer shows the route and body through Codex's complete stock user-message bubble, including its
+safe Markdown surface, dimensions, padding, radius, and **Show more** behavior after six lines.
+Source-style single newlines render as ordinary Markdown
+soft breaks while blank-line paragraph boundaries remain visible. Named endpoints render as
+`local@ship`; ship-wide catch-all endpoints retain their canonical `@ship` address in both
+directions. Inspection is automatic and one-shot; malformed or mismatched data becomes a small
+local error rather than approximate rendering.
+
+When either direction settles into its hoisted radio card, the patch returns the conversation to
+the bottom after the layout has caught up only if the reader was no more than one viewport away
+before the change. It never pulls someone back down while they are reading older history.
 
 ## Outgoing transmissions
 
-Agents keep using ordinary `tinrelay send`, including its standard-input and body-file forms.
+Agents keep using ordinary `tinrelay --ship SHIP send`, with the complete body on standard input.
 Arguments, stdout, stderr, exit status, delivery, and outbox behavior are unchanged. After a fresh
 send is accepted and its encrypted outbox envelope is removed, a compatible Tinrelay client may
 emit the exact plaintext transmission to a private Unix socket. Codex joins that observer event to
@@ -37,11 +46,12 @@ the ordinary acceptance JSON by transmission ID, sender ship, and recipient ship
 
 The surface means **accepted by the relay**, not received, read, or acted upon by the remote ship.
 Missing or mismatched observer evidence leaves the stock command result visible. Duplicate events
-are deduplicated by transmission ID and the first valid event wins. Codex keeps a bounded private
-presentation cache so the ordinary acceptance result can reconstruct the same card after an app
-restart. Accepted sends are standalone persistent conversation units, so they remain visible beside
-the stock collapsed activity summary just like outgoing local task messages. That cache is
-presentation continuity, not delivery evidence or a Tinrelay sent archive.
+are deduplicated by transmission ID and the first valid event wins. When the observer event resolves,
+Codex durably attaches the validated presentation to the source task and assistant turn. The card can
+therefore be rebuilt after restart and later pagination even when Codex no longer returns the
+original command activity. Accepted sends also remain standalone persistent conversation units while
+that activity is mounted, so they stay hoisted beside the stock collapsed activity summary. These
+records are presentation continuity, not delivery evidence or a Tinrelay sent archive.
 
 ## Configuration
 
@@ -74,14 +84,18 @@ The socket's immediate parent must already exist without group or world permissi
 accepts one newline-terminated UTF-8 `tinrelay-outgoing-observer-v1` event of at most 20 KiB per
 connection. It keeps at most 256 accepted events in memory and as atomic, mode-`0600` JSON files
 under `mechanics-toolkit/tinrelay/SHIP/outgoing-presentations` inside Electron's private user-data
-directory; the cache directory is mode `0700`. The cache therefore creates a second, bounded local
-plaintext copy of recently sent bodies, with a ceiling of roughly 5 MiB plus filesystem overhead.
+directory; the cache directory is mode `0700`. Source-turn anchors live in a sibling private
+`outgoing-anchors` directory. They retain up to 256 presentations per source task, up to 8 MiB per
+task, with a 64-task global safety valve. The two caches therefore create bounded local plaintext
+copies of recently sent bodies.
 
 On lookup Codex checks memory, then the exact UUID-named cache file, then waits up to 750 ms for a
 fresh observer event. Invalid, corrupt, oversized, misrouted, or pruned evidence leaves the stock
 command result visible. Cache writes are best effort and never change Tinrelay arguments, output,
 exit status, outbox behavior, or delivery. Tinrelay itself gains no sent-message database, command,
-retention rule, or other correspondence-history surface.
+retention rule, or other correspondence-history surface. Sends first observed before the turn-anchor
+upgrade become durable if their original command activity mounts once under the new patch; an older
+send whose activity never returns cannot be retroactively assigned to a turn.
 
 ## Owned seams
 
@@ -114,11 +128,17 @@ replaces a working application.
 The transform fixture proves fail-closed configuration and ownership, both exact contracts,
 byte-identical second application, syntax validity, and composition with the runtime watcher. The
 behavior probes cover exact pointer parsing, fixed no-shell inspection, metadata equality, stock
-safe Markdown with six-line disclosure, directional radio wakes, outgoing palette inversion and
-visible transmitter origin, ordinary-send recognition, collapsed-turn hoisting, private socket
-permissions, fragmented events, lookup-before-event ordering, first-valid duplicate handling, the
-20 KiB ceiling, bounded private persistence, reconstruction after process restart, corrupt-cache
-rejection, the 256-event ceiling, and socket cleanup.
+safe Markdown with paragraph-aware soft wrapping and six-line disclosure, directional radio wakes
+that never contract below the card while animating, guarded post-hoist scrolling, outgoing palette
+inversion and visible transmitter origin, ordinary-send recognition, collapsed-turn hoisting,
+private socket permissions, fragmented events, lookup-before-event ordering, first-valid duplicate
+handling, the
+20 KiB ceiling, bounded private persistence, source-task/source-turn reconstruction after process
+restart without the command activity, corrupt-cache rejection, the 256-event observer ceiling, the
+256-anchor per-task ceiling, cross-task retention isolation, and socket cleanup. The current
+build-`8109` patch family also upgrades cleanly in a disposable extraction; live
+restart-plus-pagination qualification remains pending until the staged app is deliberately
+replaced.
 
 The private build-`7942` implementation was accepted live for incoming loopback before extraction.
 Build `8109` stages the unified patch with all configured toolkit patches, valid signature and ASAR

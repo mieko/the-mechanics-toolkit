@@ -3,6 +3,31 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+const LEGACY_VISUAL_CSS = '@keyframes mtk-tinrelay-signal{0%{transform:scale(.82);opacity:.32}55%{opacity:.72}100%{transform:scale(1.18);opacity:.24}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{position:relative;overflow:hidden;isolation:isolate;background:#0B0C0E;border-color:#34383D;color:#F1F3F5}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{content:"";position:absolute;z-index:0;inset:-38%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 34px,rgba(116,124,134,.24) 35px 43px,transparent 44px 78px);animation:mtk-tinrelay-signal 18s ease-out infinite}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal{background:#34383D;border-color:#626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::before{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.82) 0 7px,transparent 8px 31px,rgba(11,12,14,.46) 32px 45px,transparent 46px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer] .mtk-tinrelay-route{color:#A8ADB4}[data-mtk-tinrelay-pointer] .mtk-tinrelay-body{color:#F1F3F5}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{animation:none;transform:scale(1);opacity:.34}}';
+const SLOW_VISUAL_CSS = '@keyframes mtk-tinrelay-signal{0%,100%{opacity:.48}50%{opacity:.68}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{position:relative;overflow:hidden;isolation:isolate;background:#0B0C0E;border-color:#34383D;color:#F1F3F5}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{content:"";position:absolute;z-index:0;inset:-38%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 34px,rgba(116,124,134,.18) 35px 43px,transparent 44px 78px);animation:mtk-tinrelay-signal 18s ease-in-out infinite;will-change:opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal{background:#303438;border-color:#626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::before{inset:0;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 7px,transparent 8px 31px,rgba(11,12,14,.32) 32px 45px,transparent 46px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer] .mtk-tinrelay-route{color:#A8ADB4}[data-mtk-tinrelay-pointer] .mtk-tinrelay-body{color:#F1F3F5}[data-mtk-tinrelay-pointer] .mtk-tinrelay-body .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{animation:none;opacity:.58}}';
+const ONE_SHOT_VISUAL_CSS = SLOW_VISUAL_CSS
+  .replace("@keyframes mtk-tinrelay-signal{0%,100%{opacity:.48}50%{opacity:.68}}", "@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:.28}75%{opacity:.64}100%{transform:scale(1.12);opacity:0}}")
+  .replace("inset:-38%;pointer-events:none", "inset:-38%;transform-origin:14% 82%;pointer-events:none")
+  .replace("animation:mtk-tinrelay-signal 18s ease-in-out infinite;will-change:opacity", "animation:mtk-tinrelay-signal 1.6s ease-out 1 both;will-change:transform,opacity")
+  .replace("inset:0;background:repeating-radial-gradient", "inset:0;transform-origin:7% 72%;background:repeating-radial-gradient")
+  .replace("animation:none;opacity:.58", "animation:none;transform:scale(1);opacity:.58");
+const CURRENT_BODY_CSS = '.mtk-tinrelay-body pre:first-child{margin-top:0}';
+const LEGACY_BODY_CLASS = 'className:"mtk-tinrelay-body min-w-0 px-2 py-1"';
+const CURRENT_BODY_CLASS = 'className:"mtk-tinrelay-body min-w-0 px-2"';
+const OPTICAL_ALIGNMENT_CSS = '[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{padding-top:calc(var(--spacing) * 1.5)}';
+const PREVIOUS_CURRENT_VISUAL_CSS = `${ONE_SHOT_VISUAL_CSS}${CURRENT_BODY_CSS}`;
+const PREVIOUS_CONTINUOUS_VISUAL_CSS = ONE_SHOT_VISUAL_CSS
+  .replace("@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:.28}75%{opacity:.64}100%{transform:scale(1.12);opacity:0}}", "@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}")
+  .replace("[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{content:", "[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::after{content:")
+  .replace("animation:mtk-tinrelay-signal 1.6s ease-out 1 both;will-change:transform,opacity", "animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity")
+  .replace("[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::before{", "[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::after{")
+  .replace("[data-mtk-tinrelay-pointer].mtk-tinrelay-signal>*{", "[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal>*{")
+  .replace("[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{animation:none;transform:scale(1);opacity:.58}", "[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::after{display:none}");
+const PREVIOUS_NEXT_VISUAL_CSS = `${PREVIOUS_CONTINUOUS_VISUAL_CSS}${CURRENT_BODY_CSS}`;
+const PREVIOUS_CUSTOM_CARD_VISUAL_CSS = `${PREVIOUS_NEXT_VISUAL_CSS}${OPTICAL_ALIGNMENT_CSS}`;
+const PREVIOUS_STOCK_BUBBLE_VISUAL_CSS = '@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{width:100%}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal>.group{align-items:flex-start}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{position:relative;overflow:hidden;isolation:isolate;background:#0B0C0E;box-shadow:inset 0 0 0 1px #34383D;color:#F1F3F5}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{content:"";position:absolute;z-index:0;inset:-38%;transform-origin:14% 82%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 34px,rgba(116,124,134,.18) 35px 43px,transparent 44px 78px);animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#303438;box-shadow:inset 0 0 0 1px #626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 7px,transparent 8px 31px,rgba(11,12,14,.32) 32px 45px,transparent 46px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{display:none}}';
+const NEXT_VISUAL_CSS = "@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{width:100%}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal>.group{align-items:flex-start}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{position:relative;overflow:hidden;isolation:isolate;background:#050607!important;box-shadow:inset 0 0 0 1px #34383D;color:#F1F3F5!important}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{content:\"\";position:absolute;z-index:0;inset:-38%;transform-origin:14% 82%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 35px,rgba(190,196,204,.22) 35px 37px,transparent 37px 78px);animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#303438!important;box-shadow:inset 0 0 0 1px #626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 5px,transparent 5px 33px,rgba(11,12,14,.38) 33px 35px,transparent 35px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{display:none}}";
+
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
 const configPath = readOption("--config");
@@ -17,7 +42,13 @@ let rendererSource = fs.readFileSync(renderer, "utf8");
 let mainSource = fs.readFileSync(main, "utf8");
 let state = inspectState();
 
-if (command === "apply" && state === "needs-apply") {
+if (command === "apply" && state === "legacy-presentation-applied") {
+  rendererSource = migrateRendererPresentation(rendererSource);
+  fs.writeFileSync(renderer, rendererSource);
+  moduleSyntaxCheck(renderer);
+  state = inspectState();
+  if (state !== "applied") throw new Error("Tinrelay presentation migration did not verify");
+} else if (command === "apply" && state === "needs-apply") {
   const config = configuredTinrelay();
   rendererSource = patchRenderer(rendererSource, config.localShip);
   mainSource = patchMain(mainSource, config);
@@ -29,7 +60,7 @@ if (command === "apply" && state === "needs-apply") {
   if (state !== "applied") throw new Error("Tinrelay pointer transform did not verify");
 }
 
-const embedded = state === "applied" ? embeddedConfiguration() : null;
+const embedded = new Set(["applied", "legacy-presentation-applied"]).has(state) ? embeddedConfiguration() : null;
 
 process.stdout.write(`${JSON.stringify({
   state,
@@ -60,6 +91,22 @@ function inspectState() {
   const rendererPatched = rendererBaseMarkers.every(marker => rendererSource.includes(marker));
   const mainPatched = mainBaseMarkers.every(marker => mainSource.includes(marker));
   if (rendererPatched && mainPatched) {
+    if (rendererSource.includes(JSON.stringify(LEGACY_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(SLOW_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_CURRENT_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_NEXT_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_CUSTOM_CARD_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_STOCK_BUBBLE_VISUAL_CSS)) ||
+        rendererSource.includes(LEGACY_BODY_CLASS) ||
+        !rendererSource.includes("function MTKtinrelayMessageView(") ||
+        !rendererSource.includes("function MTKtinrelayScrollSnapshot(") ||
+        !rendererSource.includes("&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo") ||
+        !rendererSource.includes("MTKtinrelayScheduleScroll(d.current)")) {
+      inspectAppliedRendererBase(rendererSource);
+      inspectAppliedMain(mainSource);
+      embeddedConfiguration();
+      return "legacy-presentation-applied";
+    }
     inspectAppliedRenderer(rendererSource);
     inspectAppliedMain(mainSource);
     embeddedConfiguration();
@@ -98,23 +145,36 @@ function inspectAppliedRenderer(source) {
     'function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"',
     'children:["📡 ",u]',
     'MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)',
-    'r.transmission.authorLabel===null?r.transmission.senderShip:',
     'MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip)',
-    '(0,Tb.jsx)(rg,{text:r.transmission.body,cwd:null,hostId:"local",collapsedLineCount:6})',
-    'maxWidth:"min(38rem,86%)"',
+    'MTKtinrelayAddress(null,n.sender_ship)',
+    'function MTKtinrelayMessageView(',
+    '(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})',
+    'data-user-message-bubble',
     'function MTKtinrelayEnsureStyle()',
     'mtk-tinrelay-signal',
     '@media (prefers-reduced-motion:reduce)',
-    'background:#0B0C0E',
-    'border-color:#34383D',
+    'background:#050607!important',
+    'box-shadow:inset 0 0 0 1px #34383D',
     'repeating-radial-gradient',
     'circle at 14% 82%',
     'circle at 7% 72%',
-    'rgba(11,12,14,.82) 0 7px',
-    '35px 43px',
-    'animation:mtk-tinrelay-signal 18s ease-out infinite',
-    'mtk-tinrelay-body{color:#F1F3F5}',
-    'r.status==="ready"?(0,Tb.jsx)'
+    'rgba(11,12,14,.68) 0 5px',
+    'rgba(190,196,204,.22) 35px 37px',
+    '@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}',
+    'animation:mtk-tinrelay-signal 6s linear infinite',
+    'mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}',
+    'will-change:transform,opacity',
+    'transform-origin:14% 82%',
+    'transform-origin:7% 72%',
+    'background:#303438!important',
+    '.mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}',
+    'color:#F1F3F5',
+    'mtk-tinrelay-signal>.group{align-items:flex-start}',
+    'function MTKtinrelayScrollSnapshot()',
+    'Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)',
+    'setTimeout(()=>{let t=e.element',
+    'MTKtinrelayScheduleScroll(d.current)',
+    '(0,Tb.jsx)(MTKtinrelayMessageView,{body:'
   ]) {
     if (!helpers.includes(contract)) throw new Error(`Tinrelay renderer postcondition missing: ${contract}`);
   }
@@ -189,7 +249,7 @@ function inspectAppliedMain(source) {
 function inspectAppliedMainBase(source) {
   const helpers = mainHelperSlice(source);
   for (const contract of [
-    'x.execFile(MTKtinrelayClient,["inbox","show",e.local_id,"--ship",e.local_ship]',
+    'x.execFile(MTKtinrelayClient,["--ship",e.local_ship,"inbox","show",e.local_id]',
     "shell:!1",
     "timeout:8e3",
     "maxBuffer:1048576",
@@ -269,7 +329,123 @@ function patchRenderer(value, localShip) {
 }
 
 function rendererHelpers(hostBus, localShip) {
-  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"||e.includes("\r"))return null;let t=e.endsWith("\n")?e.slice(0,-1):e,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")return null;let r;try{r=JSON.parse(n[1])}catch{return null}if(r==null||typeof r!=="object"||Array.isArray(r))return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayPointerNode(e){return MTKtinrelayPointerFromMessage(e)==null?null:(0,Tb.jsx)(MTKtinrelayPointerView,{pointerText:e})}function MTKtinrelayAddress(e,t){return e+"@"+t}function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent="@keyframes mtk-tinrelay-signal{0%{transform:scale(.82);opacity:.32}55%{opacity:.72}100%{transform:scale(1.18);opacity:.24}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{position:relative;overflow:hidden;isolation:isolate;background:#0B0C0E;border-color:#34383D;color:#F1F3F5}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{content:\"\";position:absolute;z-index:0;inset:-38%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 34px,rgba(116,124,134,.24) 35px 43px,transparent 44px 78px);animation:mtk-tinrelay-signal 18s ease-out infinite}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal{background:#34383D;border-color:#626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal::before{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.82) 0 7px,transparent 8px 31px,rgba(11,12,14,.46) 32px 45px,transparent 46px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer] .mtk-tinrelay-route{color:#A8ADB4}[data-mtk-tinrelay-pointer] .mtk-tinrelay-body{color:#F1F3F5}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal::before{animation:none;transform:scale(1);opacity:.34}}",document.head.appendChild(e)}function MTKtinrelayPointerView({pointerText:e}){MTKtinrelayEnsureStyle();let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1);MTKtinrelayReact.useEffect(()=>{let s=${hostBus}.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?i({status:"ready",transmission:t}):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0;let c=crypto.randomUUID();a.current=c,${hostBus}.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?(r.transmission.authorLabel===null?r.transmission.senderShip:MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip))+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+n.sender_ship;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,Tb.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,className:"mtk-tinrelay-signal flex min-w-0 flex-col gap-2 rounded-xl border px-3 py-2 text-start",style:{maxWidth:"min(38rem,86%)"},children:[r.status==="loading"?(0,Tb.jsx)("div",{className:"text-xs mtk-tinrelay-route",children:"Inspecting…"}):null,r.status==="error"?(0,Tb.jsx)("div",{role:"alert",className:"text-xs text-danger",children:r.error}):null,r.status==="ready"?(0,Tb.jsx)("div",{className:"mtk-tinrelay-body min-w-0 px-2 py-1",children:(0,Tb.jsx)(rg,{text:r.transmission.body,cwd:null,hostId:"local",collapsedLineCount:6})}):null]})]})}`;
+  return `${pointerHelpers(localShip)}${scrollHelpers()}${presentationHelpers(hostBus)}`;
+}
+
+function pointerHelpers(localShip) {
+  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"||e.includes("\r"))return null;let t=e.endsWith("\n")?e.slice(0,-1):e,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")return null;let r;try{r=JSON.parse(n[1])}catch{return null}if(r==null||typeof r!=="object"||Array.isArray(r))return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayPointerNode(e){return MTKtinrelayPointerFromMessage(e)==null?null:(0,Tb.jsx)(MTKtinrelayPointerView,{pointerText:e})}function MTKtinrelayAddress(e,t){return(typeof e==="string"&&e.length>0?e:"")+"@"+t}`;
+}
+
+function scrollHelpers() {
+  return 'function MTKtinrelayScrollSnapshot(){let e=[...document.querySelectorAll(".thread-scroll-container")].find(e=>e.clientHeight>0&&e.getClientRects().length>0);return e==null?null:{element:e,follow:Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)}}function MTKtinrelayScheduleScroll(e){e?.follow===!0&&setTimeout(()=>{let t=e.element;t.isConnected&&t.clientHeight>0&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo({behavior:"instant",top:0})},32)}';
+}
+
+function presentationHelpers(hostBus) {
+  return `function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n}){MTKtinrelayEnsureStyle();return(0,Tb.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,Tb.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=${hostBus}.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,${hostBus}.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,Tb.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l})]})}`;
+}
+
+
+function migrateRendererPresentation(value) {
+  let patched = value;
+  if (patched.includes(JSON.stringify(LEGACY_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(LEGACY_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay visual presentation"
+    );
+  } else if (patched.includes(JSON.stringify(SLOW_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(SLOW_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay visual presentation cadence"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_CURRENT_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_CURRENT_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay continuous signal wake"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_CUSTOM_CARD_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_CUSTOM_CARD_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay stock message-bubble presentation"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_STOCK_BUBBLE_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_STOCK_BUBBLE_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay crisp directional skin"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_NEXT_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_NEXT_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay optical vertical alignment"
+    );
+  } else if (patched.includes(JSON.stringify(ONE_SHOT_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(ONE_SHOT_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay signal wake and code-block spacing"
+    );
+  } else if (!patched.includes(JSON.stringify(NEXT_VISUAL_CSS))) {
+    throw new Error("Upstream changed: Tinrelay visual presentation is not recognized");
+  }
+  const legacyBodyCount = count(patched, LEGACY_BODY_CLASS);
+  if (legacyBodyCount > 0) {
+    patched = patched.split(LEGACY_BODY_CLASS).join(CURRENT_BODY_CLASS);
+  }
+  if (!patched.includes("function MTKtinrelayScrollSnapshot(")) {
+    patched = replaceOnce(
+      patched,
+      'function MTKtinrelayEnsureStyle()',
+      'function MTKtinrelayScrollSnapshot(){let e=[...document.querySelectorAll(".thread-scroll-container")].find(e=>e.clientHeight>0&&e.getClientRects().length>0);return e==null?null:{element:e,follow:Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)}}function MTKtinrelayScheduleScroll(e){e?.follow===!0&&setTimeout(()=>{let t=e.element;t.isConnected&&t.clientHeight>0&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo({behavior:"instant",top:0})},32)}function MTKtinrelayEnsureStyle()',
+      "Tinrelay scroll helpers"
+    );
+    patched = replaceOnce(
+      patched,
+      'a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1);MTKtinrelayReact.useEffect(',
+      'a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(',
+      "Tinrelay incoming scroll snapshot ref"
+    );
+    patched = replaceOnce(
+      patched,
+      '?i({status:"ready",transmission:t}):i({status:"error",error:"Tinrelay inspection did not match this pointer."})',
+      '?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})',
+      "Tinrelay incoming settled scroll"
+    );
+    patched = replaceOnce(
+      patched,
+      'if(!o.current){o.current=!0;let c=crypto.randomUUID();',
+      'if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();',
+      "Tinrelay incoming pre-hoist snapshot"
+    );
+  } else if (!patched.includes("&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo")) {
+    patched = replaceOnce(
+      patched,
+      't.isConnected&&t.clientHeight>0&&t.scrollTo({behavior:"instant",top:0})',
+      't.isConnected&&t.clientHeight>0&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo({behavior:"instant",top:0})',
+      "Tinrelay settled scroll follow check"
+    );
+  }
+  if (!patched.includes("function MTKtinrelayMessageView(")) {
+    const styleStart = patched.indexOf("function MTKtinrelayEnsureStyle()");
+    const pointerStart = patched.indexOf("function MTKtinrelayPointerView(", styleStart);
+    const pointer = functionAt(patched, pointerStart);
+    if (styleStart < 0 || pointerStart < styleStart) {
+      throw new Error("Upstream changed: Tinrelay custom presentation is not localized");
+    }
+    patched = patched.slice(0, styleStart) + presentationHelpers(resolveHostBus(patched)) + patched.slice(pointer.end);
+  }
+  return patched;
 }
 
 function patchMain(value, config) {
@@ -291,7 +467,7 @@ function patchMain(value, config) {
 }
 
 function mainHelpers(config) {
-  return String.raw`const MTKtinrelayClient=${JSON.stringify(config.client)},MTKtinrelayLocalShip=${JSON.stringify(config.localShip)};function MTKtinrelayMainPointer(e){if(typeof e?.requestId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(e.requestId)||typeof e.pointerText!=="string"||e.pointerText.includes("\r"))throw Error("Invalid local Tinrelay pointer.");let t=e.pointerText.endsWith("\n")?e.pointerText.slice(0,-1):e.pointerText,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")throw Error("Invalid local Tinrelay pointer.");let r;try{r=JSON.parse(n[1])}catch{throw Error("Invalid local Tinrelay pointer.")}let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(r==null||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")throw Error("Invalid local Tinrelay pointer.");return r}function MTKtinrelayExec(e){return new Promise((t,n)=>{x.execFile(MTKtinrelayClient,["inbox","show",e.local_id,"--ship",e.local_ship],{encoding:"utf8",maxBuffer:1048576,shell:!1,timeout:8e3,windowsHide:!0},(r,i)=>{if(r){n(Error(r.code==="ENOENT"?"Tinrelay client is unavailable.":"Tinrelay could not inspect this transmission."));return}t(i)})})}async function MTKtinrelayInspect(e){let t=MTKtinrelayMainPointer(e),n=await MTKtinrelayExec(t),r;try{r=JSON.parse(n)}catch{throw Error("Tinrelay returned an invalid inspection.")}if(r==null||typeof r!=="object"||Array.isArray(r)||r.contract!=="tinrelay-inspected-inbox-v1"||r.kind!=="transmission"||r.signed_transmission==null||typeof r.signed_transmission!=="object"||Array.isArray(r.signed_transmission))throw Error("Tinrelay inspection did not match this pointer.");let i=r.signed_transmission,a=r.author_label,o=i.from_label,s=typeof a==="string"&&a.length>0&&typeof o==="string"&&o===a||a===null&&(o===void 0||o===null);if(r.local_id!==t.local_id||r.recipient_ship!==t.local_ship||r.sender_ship!==t.sender_ship||r.attention_label!==t.attention_label||!s||r.sender_ship!==i.sender_ship||r.recipient_ship!==i.recipient_ship||r.attention_label!==i.to_label||typeof i.body!=="string")throw Error("Tinrelay inspection did not match this pointer.");return{localId:r.local_id,localShip:r.recipient_ship,senderShip:r.sender_ship,attentionLabel:r.attention_label,authorLabel:a,body:i.body}}`;
+  return String.raw`const MTKtinrelayClient=${JSON.stringify(config.client)},MTKtinrelayLocalShip=${JSON.stringify(config.localShip)};function MTKtinrelayMainPointer(e){if(typeof e?.requestId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(e.requestId)||typeof e.pointerText!=="string"||e.pointerText.includes("\r"))throw Error("Invalid local Tinrelay pointer.");let t=e.pointerText.endsWith("\n")?e.pointerText.slice(0,-1):e.pointerText,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")throw Error("Invalid local Tinrelay pointer.");let r;try{r=JSON.parse(n[1])}catch{throw Error("Invalid local Tinrelay pointer.")}let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(r==null||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")throw Error("Invalid local Tinrelay pointer.");return r}function MTKtinrelayExec(e){return new Promise((t,n)=>{x.execFile(MTKtinrelayClient,["--ship",e.local_ship,"inbox","show",e.local_id],{encoding:"utf8",maxBuffer:1048576,shell:!1,timeout:8e3,windowsHide:!0},(r,i)=>{if(r){n(Error(r.code==="ENOENT"?"Tinrelay client is unavailable.":"Tinrelay could not inspect this transmission."));return}t(i)})})}async function MTKtinrelayInspect(e){let t=MTKtinrelayMainPointer(e),n=await MTKtinrelayExec(t),r;try{r=JSON.parse(n)}catch{throw Error("Tinrelay returned an invalid inspection.")}if(r==null||typeof r!=="object"||Array.isArray(r)||r.contract!=="tinrelay-inspected-inbox-v1"||r.kind!=="transmission"||r.signed_transmission==null||typeof r.signed_transmission!=="object"||Array.isArray(r.signed_transmission))throw Error("Tinrelay inspection did not match this pointer.");let i=r.signed_transmission,a=r.author_label,o=i.from_label,s=typeof a==="string"&&a.length>0&&typeof o==="string"&&o===a||a===null&&(o===void 0||o===null);if(r.local_id!==t.local_id||r.recipient_ship!==t.local_ship||r.sender_ship!==t.sender_ship||r.attention_label!==t.attention_label||!s||r.sender_ship!==i.sender_ship||r.recipient_ship!==i.recipient_ship||r.attention_label!==i.to_label||typeof i.body!=="string")throw Error("Tinrelay inspection did not match this pointer.");return{localId:r.local_id,localShip:r.recipient_ship,senderShip:r.sender_ship,attentionLabel:r.attention_label,authorLabel:a,body:i.body}}`;
 }
 
 function patchTinrelayLabelOwner(value) {
@@ -356,7 +532,7 @@ function mainHelperSlice(source) {
 
 function functionAt(source, start) {
   if (start < 0) throw new Error("function owner is missing");
-  const open = source.indexOf("{", start);
+  const open = functionBodyStart(source, start);
   let depth = 0;
   let quote = null;
   let escaped = false;
@@ -378,6 +554,31 @@ function functionAt(source, start) {
     }
   }
   throw new Error("unterminated function owner");
+}
+
+function functionBodyStart(source, start) {
+  const parameters = source.indexOf("(", start);
+  if (parameters < 0) throw new Error("function parameters are missing");
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = parameters; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote != null) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "`" || char === '"' || char === "'") quote = char;
+    else if (char === "(") depth += 1;
+    else if (char === ")" && --depth === 0) {
+      const body = source.indexOf("{", index + 1);
+      if (body < 0) throw new Error("function body is missing");
+      return body;
+    }
+  }
+  throw new Error("unterminated function parameters");
 }
 
 function uniqueFile(pattern, directory = assets) {

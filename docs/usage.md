@@ -75,7 +75,7 @@ Applying a patch to an extracted directory does not repack it or touch an applic
 ## Make ordinary Tinrelay sends visible
 
 The outgoing-presentation patch does not replace or wrap Tinrelay. Agents keep using ordinary
-`tinrelay send`, including its normal standard-input and body-file forms. A compatible Tinrelay
+`tinrelay --ship SHIP send`, with its complete body on standard input. A compatible Tinrelay
 client optionally reports each accepted send to a private Unix socket configured at
 `~/.config/tinrelay/SHIP/outgoing-observer.json`; Codex correlates that event with the unchanged
 acceptance JSON by transmission ID. The patch keeps a bounded private presentation cache under

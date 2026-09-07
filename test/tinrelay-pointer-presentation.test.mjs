@@ -143,7 +143,7 @@ assert.equal((await mainHelpers.inspect(request)).authorLabel, null,
 assert.equal(calls.length, 3);
 for (const call of calls) {
   assert.equal(call[0], client);
-  assert.deepEqual(call[1], ["inbox", "show", pointer.local_id, "--ship", localShip]);
+  assert.deepEqual(call[1], ["--ship", localShip, "inbox", "show", pointer.local_id]);
   assert.deepEqual(call[2], {
     encoding: "utf8",
     maxBuffer: 1048576,
@@ -177,18 +177,58 @@ executorResult = missing;
 await assert.rejects(mainHelpers.inspect(request), {message: "Tinrelay client is unavailable."});
 
 const rendererHelpers = rendererSource.slice(rendererStart, rendererSource.indexOf("function Cb(", rendererStart));
+const scrollHelpersEnd = rendererHelpers.indexOf("function MTKtinrelayEnsureStyle(");
+assert.ok(scrollHelpersEnd > 0, "localized Tinrelay scroll helpers");
+let queuedScroll = null;
+const nearScroller = {
+  clientHeight: 600,
+  scrollTop: -590,
+  isConnected: true,
+  getClientRects: () => [{}],
+  scrollTo(options) { this.lastScroll = options; }
+};
+const hiddenScroller = {...nearScroller, clientHeight: 0, getClientRects: () => []};
+const scrollApi = Function(
+  "document",
+  "setTimeout",
+  `${rendererHelpers.slice(0, scrollHelpersEnd)};return {snapshot:MTKtinrelayScrollSnapshot,schedule:MTKtinrelayScheduleScroll}`
+)(
+  {querySelectorAll: () => [hiddenScroller, nearScroller]},
+  (callback, delay) => { queuedScroll = {callback, delay}; }
+);
+const nearSnapshot = scrollApi.snapshot();
+assert.equal(nearSnapshot.follow, true, "one viewport from the bottom remains eligible for settled scrolling");
+scrollApi.schedule(nearSnapshot);
+assert.equal(queuedScroll.delay, 32, "settled scrolling waits for the hoisted card layout");
+queuedScroll.callback();
+assert.deepEqual(nearScroller.lastScroll, {behavior: "instant", top: 0}, "settled scrolling uses the thread's bottom origin");
+nearScroller.lastScroll = null;
+nearScroller.scrollTop = -590;
+queuedScroll = null;
+scrollApi.schedule(scrollApi.snapshot());
+nearScroller.scrollTop = -601;
+queuedScroll.callback();
+assert.equal(nearScroller.lastScroll, null, "scrolling away during the layout delay cancels the snap to bottom");
+nearScroller.scrollTop = -601;
+queuedScroll = null;
+scrollApi.schedule(scrollApi.snapshot());
+assert.equal(queuedScroll, null, "reading more than one viewport up is never disturbed");
 for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "MTKoutboundFormattedText", "window.open"])
   assert.ok(!rendererHelpers.includes(forbidden), `renderer omits ${forbidden}`);
-assert.ok(rendererHelpers.includes('(0,Tb.jsx)(rg,{text:r.transmission.body,cwd:null,hostId:"local",collapsedLineCount:6})'),
-  "incoming body uses Codex's stock safe Markdown and line-collapse renderer");
-assert.ok(rendererHelpers.includes('maxWidth:"min(38rem,86%)"'),
-  "radio cards are narrower than ordinary conversation bubbles");
+assert.ok(rendererHelpers.includes('(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})'),
+  "incoming and outgoing bodies reuse Codex's complete stock user-message bubble");
+assert.ok(!rendererHelpers.includes('maxWidth:"min(38rem,86%)"'),
+  "Tinrelay does not maintain a competing message-width rule");
 assert.equal((rendererSource.match(/messageNode:MTKtinrelayPointerNode\(i\)/g) ?? []).length, 1,
   "only delegated messages receive the pointer presentation seam");
 assert.ok(rendererHelpers.includes('useState({status:"loading"})'),
   "valid pointers enter automatic inspection state");
 assert.ok(rendererHelpers.includes('useRef(!1)') && rendererHelpers.includes('if(!o.current){o.current=!0'),
   "mounted pointer dispatch is one-shot");
+assert.ok(rendererHelpers.includes("d.current=MTKtinrelayScrollSnapshot()"),
+  "incoming inspection snapshots scroll position before replacing the pointer body");
+assert.ok(rendererHelpers.includes("MTKtinrelayScheduleScroll(d.current)"),
+  "a matching incoming transmission schedules settled scrolling");
 assert.ok(rendererHelpers.includes('children:["📡 ",u]'), "compact radio marker is visible");
 assert.ok(rendererHelpers.includes('text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description'),
   "remote address occupies the native delegated-attribution position");
@@ -196,8 +236,8 @@ assert.ok(rendererSource.includes("MTKmessageNode?null:"),
   "a Tinrelay message suppresses the misleading local source-task attribution");
 assert.ok(rendererHelpers.includes('MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)'),
   "sender uses local@ship address");
-assert.ok(rendererHelpers.includes('r.transmission.authorLabel===null?r.transmission.senderShip:'),
-  "an unlabeled sender falls back to the authenticated ship name without fabricating a local part");
+assert.ok(rendererHelpers.includes('MTKtinrelayAddress(null,n.sender_ship)'),
+  "an unlabeled sender retains the canonical @ship address while loading");
 assert.ok(rendererHelpers.includes('MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip)'),
   "recipient uses local@ship address");
 for (const transportLabel of ["From: ", "To: ", "Attention: ", "Local ID: "])
@@ -209,21 +249,47 @@ assert.ok(rendererHelpers.includes('className:"mtk-tinrelay-signal'), "radio sur
 assert.ok(rendererHelpers.includes("repeating-radial-gradient"), "radio surface carries faint emission rings");
 assert.ok(rendererHelpers.includes("circle at 14% 82%"), "radio wake enters from a diagonal lower-left origin");
 assert.ok(rendererHelpers.includes("circle at 7% 72%"), "outgoing radio wake exposes its source on the left edge");
-assert.ok(rendererHelpers.includes("35px 43px"), "radio wake uses substantial bands rather than hairlines");
-assert.ok(rendererHelpers.includes("animation:mtk-tinrelay-signal 18s ease-out infinite"), "radio signal moves slowly");
+assert.ok(rendererHelpers.includes("rgba(190,196,204,.22) 35px 37px"),
+  "incoming radio wake uses one crisp two-pixel light ring");
+assert.ok(rendererHelpers.includes("@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}"),
+  "each radio wave resets only while transparent");
+assert.ok(rendererHelpers.includes("animation:mtk-tinrelay-signal 6s linear infinite"),
+  "radio wake remains continuously active");
+assert.ok(rendererHelpers.includes("mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}"),
+  "a staggered second wave remains visible across the first wave reset");
+assert.ok(!rendererHelpers.includes("animation:mtk-tinrelay-signal 1.6s ease-out 1 both"),
+  "radio wake does not stop after one cycle");
+assert.ok(rendererHelpers.includes("will-change:transform,opacity"),
+  "radio animation stays on compositor-friendly properties");
+assert.ok(rendererHelpers.includes("transform-origin:14% 82%"),
+  "incoming waves expand from their visible source");
+assert.ok(rendererHelpers.includes("transform-origin:7% 72%"),
+  "outgoing waves expand from their visible source");
+assert.ok(!rendererHelpers.includes("transform:scale(.82)"),
+  "radio geometry never contracts below the card and leaves an expanded edge unpainted");
 assert.ok(rendererHelpers.includes("@media (prefers-reduced-motion:reduce)"),
   "radio signal respects reduced motion");
-assert.ok(rendererHelpers.includes("background:#0B0C0E"), "radio surface has an opaque black base");
-assert.ok(rendererHelpers.includes("background:#34383D"), "outgoing surface inverts the incoming field color");
-assert.ok(rendererHelpers.includes("rgba(11,12,14,.82) 0 7px"),
+assert.ok(rendererHelpers.includes("background:#050607!important"),
+  "incoming radio surface overrides the stock blue user-message field with opaque near-black");
+assert.ok(rendererHelpers.includes("background:#303438!important"),
+  "outgoing surface overrides the stock field with its directional gray");
+assert.ok(rendererHelpers.includes("rgba(11,12,14,.68) 0 5px"),
   "outgoing surface shows the small transmitter end of the wake");
+assert.ok(rendererHelpers.includes("rgba(11,12,14,.38) 33px 35px"),
+  "outgoing radio wake uses one crisp two-pixel dark ring");
 assert.ok(rendererHelpers.includes('className:"flex w-full flex-col items-end justify-end gap-1"'),
   "incoming radio surface remains on the receiving side");
-assert.ok(rendererHelpers.includes("border-color:#34383D"), "radio surface has a dark-gray edge");
-assert.ok(rendererHelpers.includes("mtk-tinrelay-body{color:#F1F3F5}"),
+assert.ok(rendererHelpers.includes("box-shadow:inset 0 0 0 1px #34383D"), "radio surface has a dark-gray inset edge");
+assert.ok(rendererHelpers.includes("color:#F1F3F5"),
   "message body remains high contrast without an opaque slab over the signal rings");
-assert.ok(!rendererHelpers.includes("mtk-tinrelay-body{background:"),
-  "message body does not paint over the radio wake");
+assert.ok(!rendererHelpers.includes("padding-top:"),
+  "Tinrelay adds no independent vertical-padding correction to the stock bubble");
+assert.ok(!rendererHelpers.includes("mtk-tinrelay-body"),
+  "Tinrelay does not wrap the stock bubble in a second padded body");
+assert.ok(rendererHelpers.includes(".mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}"),
+  "Markdown soft line breaks collapse while block-level paragraph boundaries remain intact");
+assert.ok(rendererHelpers.includes("mtk-tinrelay-signal>.group{align-items:flex-start}"),
+  "outgoing transmission alignment mirrors the stock bubble without rebuilding it");
 assert.equal((mainSource.match(/case`mtk-tinrelay-pointer-inspect`:/g) ?? []).length, 1,
   "one main-process bridge owner");
 

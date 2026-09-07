@@ -35,27 +35,54 @@ const jsx = {
   jsx(type, props) { return {type, props}; },
   jsxs(type, props) { return {type, props}; }
 };
-let hookState = null;
-const subscriptions = new Set();
+const hookSlots = new Map();
+let activeSlots = null;
+let hookIndex = 0;
+const subscriptions = new Map();
 const dispatches = [];
+const scrollToken = {follow: true};
+const scrollSnapshots = [];
+const scheduledScrolls = [];
 const react = {
-  useState() { return [hookState, value => { hookState = value; }]; },
-  useEffect(effect) { effect(); }
+  useState(initial) {
+    const index = hookIndex++;
+    if (!(index in activeSlots)) activeSlots[index] = typeof initial === "function" ? initial() : initial;
+    return [activeSlots[index], value => {
+      activeSlots[index] = typeof value === "function" ? value(activeSlots[index]) : value;
+    }];
+  },
+  useEffect(effect) { effect(); },
+  useRef(value) {
+    const index = hookIndex++;
+    if (!(index in activeSlots)) activeSlots[index] = {current: value};
+    return activeSlots[index];
+  }
 };
-function StockMarkdown() {}
+function StockMessageBubble() {}
 const bus = {
   subscribe(type, callback) {
-    assert.equal(type, "mtk-tinrelay-outgoing-result");
-    subscriptions.add(callback);
-    return () => subscriptions.delete(callback);
+    let listeners = subscriptions.get(type);
+    if (listeners == null) subscriptions.set(type, listeners = new Set());
+    listeners.add(callback);
+    return () => listeners.delete(callback);
   },
   dispatchMessage(type, value) { dispatches.push({type, value}); }
 };
-let styleCalls = 0;
-const rendererApi = Function(
-  "Tb", "MTKtinrelayReact", "MTKtinrelayLocalShip", "MTKtinrelayEnsureStyle", "MTKtinrelayAddress", "rg", busName,
-  `${helper};return {acceptance:MTKtinrelayOutgoingAcceptance,matches:MTKtinrelayOutgoingMatches,exec:MTKtinrelayOutgoingExec,view:MTKtinrelayOutgoingView}`
-)(jsx, react, localShip, () => { styleCalls += 1; }, (label, ship) => `${label}@${ship}`, StockMarkdown, bus);
+const rendererApiFactory = () => Function(
+    "Tb", "MTKtinrelayReact", "MTKtinrelayLocalShip", "MTKtinrelayAddress",
+    "MTKtinrelayScrollSnapshot", "MTKtinrelayScheduleScroll", "MTKtinrelayMessageView", busName,
+    `${helper};return {acceptance:MTKtinrelayOutgoingAcceptance,matches:MTKtinrelayOutgoingMatches,exec:MTKtinrelayOutgoingExec,turn:MTKtinrelayOutgoingTurnPresentations,view:MTKtinrelayOutgoingView}`
+  )(
+    jsx,
+    react,
+    localShip,
+    (label, ship) => `${label || ""}@${ship}`,
+    () => { scrollSnapshots.push(scrollToken); return scrollToken; },
+    value => scheduledScrolls.push(value),
+    StockMessageBubble,
+    bus
+  );
+const rendererApi = rendererApiFactory();
 
 const transmissionId = "11111111-1111-4111-8111-111111111111";
 const acceptance = {
@@ -79,53 +106,89 @@ assert.deepEqual(rendererApi.acceptance(item, localShip), acceptance);
 assert.equal(rendererApi.matches(event, acceptance), true);
 
 function Stock() {}
-const componentProps = {Component: Stock, item, hostId: "local", isTurnInProgress: false};
-const pending = rendererApi.exec(componentProps);
+const componentProps = {Component: Stock, item, hostId: "local", isTurnInProgress: false,
+  sourceThreadId: "source-task", sourceTurnId: "source-turn"};
+const pending = renderWithHooks("exec", rendererApi.exec, componentProps);
 assert.equal(pending.type, Stock, "ordinary command rendering remains until matching observer evidence arrives");
+assert.deepEqual(scrollSnapshots, [scrollToken], "outgoing lookup snapshots the pre-hoist scroll position");
 assert.equal(dispatches.length, 1);
 assert.equal(dispatches[0].type, "mtk-tinrelay-outgoing-lookup");
 assert.deepEqual({...dispatches[0].value, requestId: "ignored"}, {
   requestId: "ignored",
   transmissionId,
   senderShip: localShip,
-  recipientShip: "friendly-ship"
+  recipientShip: "friendly-ship",
+  sourceThreadId: "source-task",
+  sourceTurnId: "source-turn"
 });
-for (const callback of subscriptions) callback({
+const rendererAnchor = {
+  contract: "tinrelay-outgoing-anchor-v1",
+  sourceThreadId: "source-task",
+  sourceTurnId: "source-turn",
+  transmissionId,
+  recordedAtMs: Date.now(),
+  event
+};
+for (const callback of subscriptions.get("mtk-tinrelay-outgoing-result") ?? []) callback({
   type: "mtk-tinrelay-outgoing-result",
   requestId: dispatches[0].value.requestId,
   ok: true,
-  event
+  event,
+  anchor: rendererAnchor
 });
-const observed = rendererApi.exec(componentProps);
-assert.equal(observed.type.name, "MTKtinrelayOutgoingView");
-const rendered = observed.type(observed.props);
-assert.equal(styleCalls, 1, "outgoing card reuses the incoming radio stylesheet");
+assert.deepEqual(scheduledScrolls, [scrollToken], "a matching outgoing transmission schedules settled scrolling");
+assert.equal(dispatches.filter(entry => entry.type === "mtk-tinrelay-outgoing-anchor-remember").length, 0,
+  "the successful lookup returns the main-process anchor instead of relying on a second silent IPC write");
+const observed = renderWithHooks("exec", rendererApi.exec, componentProps);
+assert.equal(observed, null, "the source exec disappears after the turn-owned presentation is anchored");
+const turn = renderWithHooks("turn", rendererApi.turn, {conversationId: "source-task", turnId: "source-turn"});
+assert.equal(turn.props["data-mtk-tinrelay-outgoing-turn"], true);
+const anchored = turn.props.children[0];
+assert.equal(anchored.type.name, "MTKtinrelayOutgoingView");
+const rendered = anchored.type(anchored.props);
+const restartedRenderer = rendererApiFactory();
+assert.equal(renderWithHooks("restarted-turn", restartedRenderer.turn,
+  {conversationId: "source-task", turnId: "source-turn"}), null,
+"a fresh renderer waits for its private source-task anchor bucket");
+const anchorRequest = dispatches.findLast(entry => entry.type === "mtk-tinrelay-outgoing-anchors-list");
+assert.ok(anchorRequest, "fresh renderer requests source-task anchors");
+for (const callback of subscriptions.get("mtk-tinrelay-outgoing-anchors-result") ?? []) callback({
+  type: "mtk-tinrelay-outgoing-anchors-result",
+  requestId: anchorRequest.value.requestId,
+  ok: true,
+  records: [{
+    contract: "tinrelay-outgoing-anchor-v1",
+    sourceThreadId: "source-task",
+    sourceTurnId: "source-turn",
+    transmissionId,
+    recordedAtMs: rendererAnchor.recordedAtMs,
+    event
+  }]
+});
+const reconstructed = renderWithHooks("restarted-turn", restartedRenderer.turn,
+  {conversationId: "source-task", turnId: "source-turn"});
+assert.equal(reconstructed.props.children[0].props.event, event,
+  "a fresh renderer rebuilds the card without the original command activity");
 assert.equal(rendered.props.className, "flex w-full flex-col items-start justify-start gap-1",
   "outgoing card mirrors the incoming card across the conversation");
 assert.ok(rendererSource.includes("circle at 7% 72%"),
   "outgoing emission rings expose their source along the left edge");
-assert.ok(rendererSource.includes("background:#34383D"),
-  "outgoing surface inverts the incoming black-field palette");
-assert.ok(rendererSource.includes("rgba(11,12,14,.82) 0 7px"),
+assert.ok(rendererSource.includes("background:#303438!important"),
+  "outgoing surface uses a slightly darker inverted palette");
+assert.ok(rendererSource.includes("rgba(11,12,14,.68) 0 5px"),
   "outgoing wake begins with a visible dark transmitter source");
 const [route, card] = rendered.props.children;
 assert.deepEqual(route.props.children, ["📡 ", `mechanic@${localShip} → aster@friendly-ship`]);
-assert.equal(card.props["data-mtk-tinrelay-pointer"], true, "shared radio styling owns the card");
-assert.equal(card.props["data-mtk-tinrelay-outgoing"], true, "outgoing direction remains inspectable");
-assert.equal(card.props.children[0].props["aria-label"], "Accepted by Tinrelay");
-assert.equal(card.props.style.maxWidth, "min(38rem,86%)", "outgoing card uses the narrower radio width");
-assert.equal(card.props.children[1].props.children.type, StockMarkdown,
-  "outgoing body uses Codex's stock safe Markdown renderer");
-assert.deepEqual(card.props.children[1].props.children.props, {
-  text: event.body,
-  cwd: null,
-  hostId: "local",
-  collapsedLineCount: 6
-}, "long outgoing Markdown uses the stock six-line Show more disclosure");
+assert.equal(card.type, StockMessageBubble, "outgoing cards use the shared Tinrelay stock-bubble presentation");
+assert.deepEqual(card.props, {
+  body: event.body,
+  outgoing: true,
+  screenReaderStatus: "Accepted by Tinrelay"
+}, "outgoing direction changes only presentation metadata around the shared bubble");
 
 const unlabeled = {...event, author_label: null, attention_label: ""};
 const unlabeledRoute = rendererApi.view({event: unlabeled}).props.children[0].props.children[1];
-assert.equal(unlabeledRoute, `${localShip} → friendly-ship`, "absent labels are not fabricated");
+assert.equal(unlabeledRoute, `@${localShip} → @friendly-ship`, "ship-wide endpoints retain canonical @ship addresses");
 
 for (const [label, candidate] of [
   ["nonzero exit", execItem(acceptance, {exitCode: 2})],
@@ -175,8 +238,17 @@ const mainEnd = [mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", ma
   mainSource.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart)].find(index => index >= 0);
 assert.ok(mainStart >= 0 && mainEnd > mainStart, "outgoing main helpers are localized");
 const localRequire = await import("node:module").then(({createRequire}) => createRequire(import.meta.url));
-const mainApiFactory = () => Function("require", `${mainSource.slice(mainStart, mainEnd)};return {event:MTKtinrelayOutgoingEvent,remember:MTKtinrelayRememberOutgoing,read:MTKtinrelayReadOutgoing,lookup:MTKtinrelayOutgoingLookup,start:MTKtinrelayStartOutgoingObserver}`)(localRequire);
+const mainApiFactory = () => Function("require", `${mainSource.slice(mainStart, mainEnd)};return {event:MTKtinrelayOutgoingEvent,remember:MTKtinrelayRememberOutgoing,read:MTKtinrelayReadOutgoing,lookup:MTKtinrelayOutgoingLookup,anchorRemember:MTKtinrelayOutgoingAnchorRemember,anchorsList:MTKtinrelayOutgoingAnchorsList,start:MTKtinrelayStartOutgoingObserver}`)(localRequire);
 const mainApi = mainApiFactory();
+const mainHandlerStart = mainSource.indexOf("case`mtk-tinrelay-outgoing-lookup`:");
+const mainHandlerEnd = mainSource.indexOf("case`electron-add-new-workspace-root-option`:", mainHandlerStart);
+assert.ok(mainHandlerStart >= 0 && mainHandlerEnd > mainHandlerStart,
+  "outgoing main request handlers are localized");
+const mainHandlerFactory = api => Function(
+  "MTKtinrelayOutgoingLookup", "MTKtinrelayOutgoingAnchorRemember", "MTKtinrelayOutgoingAnchorsList",
+  "MTKtinrelayOutgoingAnchorContract",
+  `return async function(type,t,e){switch(type){${mainSource.slice(mainHandlerStart, mainHandlerEnd)}default:break}}`
+)(api.lookup, api.anchorRemember, api.anchorsList, "tinrelay-outgoing-anchor-v1");
 
 assert.equal(mainApi.event({...event, extra: true}), null, "observer event shape is exact");
 assert.equal(mainApi.event({...event, sender_ship: "other-ship"}), null, "observer is local-ship scoped");
@@ -222,6 +294,61 @@ try {
   assert.equal(fs.statSync(delayedCache).mode & 0o777, 0o600, "accepted event cache file is private");
   assert.deepEqual(JSON.parse(fs.readFileSync(delayedCache, "utf8")), delayedEvent,
     "accepted event is durably cached without changing Tinrelay output");
+  const responses = [];
+  const mainHandler = mainHandlerFactory(mainApi);
+  await mainHandler.call({windowManager: {sendMessageToWebContents(_webContents, response) {
+    responses.push(response);
+  }}}, "mtk-tinrelay-outgoing-lookup", {
+    requestId: "request-with-anchor",
+    transmissionId: delayedId,
+    senderShip: localShip,
+    recipientShip: "friendly-ship",
+    sourceThreadId: "source-task",
+    sourceTurnId: "source-turn"
+  }, {});
+  const anchor = responses[0].anchor;
+  assert.deepEqual(responses[0], {
+    type: "mtk-tinrelay-outgoing-result",
+    requestId: "request-with-anchor",
+    ok: true,
+    event: delayedEvent,
+    anchor
+  });
+  assert.deepEqual(anchor, {
+    contract: "tinrelay-outgoing-anchor-v1",
+    sourceThreadId: "source-task",
+    sourceTurnId: "source-turn",
+    transmissionId: delayedId,
+    recordedAtMs: anchor.recordedAtMs,
+    event: delayedEvent
+  }, "the successful lookup durably anchors the observed event before acknowledging the renderer");
+  const failedAnchorResponses = [];
+  const failedAnchorHandler = mainHandlerFactory({...mainApi, anchorRemember() { return null; }});
+  await failedAnchorHandler.call({windowManager: {sendMessageToWebContents(_webContents, response) {
+    failedAnchorResponses.push(response);
+  }}}, "mtk-tinrelay-outgoing-lookup", {
+    requestId: "request-with-failed-anchor",
+    transmissionId: delayedId,
+    senderShip: localShip,
+    recipientShip: "friendly-ship",
+    sourceThreadId: "source-task",
+    sourceTurnId: "source-turn"
+  }, {});
+  assert.equal(failedAnchorResponses[0].ok, false,
+    "the main process does not acknowledge a turn-owned presentation whose durable anchor failed");
+  assert.deepEqual(mainApi.anchorsList("source-task"), [anchor]);
+  const anchorInput = {
+    contract: anchor.contract,
+    sourceThreadId: anchor.sourceThreadId,
+    sourceTurnId: anchor.sourceTurnId,
+    transmissionId: anchor.transmissionId,
+    recordedAtMs: anchor.recordedAtMs
+  };
+  const anchorDirectory = path.join(appUserData, "mechanics-toolkit", "tinrelay", localShip,
+    "outgoing-anchors");
+  assert.equal(fs.statSync(anchorDirectory).mode & 0o777, 0o700, "turn-anchor directory is private");
+  assert.equal(fs.statSync(path.join(anchorDirectory, fs.readdirSync(anchorDirectory)[0])).mode & 0o777, 0o600,
+    "turn-anchor bucket is private");
 
   const duplicate = {...delayedEvent, body: "conflicting duplicate"};
   await send(socketPath, `${JSON.stringify(duplicate)}\n`);
@@ -248,6 +375,32 @@ try {
   assert.deepEqual(await restarted.lookup({requestId: "request-after-restart", transmissionId: delayedId,
     senderShip: localShip, recipientShip: "friendly-ship"}), delayedEvent,
   "a historical task reconstructs its outgoing presentation after app restart");
+  assert.deepEqual(restarted.anchorsList("source-task"), [anchor],
+    "turn ownership reconstructs independently of the original exec activity after restart");
+  assert.equal(restarted.anchorRemember({...anchorInput, transmissionId: "77777777-7777-4777-8777-777777777777"}), null,
+    "renderer claims cannot attach an event that the observer never accepted");
+
+  for (let index = 0; index < 257; index += 1) {
+    const id = `70000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+    const busyEvent = {...event, transmission_id: id};
+    restarted.remember(busyEvent);
+    restarted.anchorRemember({...anchorInput, sourceThreadId: "busy-task", sourceTurnId: `turn-${index}`,
+      transmissionId: id, recordedAtMs: anchor.recordedAtMs + index + 1});
+  }
+  assert.equal(restarted.anchorsList("busy-task").length, 256,
+    "one busy task retains at most 256 outgoing transmission anchors");
+  assert.equal(restarted.anchorsList("source-task").length, 1,
+    "a busy task does not consume another task's turn-anchor allowance");
+  for (let index = 0; index < 65; index += 1) {
+    const id = `71000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+    restarted.remember({...event, transmission_id: id});
+    restarted.anchorRemember({...anchorInput, sourceThreadId: `bucket-task-${index}`, sourceTurnId: "turn",
+      transmissionId: id, recordedAtMs: anchor.recordedAtMs + 1000 + index});
+  }
+  assert.ok(fs.readdirSync(anchorDirectory).filter(name => /^[0-9a-f]{64}\.json$/.test(name)).length <= 64,
+    "abandoned source-task anchor buckets have a global safety ceiling");
+  assert.equal(restarted.anchorsList("bucket-task-64").length, 1,
+    "the currently written source-task bucket survives global pruning");
 
   const corruptId = "55555555-5555-4555-8555-555555555555";
   fs.writeFileSync(path.join(cacheDirectory, `${corruptId}.json`), "not json\n", {mode: 0o600});
@@ -285,7 +438,7 @@ process.stdout.write(`${JSON.stringify({
   contract: "tinrelay-outgoing-observer-v1",
   cli: "ordinary-tinrelay-send-stdout-unchanged",
   observer: "private-configured-unix-socket",
-  restartContinuity: "bounded-private-codex-presentation-cache",
+  restartContinuity: "bounded-private-source-task-turn-anchors",
   correlation: "transmission-id",
   acceptedState: "relay-accepted-not-delivered",
   grouping: "standalone-persistent",
@@ -320,6 +473,13 @@ function send(socketPath, text, splitAt = null) {
 
 function tick() {
   return new Promise(resolve => setTimeout(resolve, 20));
+}
+
+function renderWithHooks(key, component, props) {
+  activeSlots = hookSlots.get(key);
+  if (activeSlots == null) hookSlots.set(key, activeSlots = []);
+  hookIndex = 0;
+  return component(props);
 }
 
 function unique(values, label) {
