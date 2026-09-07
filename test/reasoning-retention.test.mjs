@@ -55,7 +55,12 @@ assert.deepEqual(collapse({...base, preventAutoCollapse: true}), {shouldAllowCol
 assert.deepEqual(collapse({...base, preventAutoCollapse: false}), {shouldAllowCollapse: true, isCollapsed: true});
 assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapsed: true}), {shouldAllowCollapse: true, isCollapsed: true}, "manual collapse still wins");
 assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapsed: false}), {shouldAllowCollapse: true, isCollapsed: false}, "manual reopen still wins");
-assert.equal(turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained"), true, "selected policy reaches the stock collapse decision");
+assert.equal(
+  turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained"),
+  true,
+  "selected policy reaches the stock collapse decision"
+);
 
 process.stdout.write("reasoning retention behavioral probe passed\n");
 

@@ -59,7 +59,14 @@ for (const [label, text] of [
 ]) assert.equal(parsePointer(text), null, label);
 
 const helpersStart = mainSource.indexOf("const MTKtinrelayClient=");
-const helpersEnd = mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", helpersStart);
+const helpersEnd = [
+  "const MTKtinrelayOutgoingContract=",
+  "var mQ=i.i(`electron-message-handler`)",
+  "var pQ=i.i(`electron-message-handler`)"
+]
+  .map(marker => mainSource.indexOf(marker, helpersStart))
+  .filter(index => index >= 0)
+  .sort((a, b) => a - b)[0] ?? -1;
 assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, "localized main-process helpers");
 const helperSource = mainSource.slice(helpersStart, helpersEnd);
 const calls = [];
@@ -88,7 +95,7 @@ executorResult = {
     recipient_ship: pointer.local_ship,
     from_label: "aster",
     to_label: pointer.attention_label,
-    body: "<img src=x onerror=alert(1)>\n**not Markdown**",
+    body: "<img src=x onerror=alert(1)>\n**rendered Markdown**",
     secret: "not returned"
   },
   certificate: {secret: true},
@@ -169,10 +176,13 @@ missing.code = "ENOENT";
 executorResult = missing;
 await assert.rejects(mainHelpers.inspect(request), {message: "Tinrelay client is unavailable."});
 
-assert.ok(rendererSource.includes("children:r.transmission.body"), "body is an inert React text child");
 const rendererHelpers = rendererSource.slice(rendererStart, rendererSource.indexOf("function Cb(", rendererStart));
-for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "markdown", "MTKoutboundFormattedText", "window.open"])
+for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "MTKoutboundFormattedText", "window.open"])
   assert.ok(!rendererHelpers.includes(forbidden), `renderer omits ${forbidden}`);
+assert.ok(rendererHelpers.includes('(0,Tb.jsx)(rg,{text:r.transmission.body,cwd:null,hostId:"local",collapsedLineCount:6})'),
+  "incoming body uses Codex's stock safe Markdown and line-collapse renderer");
+assert.ok(rendererHelpers.includes('maxWidth:"min(38rem,86%)"'),
+  "radio cards are narrower than ordinary conversation bubbles");
 assert.equal((rendererSource.match(/messageNode:MTKtinrelayPointerNode\(i\)/g) ?? []).length, 1,
   "only delegated messages receive the pointer presentation seam");
 assert.ok(rendererHelpers.includes('useState({status:"loading"})'),
@@ -198,11 +208,17 @@ for (const retired of ["Hide transmission", "Show transmission", "aria-expanded"
 assert.ok(rendererHelpers.includes('className:"mtk-tinrelay-signal'), "radio surface owns a distinct signal treatment");
 assert.ok(rendererHelpers.includes("repeating-radial-gradient"), "radio surface carries faint emission rings");
 assert.ok(rendererHelpers.includes("circle at 14% 82%"), "radio wake enters from a diagonal lower-left origin");
+assert.ok(rendererHelpers.includes("circle at 7% 72%"), "outgoing radio wake exposes its source on the left edge");
 assert.ok(rendererHelpers.includes("35px 43px"), "radio wake uses substantial bands rather than hairlines");
 assert.ok(rendererHelpers.includes("animation:mtk-tinrelay-signal 18s ease-out infinite"), "radio signal moves slowly");
 assert.ok(rendererHelpers.includes("@media (prefers-reduced-motion:reduce)"),
   "radio signal respects reduced motion");
 assert.ok(rendererHelpers.includes("background:#0B0C0E"), "radio surface has an opaque black base");
+assert.ok(rendererHelpers.includes("background:#34383D"), "outgoing surface inverts the incoming field color");
+assert.ok(rendererHelpers.includes("rgba(11,12,14,.82) 0 7px"),
+  "outgoing surface shows the small transmitter end of the wake");
+assert.ok(rendererHelpers.includes('className:"flex w-full flex-col items-end justify-end gap-1"'),
+  "incoming radio surface remains on the receiving side");
 assert.ok(rendererHelpers.includes("border-color:#34383D"), "radio surface has a dark-gray edge");
 assert.ok(rendererHelpers.includes("mtk-tinrelay-body{color:#F1F3F5}"),
   "message body remains high contrast without an opaque slab over the signal rings");
@@ -217,7 +233,8 @@ process.stdout.write(`${JSON.stringify({
   exactPointerGrammar: true,
   fixedArgv: true,
   metadataEquality: true,
-  bodyRendering: "inert-plain-text",
+  bodyRendering: "stock-safe-markdown",
+  longBodyDisclosure: "stock-six-line-collapse",
   disclosure: "automatic-one-shot",
   retries: false
 }, null, 2)}\n`);

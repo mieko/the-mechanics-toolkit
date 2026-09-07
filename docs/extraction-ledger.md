@@ -7,37 +7,34 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | --- | --- | --- |
 | ASAR raw-header integrity | Extracted, fixture-tested, and used by staging | Qualify a disposable supported-build candidate |
 | Read-only app inspection | Extracted and fixture-tested | Record exact accepted builds |
-| Terminal toggle | Extracted; fixture red/green and installed build 7942 green | Qualify through the staged patch runner |
-| Staging, repacking, signing | Extracted; signed synthetic app red/green | Qualify a disposable candidate from an inspected pristine build |
-| Native app-tools peer authorization | Extracted; two current main-process profiles red/green | Runtime native-message acceptance after staged qualification |
-| Cross-task attribution | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
-| Outgoing send receipt | Extracted; current renderer-family fixture red/green | Qualify with the selected renderer stack |
-| Runtime JSON reload | Extracted; build-7942 renderer/main fixture and consumer acceptance red/green | Stage, adopt, and verify one valid and one rejected live save |
-| Task palette | Extracted; config-backed build-7942 fixture red/green | Qualify with the selected renderer stack |
-| Reasoning retention | Extracted; exact-task build-7942 fixture red/green | Live configured completion and manual-collapse check |
+| Terminal toggle | Extracted; fixture red/green and installed build 8109 green | Requalify after the next Codex update |
+| Staging, repacking, signing | Extracted; synthetic and build-8109 stages green | Requalify a disposable candidate from the next inspected pristine build |
+| Native app-tools peer authorization | Extracted; two main-process profiles red/green; build-8109 native messaging green | Requalify after the next Codex update |
+| Cross-task attribution | Extracted; current renderer-family fixture and build-8109 live use green | Requalify after the next Codex update |
+| Outgoing send receipt | Extracted; current renderer-family fixture and build-8109 live use green | Requalify after the next Codex update |
+| Runtime JSON reload | Extracted; renderer/main fixture and build-8109 live save green | Requalify after the next Codex update |
+| Task palette | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
+| Reasoning retention | Extracted; exact-task fixture and build-8109 live use green | Requalify after the next Codex update |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
-| Task attention policy | Extracted; config-backed build-7942 fixture red/green | Qualify with the selected renderer stack |
-| Tinrelay pointer presentation | Extracted; config-backed renderer/main fixture red/green | Qualify with the selected renderer and main-process stack |
-| Sidebar action collapse | Extracted; build-7942 fixture red/green | Qualify with the selected renderer stack |
-| Patch registry | Extracted; per-realm API and current marker fixture green | Qualify after the selected behavior patches |
+| Task attention policy | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
+| Tinrelay presentation | Extracted as one patch; incoming and outgoing fixtures plus build-8109 loopback green | Requalify both directions after the next Codex or Tinrelay observer-contract change |
+| Sidebar action collapse | Extracted; fixture and build-8109 live use green | Requalify after the next Codex update |
+| Patch registry | Extracted; per-realm API, current marker fixture, and build-8109 composition green | Requalify after the next Codex update |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
 | Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
 | Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
 
 ## Current build qualification
 
-Codex Desktop `26.901.41600` (build `7982`) was inspected from the signed vendor archive on
-2026-09-05. Its pristine ASAR SHA-256 is
-`077cc65356aeae34c5d8b4de0b4cc383f6fb137ed1d69a9b3dfe69ffafa058ab`.
+Codex Desktop `26.901.51231` (build `8109`) was inspected and staged from a pristine vendor update
+on 2026-09-07. The complete selected fleet applied without broadening a matcher, passed every
+focused probe before and after repacking, remained byte-identical on a second application,
+preserved the native package tree and executable helper, and produced a valid code signature and
+ASAR seal.
 
-The complete example fleet began pristine, applied without matcher changes, passed every focused
-probe before and after repacking, remained byte-identical on a second application, preserved the
-native package tree and executable helper, and produced valid ad-hoc and persistent-local-identity
-signatures with the same valid ASAR seal.
-The two dormant history checks still recognized complete upstream ownership. The benched task
-supervisor also applied idempotently and passed its focused probe after its required dependencies.
-Build `7982` is installed but has not yet been restarted and live-accepted, so build `7942` remains
-the latest live-accepted build.
+The resulting installed application launched successfully; the configured palette, sidebar,
+terminal, retained reasoning, native task messaging, and incoming and outgoing Tinrelay
+presentation were exercised in live use.
 
 ## Extraction rule
 

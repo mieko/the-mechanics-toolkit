@@ -72,6 +72,21 @@ probe, and configuration needs.
 
 Applying a patch to an extracted directory does not repack it or touch an application bundle.
 
+## Make ordinary Tinrelay sends visible
+
+The outgoing-presentation patch does not replace or wrap Tinrelay. Agents keep using ordinary
+`tinrelay send`, including its normal standard-input and body-file forms. A compatible Tinrelay
+client optionally reports each accepted send to a private Unix socket configured at
+`~/.config/tinrelay/SHIP/outgoing-observer.json`; Codex correlates that event with the unchanged
+acceptance JSON by transmission ID. The patch keeps a bounded private presentation cache under
+Codex's application-support directory so an existing task can reconstruct the same outgoing card
+after an app restart. This is local presentation continuity, not a Tinrelay sent archive or proof
+of remote delivery.
+
+The observer configuration and exact event contract belong to Tinrelay. See the unified
+[Tinrelay presentation patch](../patches/tinrelay-pointer-presentation/) for the Codex-side trust
+boundary and verification of both directions.
+
 ## Stage a complete candidate
 
 ```sh

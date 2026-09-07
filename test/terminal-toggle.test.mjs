@@ -25,7 +25,8 @@ assert.equal(
 const build7345 = source.includes("ccr=()=>{K9t.run({action:{type:`windows.terminal.toggle`,windowId:hx}})");
 const build7746 = source.includes("$bi=()=>{u1t.run({action:{type:`windows.terminal.toggle`,windowId:Wx}})");
 const build7942 = source.includes("pxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})");
-if (!build7345 && !build7746 && !build7942) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
+const build8109 = source.includes("lxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})");
+if (!build7345 && !build7746 && !build7942 && !build8109) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
 assert.equal(
   count(source, "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u"),
   1,
@@ -36,7 +37,12 @@ assert.equal(
   1,
   "editable permission reaches the existing hotkey hook"
 );
-if (build7942) {
+if (build8109) {
+  assert.equal(count(source, "lxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})"), 1,
+    "the command keeps the stock terminal action owner");
+  assert.equal(count(source, "[`toggleTerminal`,lxi]"), 1,
+    "the configurable command remains routed through the stock terminal toggle action");
+} else if (build7942) {
   assert.equal(count(source, "pxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})"), 1,
     "the command keeps the stock terminal action owner");
   assert.equal(count(source, "[`toggleTerminal`,pxi]"), 1,
@@ -74,7 +80,7 @@ process.stdout.write(`${JSON.stringify({
   command: "toggleTerminal",
   acceleratorOwner: "configured-keymap",
   composerFocused: "opens-terminal",
-  terminalFocused: build7746 || build7942 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
+  terminalFocused: build7746 || build7942 || build8109 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
   hardcodedShortcutAdded: false
 }, null, 2)}\n`);
 

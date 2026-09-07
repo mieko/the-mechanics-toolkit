@@ -2,7 +2,7 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for two current main-process profiles
-- **Current evidence:** Build `7982` static stage green; build `7942` live-accepted, 2026-09-05
+- **Current evidence:** Build `8109` static stage and live use green, 2026-09-07
 
 ## Why it exists
 

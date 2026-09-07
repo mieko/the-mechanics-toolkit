@@ -131,7 +131,10 @@ function patchAttribution(source, ownerFile, details) {
   wrapper = replaceOnce(wrapper, "t[10]=a,t[11]=f,t[12]=m)", "t[10]=a,t[11]=f,t[16]=MTKbubbleStyleOverride,t[12]=m)", "wrapper style storage");
 
   bubble = replaceOnce(bubble, "function Eg(e){let t=(0,Og.c)(127),", "function Eg(e){let t=(0,Og.c)(128),", "bubble cache size");
-  bubble = replaceOnce(bubble, "cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,", "bubble style destructuring");
+  const bubbleOwner = bubble.includes("cwd:D,hostId:O}=e,") ?
+    ["cwd:D,hostId:O}=e,", "cwd:D,hostId:O,messageBubbleStyle:MTKbubbleStyleOverride}=e,"] :
+    ["cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,"];
+  bubble = replaceOnce(bubble, ...bubbleOwner, "bubble style destructuring");
   const currentBubble = bubble.includes("t[42]!==de||t[43]!==oe||t[44]!==_e){");
   const bubbleDependency = currentBubble ?
     ["t[42]!==de||t[43]!==oe||t[44]!==_e){", "t[42]!==de||t[43]!==oe||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
@@ -161,13 +164,22 @@ function resolveImports(ownerSource, ownerFile) {
   const appInitialFile = ownedImport(ownerFile, initialImport.groups.relative);
   const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appPrimary.includes("ft=rw(tOn,{hostId:qe??`local`,threadId:n})??He?.title??null")) {
+    return {
+      before: primaryImport[0],
+      after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, "tOn")} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, currentStoreHookInternal(appInitial))),
+      storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
+    };
+  }
   const primaryInitialImport = uniqueMatch(appPrimary, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-primary app-initial import");
   const titleExport = importedExport(primaryInitialImport.groups.specifiers, "ap", false);
   if (titleExport != null) {
+    const storeHookInternal = currentStoreHookInternal(appInitial);
     return {
       before: initialImport[0],
       after: `import{${initialImport.groups.specifiers},${titleExport} as MTKtitleAtom}from"${initialImport.groups.relative}";`,
-      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "hb")),
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, storeHookInternal)),
       storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
     };
   }
@@ -179,6 +191,13 @@ function resolveImports(ownerSource, ownerFile) {
   };
 }
 
+function currentStoreHookInternal(source) {
+  const current = [...source.matchAll(new RegExp(`function Oks\\(\\)\\{let e=\\(0,${id}\\.c\\)\\(12\\),t=(?<hook>${id})\\(Q\\),`, "g"))];
+  if (current.length === 1) return current[0].groups.hook;
+  if (current.length > 1) throw new Error("Upstream changed: current store hook owner is ambiguous");
+  return "hb";
+}
+
 function ownedImport(ownerFile, relative) {
   const file = path.resolve(path.dirname(ownerFile), relative);
   if (!file.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
@@ -186,7 +205,8 @@ function ownedImport(ownerFile, relative) {
 }
 
 function exportedAs(source, internal) {
-  return uniqueMatch(source, new RegExp(`(?:^|,)${escapeRegExp(internal)} as (?<export>${id})(?=,|\\})`, "g"), `export for ${internal}`).groups.export;
+  const specifiers = uniqueMatch(source, /export\{(?<specifiers>[^}]+)\}/g, "module export list").groups.specifiers;
+  return uniqueMatch(specifiers, new RegExp(`(?:^|,)${escapeRegExp(internal)} as (?<export>${id})(?=,|$)`, "g"), `export for ${internal}`).groups.export;
 }
 
 function importedLocal(specifiers, exported) {

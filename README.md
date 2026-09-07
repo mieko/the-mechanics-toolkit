@@ -13,15 +13,15 @@ ported and applied safely.
 
 ## Patches available
 
-These repairs have complete static qualification against **Codex Desktop `26.901.41600` (`7982`)**;
-the latest live acceptance remains `26.901.41123` (`7942`) until the new build is exercised. That
-does not mean they are installed on your machine or compatible with an uninspected
-newer build. The last column is deliberately editorial: it helps an agent lead with real feature
-additions instead of presenting every repair and convenience as equally exciting.
+These repairs have complete static qualification against **Codex Desktop `26.901.51231` (`8109`)**,
+and the selected fleet is installed and live-accepted on that build. That does not mean they are
+installed on your machine or compatible with an uninspected newer build. The last column is
+deliberately editorial: it helps an agent lead with real feature additions instead of presenting
+every repair and convenience as equally exciting.
 
 | Patch | What it gives you | Interesting? |
 | --- | --- | --- |
-| [Tinrelay pointer presentation](patches/tinrelay-pointer-presentation/) | Turn a verified local [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/mieko/tinrelay)) delivery into a readable, visibly off-ship radio message instead of exposing its pointer JSON. | **Especially** |
+| [Tinrelay presentation](patches/tinrelay-pointer-presentation/) | Render verified incoming and accepted outgoing [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/mieko/tinrelay)) transmissions as readable radio messages—even after an app restart—with opposing signal wakes that show which way the message is traveling. | **Especially** |
 | [Task visual palette](patches/task-visual-palette/) | Give important agents and tasks stable colors across rooms, sidebar rows, and provenanced messages, with optional background sigils. | **Yes** |
 | [Cross-task attribution](patches/cross-task-attribution/) | See which agent actually sent a delegated message instead of inferring who “another Codex task” was. | **Yes** |
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | Keep a compact, hover-previewable record of what an agent sent and where instead of letting the send disappear. | **Yes** |

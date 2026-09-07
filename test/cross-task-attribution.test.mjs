@@ -42,7 +42,12 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
   const titleOwner = fs.readFileSync(path.resolve(path.dirname(ownerPath), titleImport.relative), "utf8");
   const titleExport = importedExport(titleImport.specifiers, "MTKtitleAtom");
   const titleInternal = exportedInternal(titleOwner, titleExport);
-  assert.ok(["SOn", "EI"].includes(titleInternal), "title atom retains its stock ESM export owner");
+  if (titleInternal === "tOn") {
+    assert.ok(titleOwner.includes("tOn=vp(qv,") && titleOwner.includes("localTitle:r"),
+      "current title atom retains its stock task-title selector owner");
+  } else {
+    assert.ok(["SOn", "EI"].includes(titleInternal), "title atom retains its stock ESM export owner");
+  }
   const metadata = uniqueMatch(
     source,
     /MTKstore=(?<store>[$A-Z_a-z][$\w]*)\((?<scope>[$A-Z_a-z][$\w]*)\),MTKtitle=MTKstore\.get\(MTKtitleAtom,\{hostId:/g,
@@ -56,7 +61,7 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
   const appInitial = fs.readFileSync(path.resolve(path.dirname(ownerPath), initialImport.relative), "utf8");
   const storeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.store));
   const scopeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.scope));
-  assert.ok(["pb", "hb"].includes(storeInternal), "metadata uses the stock renderer store hook");
+  assert.ok(["pb", "hb", "Db"].includes(storeInternal), "metadata uses the stock renderer store hook");
   assert.equal(scopeInternal, "Q", "metadata uses the stock renderer store scope");
   metadataKind = "stock-renderer-store-title-atom";
   metadataContracts = ["MTKstore.get(MTKtitleAtom,{hostId:"];
@@ -121,9 +126,10 @@ function importedExport(specifiers, local) {
 }
 
 function exportedInternal(sourceText, exported) {
+  const specifiers = uniqueMatch(sourceText, /export\{(?<specifiers>[^}]+)\}/g, "module export list").groups.specifiers;
   return uniqueMatch(
-    sourceText,
-    new RegExp(`(?:^|,)(?<internal>[$A-Z_a-z][$\\w]*) as ${escapeRegExp(exported)}(?=,|\\})`, "g"),
+    specifiers,
+    new RegExp(`(?:^|,)(?<internal>[$A-Z_a-z][$\\w]*) as ${escapeRegExp(exported)}(?=,|$)`, "g"),
     `export ${exported}`
   ).groups.internal;
 }

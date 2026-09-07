@@ -48,6 +48,11 @@ const jsxName = unique(
   /p=\(0,(?<name>[$A-Z_a-z][$\w]*)\.jsxs\)\("div",\{"data-mtk-outgoing-message-receipt":!0/g,
   "JSX runtime"
 ).groups.name;
+const genericRenderName = unique(
+  helper,
+  /function MTKrenderOutboundMessage\(e,t,n,r=!0\)\{return[\s\S]*?:(?<name>[$A-Z_a-z][$\w]*)\(e,t,n,r\)\}/g,
+  "generic tool renderer"
+).groups.name;
 const navigation = unique(
   helper,
   /function MTKoutboundNavigate\(e\)\{let t=(?<normalize>[$A-Z_a-z][$\w]*)\(e\);(?<bridge>[$A-Z_a-z][$\w]*)\.dispatchHostMessage\(\{type:"navigate-to-route",path:(?<flag>[$A-Z_a-z][$\w]*)\(\)\?(?<newRoute>[$A-Z_a-z][$\w]*)\(t\):(?<oldRoute>[$A-Z_a-z][$\w]*)\(t\)\}\)\}/g,
@@ -78,7 +83,7 @@ const names = [
   navigation.flag,
   navigation.newRoute,
   navigation.oldRoute,
-  "X"
+  genericRenderName
 ];
 const values = [
   jsx,

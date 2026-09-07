@@ -1,0 +1,404 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+const command = process.argv[2];
+const root = path.resolve(process.argv[3] ?? "");
+const id = "[$A-Z_a-z][$\\w]*";
+if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
+  throw new Error("usage: tinrelay-pointer-presentation/outgoing-transform.mjs check|apply EXTRACTED_ASAR_ROOT");
+}
+
+const assets = path.join(root, "webview/assets");
+const renderer = uniqueFile(/^(?:subagent-activity-chip-group|conversation-blocks)-.*\.js$/);
+const activity = uniqueFile(/^agent-activity-item-.*\.js$/);
+const main = uniqueFile(/^main-.*\.js$/, path.join(root, ".vite/build"));
+let rendererSource = fs.readFileSync(renderer, "utf8");
+let activitySource = fs.readFileSync(activity, "utf8");
+let mainSource = fs.readFileSync(main, "utf8");
+let state = inspectState();
+let localShip = pointerDependencyState() === "applied" ? embeddedLocalShip(rendererSource) : null;
+
+if (command === "apply" && state === "needs-apply") {
+  if (localShip == null) throw new Error("Tinrelay presentation requires its incoming transform first");
+  rendererSource = patchRenderer(rendererSource);
+  activitySource = patchActivity(activitySource, localShip);
+  mainSource = patchMain(mainSource, localShip);
+  fs.writeFileSync(renderer, rendererSource);
+  fs.writeFileSync(activity, activitySource);
+  fs.writeFileSync(main, mainSource);
+  moduleSyntaxCheck(renderer);
+  moduleSyntaxCheck(activity);
+  moduleSyntaxCheck(main);
+  state = inspectState();
+  if (state !== "applied") throw new Error("Tinrelay outgoing presentation transform did not verify");
+}
+
+process.stdout.write(`${JSON.stringify({
+  state,
+  contract: "tinrelay-outgoing-observer-v1",
+  source: "ordinary-successful-tinrelay-send",
+  localShip,
+  targets: [activity, main, renderer].map(file => path.relative(root, file))
+}, null, 2)}\n`);
+
+function inspectState() {
+  const dependencyState = pointerDependencyState();
+  const rendererMarkers = [
+    "function MTKtinrelayOutgoingAcceptance(",
+    "function MTKtinrelayOutgoingExec(",
+    "function MTKtinrelayOutgoingView(",
+    '"data-mtk-tinrelay-outgoing":!0',
+    "(MTKtinrelayOutgoingExec,{Component:",
+    "i.type===`exec`&&MTKtinrelayOutgoingAcceptance(i,MTKtinrelayLocalShip)!=null||"
+  ];
+  const activityMarkers = [
+    "const MTKtinrelayOutgoingLocalShip=",
+    "function MTKtinrelayOutgoingAcceptance(",
+    "MTKtinrelayOutgoingAcceptance(e,MTKtinrelayOutgoingLocalShip)!=null?`standalone`"
+  ];
+  const mainMarkers = [
+    "const MTKtinrelayOutgoingContract=",
+    "function MTKtinrelayStartOutgoingObserver(",
+    "function MTKtinrelayOutgoingLookup(",
+    "function MTKtinrelayPrepareOutgoingCache(",
+    "case`mtk-tinrelay-outgoing-lookup`:",
+    'L.add(await MTKtinrelayStartOutgoingObserver(l.app.getPath("userData")))'
+  ];
+  const rendererApplied = rendererMarkers.every(marker => rendererSource.includes(marker));
+  const activityApplied = activityMarkers.every(marker => activitySource.includes(marker));
+  const mainApplied = mainMarkers.every(marker => mainSource.includes(marker));
+  if (rendererApplied && activityApplied && mainApplied) {
+    if (dependencyState !== "applied") {
+      throw new Error("Tinrelay outgoing presentation is applied without its pointer-presentation dependency");
+    }
+    inspectAppliedRenderer(rendererSource);
+    inspectAppliedActivity(activitySource);
+    inspectAppliedMain(mainSource);
+    return "applied";
+  }
+  if (rendererMarkers.some(marker => rendererSource.includes(marker)) ||
+      activityMarkers.some(marker => activitySource.includes(marker)) ||
+      mainMarkers.some(marker => mainSource.includes(marker))) {
+    throw new Error("Upstream changed: Tinrelay outgoing presentation patch is partial");
+  }
+  inspectPristineRenderer(rendererSource);
+  inspectPristineActivity(activitySource);
+  inspectPristineMain(mainSource);
+  return "needs-apply";
+}
+
+function pointerDependencyState() {
+  const rendererMarkers = [
+    "const MTKtinrelayLocalShip=",
+    "function MTKtinrelayEnsureStyle()",
+    "function MTKtinrelayAddress(",
+    "data-mtk-tinrelay-pointer"
+  ];
+  const mainMarkers = [
+    "const MTKtinrelayClient=",
+    "function MTKtinrelayMainPointer(",
+    "case`mtk-tinrelay-pointer-inspect`:"
+  ];
+  const present = [...rendererMarkers.map(marker => rendererSource.includes(marker)),
+    ...mainMarkers.map(marker => mainSource.includes(marker))];
+  if (present.every(Boolean)) return "applied";
+  if (present.every(value => !value)) return "absent";
+  throw new Error("Upstream changed: Tinrelay pointer-presentation dependency is partial");
+}
+
+function inspectPristineRenderer(source) {
+  if (findExecComponentCall(source) == null) {
+    throw new Error("Upstream changed: exec conversation component seam is not unique");
+  }
+  persistentClassifier(source);
+}
+
+function inspectPristineActivity(source) {
+  if (countMatches(source, new RegExp("case`exec`:case`patch`:return " + id + "\\(" + id + "\\(e\\)," + id + "\\(e\\)\\?`standalone`:`groupable`\\);", "g")) !== 1) {
+    throw new Error("Upstream changed: exec activity-classification seam is not unique");
+  }
+}
+
+function inspectPristineMain(source) {
+  for (const seam of [
+    "await l.app.whenReady(),P(`main app.whenReady resolved`,R)",
+    "case`electron-add-new-workspace-root-option`:"
+  ]) {
+    if (count(source, seam) !== 1) throw new Error(`Upstream changed: Tinrelay outgoing main seam is not unique: ${seam}`);
+  }
+  if (count(source, "var mQ=i.i(`electron-message-handler`)") +
+      count(source, "var pQ=i.i(`electron-message-handler`)") !== 1) {
+    throw new Error("Upstream changed: Tinrelay outgoing main helper owner is not unique");
+  }
+}
+
+function inspectAppliedRenderer(source) {
+  const helpers = helperSlice(source);
+  for (const marker of [
+    'i.state!=="accepted"',
+    "MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip)",
+    "i.sender_ship!==t",
+    '.subscribe("mtk-tinrelay-outgoing-result"',
+    '.dispatchMessage("mtk-tinrelay-outgoing-lookup"',
+    'children:["📡 ",t]',
+    'className:"flex w-full flex-col items-start justify-start gap-1"',
+    '(0,Tb.jsx)(rg,{text:e.body,cwd:null,hostId:"local",collapsedLineCount:6})',
+    'maxWidth:"min(38rem,86%)"',
+    '"aria-label":"Accepted by Tinrelay"',
+    '"data-mtk-tinrelay-pointer":!0',
+    '"data-mtk-tinrelay-outgoing":!0'
+  ]) {
+    if (!helpers.includes(marker)) throw new Error(`Tinrelay outgoing renderer postcondition missing: ${marker}`);
+  }
+  for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "markdown", "eval(", "window.open", "TINRELAY OUTGOING RECEIPT"]) {
+    if (helpers.includes(forbidden)) throw new Error(`Tinrelay outgoing renderer uses forbidden surface: ${forbidden}`);
+  }
+  if (count(source, "(MTKtinrelayOutgoingExec,{Component:") !== 1) {
+    throw new Error("Tinrelay outgoing renderer call is not unique");
+  }
+  if (count(source, "i.type===`exec`&&MTKtinrelayOutgoingAcceptance(i,MTKtinrelayLocalShip)!=null||") !== 1) {
+    throw new Error("Tinrelay outgoing collapsed-activity persistence is not unique");
+  }
+}
+
+function inspectAppliedActivity(source) {
+  const helpers = activityHelperSlice(source);
+  for (const marker of [
+    "const MTKtinrelayOutgoingLocalShip=",
+    'i.state!=="accepted"',
+    "i.sender_ship!==t",
+    "MTKtinrelayOutgoingAcceptance(e,MTKtinrelayOutgoingLocalShip)!=null?`standalone`"
+  ]) {
+    if (!source.includes(marker)) throw new Error(`Tinrelay outgoing activity postcondition missing: ${marker}`);
+  }
+  for (const forbidden of ["innerHTML", "eval(", "TINRELAY OUTGOING RECEIPT"]) {
+    if (helpers.includes(forbidden)) throw new Error(`Tinrelay outgoing activity parser uses forbidden surface: ${forbidden}`);
+  }
+}
+
+function inspectAppliedMain(source) {
+  const helpers = mainHelperSlice(source);
+  for (const marker of [
+    '".config","tinrelay",MTKtinrelayOutgoingLocalShip,"outgoing-observer.json"',
+    '"mechanics-toolkit","tinrelay",MTKtinrelayOutgoingLocalShip,"outgoing-presentations"',
+    'Object.keys(t).sort().join("\\0")!=="socket_path"',
+    "(n.mode&63)!==0",
+    "MTKtinrelayOutgoingMaxBytes=20480",
+    "MTKtinrelayOutgoingUuid",
+    'writeFileSync(i,r,{encoding:"utf8",mode:384,flag:"wx"})',
+    "renameSync(i,t)",
+    "MTKtinrelayPruneOutgoing(t)",
+    "MTKtinrelayReadOutgoing(e.transmissionId)",
+    'e.contract!==MTKtinrelayOutgoingContract',
+    'e.kind!=="transmission"',
+    "MTKtinrelayOutgoingEvents.has(e.transmission_id)",
+    "MTKtinrelayOutgoingEvents.size>MTKtinrelayOutgoingLimit",
+    "setTimeout(()=>",
+    "750",
+    'createServer(e=>',
+    "e.setTimeout(100",
+    "n.unref()"
+  ]) {
+    if (!source.includes(marker)) throw new Error(`Tinrelay outgoing main postcondition missing: ${marker}`);
+  }
+  for (const forbidden of ["console.", "process.env", 'require("node:child_process")', "execFile(", "spawn(", "appendFile", "TINRELAY OUTGOING RECEIPT"]) {
+    if (helpers.includes(forbidden)) throw new Error(`Tinrelay outgoing main helper uses forbidden surface: ${forbidden}`);
+  }
+  if (count(source, 'L.add(await MTKtinrelayStartOutgoingObserver(l.app.getPath("userData")))') !== 1 ||
+      count(source, "case`mtk-tinrelay-outgoing-lookup`:") !== 1) {
+    throw new Error("Tinrelay outgoing main integration is not unique");
+  }
+}
+
+function patchRenderer(value) {
+  const hostBus = resolveHostBus(value);
+  const match = findExecComponentCall(value);
+  if (match == null) throw new Error("Upstream changed: exec conversation component seam is not unique");
+  let patched = replaceOnce(
+    value,
+    match[0],
+    `${match.groups.jsx}(MTKtinrelayOutgoingExec,{Component:${match.groups.component},${match.groups.props}})`,
+    "Tinrelay outgoing conversation component"
+  );
+  const persistent = persistentClassifier(patched);
+  patched = replaceOnce(
+    patched,
+    persistent[0],
+    persistent[0].replace(
+      "return i.type===`dynamic-tool-call`",
+      "return i.type===`exec`&&MTKtinrelayOutgoingAcceptance(i,MTKtinrelayLocalShip)!=null||i.type===`dynamic-tool-call`"
+    ),
+    "Tinrelay outgoing collapsed-activity persistence"
+  );
+  const insertion = patched.indexOf("function Cb(");
+  if (insertion < 0) throw new Error("Upstream changed: delegated-message owner is missing");
+  return patched.slice(0, insertion) + rendererHelpers(hostBus) + patched.slice(insertion);
+}
+
+function persistentClassifier(source) {
+  return uniqueMatch(
+    source,
+    /function [$A-Z_a-z][$\w]*\(\{unit:e,keepMcpAppEntriesPersistent:t,mcpServerStatuses:n,renderMcpApps:r\}\)\{if\(e\.kind!==`standalone`\)return!1;let i=e\.item\.item;return i\.type===`dynamic-tool-call`&&[$A-Z_a-z][$\w]*\(i\)\|\|t&&r&&i\.type===`mcp-tool-call`&&[$A-Z_a-z][$\w]*\(\{item:i,mcpServerStatuses:n\}\)\?!0:i\.type===`user-message`&&\(i\.steeringStatus!=null\|\|i\.hookFeedback===!0\)\}/g,
+    "collapsed-activity persistence classifier"
+  );
+}
+
+function findExecComponentCall(source) {
+  const pattern = new RegExp(
+    "(?<jsx>\\(0," + id + "\\.jsx\\))\\((?<component>" + id + "),\\{(?<props>item:(?<item>" + id + "),isTurnInProgress:" + id + ",threadDetailLevel:" + id + ",hostId:" + id + ",summaryTone:" + id + ",showSummaryIcon:" + id + ",summaryIcon:" + id + ",hideRawCommand:" + id + ",toolActivityTurnKey:" + id + ")\\}\\)",
+    "g"
+  );
+  const matches = [...source.matchAll(pattern)];
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function patchActivity(value, ship) {
+  const match = uniqueMatch(
+    value,
+    new RegExp(
+      "case`exec`:case`patch`:return (?<wrap>" + id + ")\\((?<clean>" + id + ")\\(e\\),(?<standalone>" + id + ")\\(e\\)\\?`standalone`:`groupable`\\);",
+      "g"
+    ),
+    "exec activity classifier"
+  );
+  const replacement = `case\`exec\`:return ${match.groups.wrap}(${match.groups.clean}(e),MTKtinrelayOutgoingAcceptance(e,MTKtinrelayOutgoingLocalShip)!=null?\`standalone\`:${match.groups.standalone}(e)?\`standalone\`:\`groupable\`);case\`patch\`:return ${match.groups.wrap}(${match.groups.clean}(e),${match.groups.standalone}(e)?\`standalone\`:\`groupable\`);`;
+  let patched = replaceOnce(value, match[0], replacement, "Tinrelay outgoing activity classifier");
+  const insertion = patched.indexOf("function ln(");
+  if (insertion < 0) throw new Error("Upstream changed: activity classifier owner is missing");
+  return patched.slice(0, insertion) + `const MTKtinrelayOutgoingLocalShip=${JSON.stringify(ship)};${acceptanceParser()}` + patched.slice(insertion);
+}
+
+function patchMain(value, ship) {
+  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
+  if (helperOwner == null) throw new Error("Upstream changed: Tinrelay outgoing main helper owner is not recognized");
+  let patched = replaceOnce(value, helperOwner, `${mainHelpers(ship)}${helperOwner}`, "Tinrelay outgoing main helper owner");
+  patched = replaceOnce(
+    patched,
+    "case`electron-add-new-workspace-root-option`:",
+    "case`mtk-tinrelay-outgoing-lookup`:{let n=await MTKtinrelayOutgoingLookup(t);this.windowManager.sendMessageToWebContents(e,{type:`mtk-tinrelay-outgoing-result`,requestId:typeof t.requestId===`string`?t.requestId:``,ok:n!=null,event:n});break}case`electron-add-new-workspace-root-option`:",
+    "Tinrelay outgoing main message handler"
+  );
+  return replaceOnce(
+    patched,
+    "await l.app.whenReady(),P(`main app.whenReady resolved`,R)",
+    'await l.app.whenReady(),L.add(await MTKtinrelayStartOutgoingObserver(l.app.getPath("userData"))),P(`main app.whenReady resolved`,R)',
+    "Tinrelay outgoing observer startup"
+  );
+}
+
+function rendererHelpers(hostBus) {
+  return `${acceptanceParser()}function MTKtinrelayOutgoingMatches(e,t){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&e.contract==="tinrelay-outgoing-observer-v1"&&e.kind==="transmission"&&e.transmission_id===t.transmission_id&&e.sender_ship===t.sender_ship&&e.recipient_ship===t.recipient_ship&&typeof e.attention_label==="string"&&(e.author_label===null||typeof e.author_label==="string"&&e.author_label.length>0)&&typeof e.body==="string"}function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,...r}=e,i=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[a,o]=MTKtinrelayReact.useState(null);return MTKtinrelayReact.useEffect(()=>{if(i==null)return;let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{t?.requestId===e&&o(t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,i)?t.event:null)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:i.transmission_id,senderShip:i.sender_ship,recipientShip:i.recipient_ship}),t},[i?.transmission_id,i?.sender_ship,i?.recipient_ship]),i!=null&&MTKtinrelayOutgoingMatches(a,i)?(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:a}):(0,Tb.jsx)(t,{item:n,...r})}function MTKtinrelayOutgoingView({event:e}){MTKtinrelayEnsureStyle();let n=e.author_label===null?e.sender_ship:MTKtinrelayAddress(e.author_label,e.sender_ship),r=e.attention_label===""?e.recipient_ship:MTKtinrelayAddress(e.attention_label,e.recipient_ship),t=n+" → "+r;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-start justify-start gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",t]}),(0,Tb.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":!0,className:"mtk-tinrelay-signal flex min-w-0 flex-col gap-2 rounded-xl border px-3 py-2 text-start",style:{maxWidth:"min(38rem,86%)"},children:[(0,Tb.jsx)("span",{"aria-label":"Accepted by Tinrelay",className:"sr-only",children:"Accepted by Tinrelay"}),(0,Tb.jsx)("div",{className:"mtk-tinrelay-body min-w-0 px-2 py-1",children:(0,Tb.jsx)(rg,{text:e.body,cwd:null,hostId:"local",collapsedLineCount:6})})]})]})}`;
+}
+
+function acceptanceParser() {
+  return `function MTKtinrelayOutgoingAcceptance(e,t){let n=e?.output;if(n==null||n.exitCode!==0||typeof n.aggregatedOutput!=="string"||n.aggregatedOutput.includes("\\r"))return null;let r=n.aggregatedOutput.endsWith("\\n")?n.aggregatedOutput.slice(0,-1):n.aggregatedOutput;if(r.includes("\\n")||new TextEncoder().encode(r).length>20480)return null;let i;try{i=JSON.parse(r)}catch{return null}if(i==null||typeof i!=="object"||Array.isArray(i)||Object.keys(i).sort().join("\\0")!=="recipient_ship\\0sender_ship\\0state\\0transmission_id"||i.state!=="accepted"||i.sender_ship!==t||typeof i.recipient_ship!=="string"||i.recipient_ship.length===0||typeof i.transmission_id!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(i.transmission_id))return null;return i}`;
+}
+
+function mainHelpers(ship) {
+  return String.raw`const MTKtinrelayOutgoingContract="tinrelay-outgoing-observer-v1",MTKtinrelayOutgoingLocalShip=${JSON.stringify(ship)},MTKtinrelayOutgoingMaxBytes=20480,MTKtinrelayOutgoingLimit=256,MTKtinrelayOutgoingUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,MTKtinrelayOutgoingEvents=new Map,MTKtinrelayOutgoingWaiters=new Map,MTKtinrelayOutgoingFs=require("node:fs"),MTKtinrelayOutgoingNet=require("node:net"),MTKtinrelayOutgoingOs=require("node:os"),MTKtinrelayOutgoingPath=require("node:path"),MTKtinrelayOutgoingCrypto=require("node:crypto");let MTKtinrelayOutgoingCacheDir=null;
+function MTKtinrelayOutgoingConfig(){let e=MTKtinrelayOutgoingPath.join(MTKtinrelayOutgoingOs.homedir(),".config","tinrelay",MTKtinrelayOutgoingLocalShip,"outgoing-observer.json"),t;try{t=JSON.parse(MTKtinrelayOutgoingFs.readFileSync(e,"utf8"))}catch{return null}if(t==null||typeof t!=="object"||Array.isArray(t)||Object.keys(t).sort().join("\0")!=="socket_path"||typeof t.socket_path!=="string"||!MTKtinrelayOutgoingPath.isAbsolute(t.socket_path))return null;let n;try{n=MTKtinrelayOutgoingFs.statSync(MTKtinrelayOutgoingPath.dirname(t.socket_path))}catch{return null}return!n.isDirectory()||(n.mode&63)!==0?null:t.socket_path}
+function MTKtinrelayOutgoingEvent(e){if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="attention_label\0author_label\0body\0contract\0kind\0recipient_ship\0sender_ship\0transmission_id"||e.contract!==MTKtinrelayOutgoingContract||e.kind!=="transmission"||typeof e.transmission_id!=="string"||!MTKtinrelayOutgoingUuid.test(e.transmission_id)||e.sender_ship!==MTKtinrelayOutgoingLocalShip||typeof e.recipient_ship!=="string"||e.recipient_ship.length===0||typeof e.attention_label!=="string"||e.author_label!==null&&(typeof e.author_label!=="string"||e.author_label.length===0)||typeof e.body!=="string")return null;return e}
+function MTKtinrelayPrepareOutgoingCache(e){MTKtinrelayOutgoingCacheDir=null;if(typeof e!=="string"||!MTKtinrelayOutgoingPath.isAbsolute(e))return;let t=MTKtinrelayOutgoingPath.join(e,"mechanics-toolkit","tinrelay",MTKtinrelayOutgoingLocalShip,"outgoing-presentations");try{MTKtinrelayOutgoingFs.mkdirSync(t,{recursive:!0,mode:448}),MTKtinrelayOutgoingFs.chmodSync(t,448);let e=MTKtinrelayOutgoingFs.lstatSync(t);e.isDirectory()&&(e.mode&63)===0&&(MTKtinrelayOutgoingCacheDir=t)}catch{}}
+function MTKtinrelayOutgoingCachePath(e){return MTKtinrelayOutgoingCacheDir==null||!MTKtinrelayOutgoingUuid.test(e)?null:MTKtinrelayOutgoingPath.join(MTKtinrelayOutgoingCacheDir,e+".json")}
+function MTKtinrelayReadOutgoing(e){let t=MTKtinrelayOutgoingCachePath(e);if(t==null)return null;let n,r;try{n=MTKtinrelayOutgoingFs.lstatSync(t);if(!n.isFile()||(n.mode&63)!==0||n.size<2||n.size>MTKtinrelayOutgoingMaxBytes)return null;r=MTKtinrelayOutgoingFs.readFileSync(t,"utf8")}catch{return null}if(!r.endsWith("\n")||r.slice(0,-1).includes("\n")||r.includes("\r"))return null;let i;try{i=JSON.parse(r.slice(0,-1))}catch{return null}return i=MTKtinrelayOutgoingEvent(i),i?.transmission_id===e?i:null}
+function MTKtinrelayPruneOutgoing(e){if(MTKtinrelayOutgoingCacheDir==null)return;let t=[];try{for(let n of MTKtinrelayOutgoingFs.readdirSync(MTKtinrelayOutgoingCacheDir)){let r=/^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json$/.exec(n);if(r==null)continue;let i=MTKtinrelayOutgoingPath.join(MTKtinrelayOutgoingCacheDir,n),a=MTKtinrelayOutgoingFs.lstatSync(i);a.isFile()&&t.push({path:i,mtime:a.mtimeMs})}}catch{return}t.sort((t,n)=>t.path===e?1:n.path===e?-1:t.mtime-n.mtime||t.path.localeCompare(n.path));for(;t.length>MTKtinrelayOutgoingLimit;){let e=t.shift();try{MTKtinrelayOutgoingFs.unlinkSync(e.path)}catch{}}}
+function MTKtinrelayWriteOutgoing(e){let t=MTKtinrelayOutgoingCachePath(e.transmission_id);if(t==null)return e;let n=MTKtinrelayReadOutgoing(e.transmission_id);if(n!=null)return n;let r=JSON.stringify(e)+"\n";if(Buffer.byteLength(r,"utf8")>MTKtinrelayOutgoingMaxBytes)return e;let i=MTKtinrelayOutgoingPath.join(MTKtinrelayOutgoingCacheDir,"."+e.transmission_id+"."+process.pid+"."+MTKtinrelayOutgoingCrypto.randomUUID()+".tmp");try{MTKtinrelayOutgoingFs.writeFileSync(i,r,{encoding:"utf8",mode:384,flag:"wx"}),MTKtinrelayOutgoingFs.renameSync(i,t),MTKtinrelayPruneOutgoing(t);let n=MTKtinrelayReadOutgoing(e.transmission_id);return n??e}catch{try{MTKtinrelayOutgoingFs.unlinkSync(i)}catch{}return e}}
+function MTKtinrelayRememberOutgoing(e){if(!MTKtinrelayOutgoingEvents.has(e.transmission_id)){e=MTKtinrelayWriteOutgoing(e),MTKtinrelayOutgoingEvents.set(e.transmission_id,e);if(MTKtinrelayOutgoingEvents.size>MTKtinrelayOutgoingLimit)MTKtinrelayOutgoingEvents.delete(MTKtinrelayOutgoingEvents.keys().next().value)}let t=MTKtinrelayOutgoingWaiters.get(e.transmission_id);if(t!=null){MTKtinrelayOutgoingWaiters.delete(e.transmission_id);let n=MTKtinrelayOutgoingEvents.get(e.transmission_id);for(let r of t)r(n)}}
+function MTKtinrelayOutgoingLookup(e){if(typeof e?.requestId!=="string"||typeof e.transmissionId!=="string"||!MTKtinrelayOutgoingUuid.test(e.transmissionId)||e.senderShip!==MTKtinrelayOutgoingLocalShip||typeof e.recipientShip!=="string"||e.recipientShip.length===0)return Promise.resolve(null);let t=MTKtinrelayOutgoingEvents.get(e.transmissionId);if(t==null&&(t=MTKtinrelayReadOutgoing(e.transmissionId),t!=null)){MTKtinrelayOutgoingEvents.set(e.transmissionId,t);if(MTKtinrelayOutgoingEvents.size>MTKtinrelayOutgoingLimit)MTKtinrelayOutgoingEvents.delete(MTKtinrelayOutgoingEvents.keys().next().value)}if(t!=null)return Promise.resolve(t.sender_ship===e.senderShip&&t.recipient_ship===e.recipientShip?t:null);return new Promise(t=>{let n=r=>{clearTimeout(i),t(r!=null&&r.sender_ship===e.senderShip&&r.recipient_ship===e.recipientShip?r:null)},r=MTKtinrelayOutgoingWaiters.get(e.transmissionId);r==null&&(r=new Set,MTKtinrelayOutgoingWaiters.set(e.transmissionId,r)),r.add(n);let i=setTimeout(()=>{r.delete(n),r.size===0&&MTKtinrelayOutgoingWaiters.delete(e.transmissionId),t(null)},750)})}
+function MTKtinrelayOutgoingConnection(e){let t=[],n=0,r=!1;e.setTimeout(100,()=>e.destroy()),e.on("data",s=>{if(r)return;n+=s.length,n>MTKtinrelayOutgoingMaxBytes?(r=!0,e.destroy()):t.push(s)}),e.on("end",()=>{if(r)return;let e;try{e=new TextDecoder("utf-8",{fatal:!0}).decode(Buffer.concat(t))}catch{return}if(!e.endsWith("\n")||e.slice(0,-1).includes("\n")||e.includes("\r"))return;let n;try{n=JSON.parse(e.slice(0,-1))}catch{return}n=MTKtinrelayOutgoingEvent(n),n!=null&&MTKtinrelayRememberOutgoing(n)}),e.on("error",()=>{})}
+function MTKtinrelayOutgoingProbe(e){return new Promise(t=>{let n=!1,r=MTKtinrelayOutgoingNet.createConnection(e),i=setTimeout(()=>{n||(n=!0,r.destroy(),t("active"))},50),a=e=>{n||(n=!0,clearTimeout(i),r.destroy(),t(e))};r.once("connect",()=>a("active")),r.once("error",e=>a(e?.code==="ECONNREFUSED"||e?.code==="ENOENT"?"stale":"active"))})}
+async function MTKtinrelayStartOutgoingObserver(e){MTKtinrelayPrepareOutgoingCache(e);let t=MTKtinrelayOutgoingConfig();if(t==null)return()=>{};let n;try{n=MTKtinrelayOutgoingFs.lstatSync(t)}catch(e){if(e?.code!=="ENOENT")return()=>{}}if(n!=null){if(!n.isSocket()||await MTKtinrelayOutgoingProbe(t)!=="stale")return()=>{};try{MTKtinrelayOutgoingFs.unlinkSync(t)}catch{return()=>{}}}return new Promise(e=>{let n=MTKtinrelayOutgoingNet.createServer(e=>MTKtinrelayOutgoingConnection(e)),r=!1,i=!1,a=null,o=()=>{if(i)return;i=!0;for(let e of MTKtinrelayOutgoingWaiters.values())for(let t of e)t(null);MTKtinrelayOutgoingWaiters.clear(),n.close(()=>{});if(a!=null)try{let e=MTKtinrelayOutgoingFs.lstatSync(t);e.isSocket()&&e.dev===a.dev&&e.ino===a.ino&&MTKtinrelayOutgoingFs.unlinkSync(t)}catch{}};n.on("error",()=>{r||(r=!0,e(()=>{}))}),n.listen(t,()=>{if(r)return;try{let s=MTKtinrelayOutgoingFs.lstatSync(t);if(!s.isSocket()){r=!0,n.close(()=>{}),e(()=>{});return}a={dev:s.dev,ino:s.ino}}catch{r=!0,n.close(()=>{}),e(()=>{});return}n.unref(),r=!0,e(o)})})}`;
+}
+
+function embeddedLocalShip(source) {
+  const literal = '"(?:\\\\.|[^"\\\\])*"';
+  const match = uniqueMatch(
+    source,
+    new RegExp(`const MTKtinrelayLocalShip=(?<ship>${literal});function MTKtinrelayPointerFromMessage\\(`, "g"),
+    "embedded Tinrelay local ship"
+  );
+  const ship = JSON.parse(match.groups.ship);
+  if (typeof ship !== "string" || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(ship)) {
+    throw new Error("Tinrelay pointer patch contains an invalid local ship");
+  }
+  return ship;
+}
+
+function helperSlice(source) {
+  const start = source.indexOf("function MTKtinrelayOutgoingAcceptance(");
+  const end = source.indexOf("function Cb(", start);
+  if (start < 0 || end <= start) throw new Error("Tinrelay outgoing renderer helper is not localized");
+  return source.slice(start, end);
+}
+
+function activityHelperSlice(source) {
+  const start = source.indexOf("const MTKtinrelayOutgoingLocalShip=");
+  const end = source.indexOf("function ln(", start);
+  if (start < 0 || end <= start) throw new Error("Tinrelay outgoing activity helper is not localized");
+  return source.slice(start, end);
+}
+
+function mainHelperSlice(source) {
+  const start = source.indexOf("const MTKtinrelayOutgoingContract=");
+  const owners = [source.indexOf("var mQ=i.i(`electron-message-handler`)", start), source.indexOf("var pQ=i.i(`electron-message-handler`)", start)].filter(index => index >= 0);
+  if (start < 0 || owners.length !== 1 || owners[0] <= start) throw new Error("Tinrelay outgoing main helper is not localized");
+  return source.slice(start, owners[0]);
+}
+
+function resolveHostBus(source) {
+  const imported = uniqueMatch(source, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-initial import");
+  const appInitial = fs.readFileSync(path.resolve(path.dirname(renderer), imported.groups.relative), "utf8");
+  const exported = exportedAs(appInitial, "U");
+  const binding = uniqueMatch(imported.groups.specifiers, new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"), "host bus import");
+  return binding.groups.local;
+}
+
+function exportedAs(source, local) {
+  const exports = source.slice(source.lastIndexOf("export{"));
+  const match = uniqueMatch(exports, new RegExp(`(?:^|,)${escapeRegExp(local)} as (?<exported>${id})(?=,|\\})`, "g"), `${local} export`);
+  return match.groups.exported;
+}
+
+function uniqueFile(pattern, directory = assets) {
+  const files = fs.readdirSync(directory).filter(name => pattern.test(name)).map(name => path.join(directory, name));
+  if (files.length !== 1) throw new Error(`Upstream changed: found ${files.length} owners for ${pattern}`);
+  return files[0];
+}
+
+function uniqueMatch(value, pattern, label) {
+  const matches = [...value.matchAll(pattern)];
+  if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} ${label} matches`);
+  return matches[0];
+}
+
+function replaceOnce(value, before, after, label) {
+  if (count(value, before) !== 1) throw new Error(`Upstream changed: ${label} is not unique`);
+  return value.replace(before, after);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function count(value, needle) {
+  return value.split(needle).length - 1;
+}
+
+function countMatches(value, pattern) {
+  return [...value.matchAll(pattern)].length;
+}
+
+function moduleSyntaxCheck(file) {
+  const result = spawnSync(process.execPath, ["--input-type=module", "--check"], {
+    encoding: "utf8",
+    input: fs.readFileSync(file),
+    maxBuffer: 64 * 1024 * 1024
+  });
+  if (result.status !== 0) {
+    const output = result.stderr || result.stdout;
+    const summary = output.match(/SyntaxError:[^\n]*/)?.[0] ?? output.trim().slice(-1000);
+    throw new Error(`module syntax check failed for ${path.relative(root, file)}: ${summary}`);
+  }
+}

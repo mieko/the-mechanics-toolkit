@@ -11,7 +11,7 @@ if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
 
 const assets = path.join(root, "webview/assets");
 const turn = uniqueOwner(source =>
-  source.includes("preventAutoCollapse:kt||yr") || source.includes("function MTKuseReasoningRetention("),
+  source.includes("preventAutoCollapse:kt||yr") || source.includes("preventAutoCollapse:Ot||yr") || source.includes("function MTKuseReasoningRetention("),
   "local reasoning-collapse owner"
 );
 const collapse = uniqueOwner(source =>
@@ -42,8 +42,8 @@ function inspectState() {
   const source = fs.readFileSync(turn.file, "utf8");
   const markers = [
     source.includes("function MTKuseReasoningRetention("),
-    source.includes("MTKreasoningRetained=MTKuseReasoningRetention(a)"),
-    source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained")
+    source.includes("MTKreasoningRetained=MTKuseReasoningRetention(a)") || source.includes("MTKreasoningRetained=MTKuseReasoningRetention(c)"),
+    source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") || source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained")
   ];
   if (markers.every(Boolean)) {
     const palette = paletteOwner();
@@ -60,12 +60,10 @@ function inspectState() {
     return "applied";
   }
   if (markers.some(Boolean)) throw new Error("Unrecognized reasoning retention patch: partial turn markers");
-  for (const contract of [
-    "function _i(e){let t=(0,Vi.c)(207),",
-    "I=Fe!==void 0&&Fe,ot=bt(le)",
-    "preventAutoCollapse:kt||yr"
-  ]) {
-    if (!source.includes(contract)) throw new Error(`Upstream changed: missing reasoning turn contract ${contract}`);
+  const legacy = source.includes("I=Fe!==void 0&&Fe,ot=bt(le)") && source.includes("preventAutoCollapse:kt||yr");
+  const current = source.includes("ut=Re!==void 0&&Re,dt=Je(Fe)") && source.includes("preventAutoCollapse:Ot||yr");
+  if (!source.includes("function _i(e){let t=(0,Vi.c)(207),") || (!legacy && !current)) {
+    throw new Error("Upstream changed: missing reasoning turn ownership contract");
   }
   verifyCollapseContract();
   return "needs-apply";
@@ -73,12 +71,12 @@ function inspectState() {
 
 function verifyCollapseContract() {
   const source = fs.readFileSync(collapse.file, "utf8");
-  for (const contract of [
-    "preventAutoCollapse:i,persistedCollapsed:a",
-    "isCollapsed:!r&&(a??!i)",
-    "onToggle:()=>{let e=!W;if(u==null){A(e);return}u(e)}"
-  ]) {
+  for (const contract of ["preventAutoCollapse:i,persistedCollapsed:a", "isCollapsed:!r&&(a??!i)"]) {
     if (!source.includes(contract)) throw new Error(`Upstream changed: missing agent-activity contract ${contract}`);
+  }
+  if (!source.includes("onToggle:()=>{let e=!W;if(u==null){A(e);return}u(e)}") &&
+      !source.includes("onToggle:()=>{let e=!G;if(u==null){j(e);return}u(e)}")) {
+    throw new Error("Upstream changed: missing agent-activity toggle contract");
   }
 }
 
@@ -107,8 +105,13 @@ function patchTurn(file) {
   let source = fs.readFileSync(file, "utf8");
   const helper = "const MTKreasoningNoopSubscribe=()=>()=>{};function MTKuseReasoningRetention(e){let t=globalThis.__MTKreasoningSubscribe??MTKreasoningNoopSubscribe;return Ui.useSyncExternalStore(t,()=>globalThis.__MTKreasoningShouldStayOpen?.(e)===!0,()=>!1)}";
   source = replaceOnce(source, "function _i(e){let t=(0,Vi.c)(207),", `${helper}function _i(e){let t=(0,Vi.c)(207),`, "reasoning turn hook");
-  source = replaceOnce(source, "I=Fe!==void 0&&Fe,ot=bt(le)", "I=Fe!==void 0&&Fe,MTKreasoningRetained=MTKuseReasoningRetention(a),ot=bt(le)", "reasoning task decision");
-  source = replaceOnce(source, "preventAutoCollapse:kt||yr", "preventAutoCollapse:kt||yr||MTKreasoningRetained", "reasoning auto-collapse gate");
+  if (source.includes("ut=Re!==void 0&&Re,dt=Je(Fe)")) {
+    source = replaceOnce(source, "ut=Re!==void 0&&Re,dt=Je(Fe)", "ut=Re!==void 0&&Re,MTKreasoningRetained=MTKuseReasoningRetention(c),dt=Je(Fe)", "reasoning task decision");
+    source = replaceOnce(source, "preventAutoCollapse:Ot||yr", "preventAutoCollapse:Ot||yr||MTKreasoningRetained", "reasoning auto-collapse gate");
+  } else {
+    source = replaceOnce(source, "I=Fe!==void 0&&Fe,ot=bt(le)", "I=Fe!==void 0&&Fe,MTKreasoningRetained=MTKuseReasoningRetention(a),ot=bt(le)", "reasoning task decision");
+    source = replaceOnce(source, "preventAutoCollapse:kt||yr", "preventAutoCollapse:kt||yr||MTKreasoningRetained", "reasoning auto-collapse gate");
+  }
   fs.writeFileSync(file, source);
 }
 

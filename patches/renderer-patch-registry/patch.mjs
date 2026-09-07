@@ -87,7 +87,7 @@ function activePackages() {
       name: "tinrelayPointerPresentation",
       file,
       anchor: "const MTKtinrelayLocalShip=",
-      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:1,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"inert-plain-text"});`
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("tinrelayPointerPresentation",{version:1,contract:"tinrelay-local-pointer-v1",disclosure:"automatic-local-inspection",rendering:"stock-safe-markdown"});`
     });
   }
   const names = packages.map(entry => entry.name);

@@ -19,7 +19,9 @@ let state = inspectState(source, primarySource);
 
 if (command === "apply" && state === "needs-apply") {
   const workspaceRoot = configuredWorkspaceRoot();
-  if (current7942Contracts(source, primarySource).every(Boolean)) {
+  if (current8109Contracts(source, primarySource).every(Boolean)) {
+    ({ appSource: source, primarySource } = patch8109(source, primarySource, workspaceRoot));
+  } else if (current7942Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch7942(source, primarySource, workspaceRoot));
   } else if (current7746Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch7746(source, primarySource, workspaceRoot));
@@ -43,6 +45,27 @@ process.stdout.write(`${JSON.stringify({
 }, null, 2)}\n`);
 
 function inspectState(value, primaryValue) {
+  const build8109Markers = [
+    value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
+    value.includes("MTKattentionPolicyAtom=Uy(Q,null)"),
+    value.includes("function MTKattentionIgnoredThread8109("),
+    value.includes("function MTKacceptAttentionReload8109("),
+    value.includes('__MTK_RUNTIME_JSON_RELOAD__?.register("task-attention-policy.json"'),
+    value.includes("function MTKuseAttentionBootstrap8109("),
+    value.includes("function Oks(){MTKuseAttentionBootstrap8109();"),
+    primaryValue.includes("function MTKuseTaskAttention8109("),
+    primaryValue.includes("MTKattentionIgnoredForTask=MTKuseTaskAttention8109(ft,n)"),
+    primaryValue.includes("let kt=MTKattentionIgnoredForTask?{...Ot,unread:!1,unreadCount:0}:Ot"),
+    primaryValue.includes("Nt=MTKattentionIgnoredForTask?[]:Mt==null?[]:[Mt]"),
+    primaryValue.includes("let zt=MTKattentionIgnoredForTask?void 0:Rt"),
+    primaryValue.includes("hasUnreadTurn:!MTKattentionIgnoredForTask&&!Tt&&$e===!0"),
+    value.includes("s=s.filter(t=>!MTKattentionIgnoredThread8109(e,t,c))"),
+    value.includes("[desktop-notifications] suppressed task-attention-policy turn-complete")
+  ];
+  if (value.includes("function MTKuseAttentionBootstrap8109(") || primaryValue.includes("function MTKuseTaskAttention8109(")) {
+    if (!build8109Markers.every(Boolean)) throw new Error("Unrecognized build-8109 task attention patch: partial markers");
+    return "applied";
+  }
   const build7942Markers = [
     value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
     value.includes("MTKattentionPolicyAtom=My(Q,null)"),
@@ -60,7 +83,7 @@ function inspectState(value, primaryValue) {
     value.includes("s=s.filter(t=>!MTKattentionIgnoredThread7942(e,t,c))"),
     value.includes("[desktop-notifications] suppressed task-attention-policy turn-complete")
   ];
-  if (build7942Markers.some(Boolean)) {
+  if (value.includes("function MTKuseAttentionBootstrap7942(") || primaryValue.includes("function MTKuseTaskAttention7942(")) {
     if (!build7942Markers.every(Boolean)) throw new Error("Unrecognized build-7942 task attention patch: partial markers");
     return "applied";
   }
@@ -81,7 +104,7 @@ function inspectState(value, primaryValue) {
     value.includes("s=s.filter(t=>!MTKattentionIgnoredThread7746(e,t,c))"),
     value.includes("[desktop-notifications] suppressed task-attention-policy turn-complete")
   ];
-  if (build7746Markers.some(Boolean)) {
+  if (value.includes("function MTKuseAttentionBootstrap7746(") || primaryValue.includes("function MTKuseTaskAttention7746(")) {
     if (!build7746Markers.every(Boolean)) throw new Error("Unrecognized build-7746 task attention patch: partial markers");
     return "applied";
   }
@@ -147,6 +170,7 @@ function inspectState(value, primaryValue) {
   }
   if (present.some(Boolean)) throw new Error("Unrecognized task attention patch: partial markers");
 
+  if (current8109Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current7942Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current7746Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current7345Contracts().every(contract => value.includes(contract))) return "needs-apply";
@@ -156,6 +180,22 @@ function inspectState(value, primaryValue) {
     if (!value.includes(contract)) throw new Error(`Upstream changed: missing task attention contract ${contract}`);
   }
   return "needs-apply";
+}
+
+function current8109Contracts(appValue, primaryValue) {
+  return [
+    ["function Oks(){MTKusePaletteBootstrap();let e=(0,jks.c)(12),", "function Oks(){let e=(0,jks.c)(12),"].some(contract => appValue.includes(contract)),
+    appValue.includes("function Dhs(e,t){T.info(`[desktop-notifications] service starting`)"),
+    appValue.includes("let a=HB(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:s}=h(t.conversationId)"),
+    appValue.includes("zKa,BKa=t((()=>{Z(),") && appValue.includes("zKa=qy(Q,({get:e})=>"),
+    appValue.includes("s=t===`work`?dfr({cloudThreadsAllowed:i,localThreadsAllowed:EF(e(jO)),threadKeys:o}):o;return r+"),
+    primaryValue.includes("function $On(e){let t=(0,tkn.c)(139),"),
+    primaryValue.includes("ft=rw(tOn,{hostId:qe??`local`,threadId:n})??He?.title??null,pt=rw(coe,n)??He?.threadSource"),
+    primaryValue.includes("):Ot=t[25];let kt=Ot,At;t[26]"),
+    primaryValue.includes("Nt=Mt==null?[]:[Mt]"),
+    primaryValue.includes("):Rt=t[45];let zt=Rt,Bt;t[46]"),
+    primaryValue.includes("hasUnreadTurn:!Tt&&$e===!0")
+  ];
 }
 
 function current7942Contracts(appValue, primaryValue) {
@@ -172,6 +212,92 @@ function current7942Contracts(appValue, primaryValue) {
     primaryValue.includes("):Rt=t[45];let zt=Rt,Bt;t[46]"),
     primaryValue.includes("hasUnreadTurn:!Tt&&$e===!0")
   ];
+}
+
+function patch8109(appValue, primaryValue, workspaceRoot) {
+  let normalizedApp = replaceOnce(
+    appValue,
+    "let a=HB(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:s}=h(t.conversationId)",
+    "let a=RB(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:s}=h(t.conversationId)",
+    "build-8109 notification compatibility seam"
+  );
+  normalizedApp = replaceOnce(
+    normalizedApp,
+    "zKa,BKa=t((()=>{Z(),",
+    "eqa,tqa=t((()=>{Z(),",
+    "build-8109 attention atom compatibility seam"
+  );
+  normalizedApp = replaceOnce(
+    normalizedApp,
+    "s=t===`work`?dfr({cloudThreadsAllowed:i,localThreadsAllowed:EF(e(jO)),threadKeys:o}):o;return r+",
+    "s=t===`work`?_fr({cloudThreadsAllowed:i,localThreadsAllowed:_F(e(VO)),threadKeys:o}):o;return r+",
+    "build-8109 Dock compatibility seam"
+  );
+
+  let normalizedPrimary = replaceOnce(
+    primaryValue,
+    "function $On(e){let t=(0,tkn.c)(139),",
+    "function Fjn(e){let t=(0,Ljn.c)(151),",
+    "build-8109 task-row compatibility seam"
+  );
+  normalizedPrimary = replaceOnce(
+    normalizedPrimary,
+    "ft=rw(tOn,{hostId:qe??`local`,threadId:n})??He?.title??null,pt=rw(coe,n)??He?.threadSource",
+    "ft=qw($Dn,{hostId:qe??`local`,threadId:n})??He?.title??null,pt=qw(gwe,n)??He?.threadSource",
+    "build-8109 task-title compatibility seam"
+  );
+
+  let { appSource, primarySource } = patch7942(normalizedApp, normalizedPrimary, workspaceRoot);
+  appSource = appSource.replace(/(MTK[A-Za-z]+)7942/g, "$18109");
+  appSource = appSource.replaceAll("MTKattentionBase64Size7942", "MTKattentionBase64Size8109");
+  primarySource = primarySource.replace(/(MTK[A-Za-z]+)7942/g, "$18109");
+
+  appSource = replaceOnce(
+    appSource,
+    'function MTKattentionIgnoredThread8109(e,t,n){let r=e(XU,t),i=$P(t);return r?.kind==="local"?MTKattentionMatch8109(n,r.conversation?.title??r.pendingWorktree?.label,i?.kind==="local"?i.threadId:null):r?.kind==="remote"?MTKattentionMatch8109(n,r.task.title,r.task.id):!1}',
+    'function MTKattentionIgnoredThread8109(e,t,n){let r=e(cW,t);return r?.kind==="local"?MTKattentionMatch8109(n,r.catalogTitle??r.summary?.title,r.conversationId):r?.kind==="remote"?MTKattentionMatch8109(n,r.task.title,r.task.id):!1}',
+    "build-8109 task registry ownership"
+  );
+  appSource = replaceOnce(
+    appSource,
+    'e.get(Db)==null&&await e.when(({get:e})=>e(Db)!=null),await MTKloadAttentionPolicy8109(Eb(e,"local"),t)',
+    'e.get(zb)==null&&await e.when(({get:e})=>e(zb)!=null),await MTKloadAttentionPolicy8109(Rb(e,"local"),t)',
+    "build-8109 app-server readiness"
+  );
+  appSource = replaceOnce(appSource, "function MTKuseAttentionBootstrap8109(){let e=hb(Q)", "function MTKuseAttentionBootstrap8109(){let e=Db(Q)", "build-8109 state hook");
+  appSource = replaceOnce(
+    appSource,
+    "eqa,tqa=t((()=>{Z(),MTKattentionPolicyAtom=My(Q,null),",
+    "zKa,BKa=t((()=>{Z(),MTKattentionPolicyAtom=Uy(Q,null),",
+    "build-8109 attention atom"
+  );
+  appSource = replaceOnce(
+    appSource,
+    "s=t===`work`?_fr({cloudThreadsAllowed:i,localThreadsAllowed:_F(e(VO)),threadKeys:o}):o,c=e(MTKattentionPolicyAtom);c!=null&&(s=s.filter(t=>!MTKattentionIgnoredThread8109(e,t,c)));return r+",
+    "s=t===`work`?dfr({cloudThreadsAllowed:i,localThreadsAllowed:EF(e(jO)),threadKeys:o}):o,c=e(MTKattentionPolicyAtom);c!=null&&(s=s.filter(t=>!MTKattentionIgnoredThread8109(e,t,c)));return r+",
+    "build-8109 Dock badge projection"
+  );
+  appSource = replaceOnce(
+    appSource,
+    "let a=RB(e.getConversation(t.conversationId));if(MTKattentionIgnored8109(a,t.conversationId))",
+    "let a=HB(e.getConversation(t.conversationId));if(MTKattentionIgnored8109(a,t.conversationId))",
+    "build-8109 native notification projection"
+  );
+
+  primarySource = replaceOnce(primarySource, "return Rjn.useSyncExternalStore", "return nkn.useSyncExternalStore", "build-8109 React hook owner");
+  primarySource = replaceOnce(
+    primarySource,
+    "function Fjn(e){let t=(0,Ljn.c)(151),",
+    "function $On(e){let t=(0,tkn.c)(139),",
+    "build-8109 task attention hook"
+  );
+  primarySource = replaceOnce(
+    primarySource,
+    "ft=qw($Dn,{hostId:qe??`local`,threadId:n})??He?.title??null,MTKattentionIgnoredForTask=MTKuseTaskAttention8109(ft,n),pt=qw(gwe,n)??He?.threadSource",
+    "ft=rw(tOn,{hostId:qe??`local`,threadId:n})??He?.title??null,MTKattentionIgnoredForTask=MTKuseTaskAttention8109(ft,n),pt=rw(coe,n)??He?.threadSource",
+    "build-8109 local title"
+  );
+  return { appSource, primarySource };
 }
 
 function patch7942(appValue, primaryValue, workspaceRoot) {

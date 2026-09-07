@@ -75,7 +75,7 @@ function rendererFixture() {
 
 function mainFixture() {
   return [
-    "var i={i(){return()=>({})}};var mQ=i.i(`electron-message-handler`);",
+    "var i={i(){return()=>({})}};var pQ=i.i(`electron-message-handler`);",
     "class App{async handleMessage(e,t){switch(t.type){",
     "case`show-plan-summary`:break;case`update-diff-if-open`:break;case`electron-add-new-workspace-root-option`:break;",
     "}}}",

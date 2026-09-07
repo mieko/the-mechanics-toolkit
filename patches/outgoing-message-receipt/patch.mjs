@@ -184,6 +184,21 @@ function resolveTaskImports(ownerSource) {
   const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appInitial.includes("function Oks(){") && appInitial.includes("cW=Xy(Q,")) {
+    const additions = [
+      `${exportedAs(appInitial, "Db")} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, "Q")} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, "cW")} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, "oF")} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, "sF")} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
   if (appInitial.includes("function Oks(){") && appInitial.includes("XU=zy(Q,")) {
     const additions = [
       `${exportedAs(appInitial, "hb")} as MTKoutboundStoreHook`,

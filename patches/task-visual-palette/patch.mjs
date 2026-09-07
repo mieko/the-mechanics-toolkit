@@ -122,6 +122,32 @@ function uniqueFile(pattern) {
 }
 
 function inspectSidebarArchiveProtection(source, primarySource) {
+  const build8109Applied = [
+    "globalThis.__MTKsidebarArchiveProtected=MTKsidebarArchiveProtected",
+    "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function UAn(",
+    "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}",
+    "function ajn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i,archiveProtected:a}){return a&&(e=e.filter(e=>e.id!==`archive-thread`&&e.id!==`archive-task`)),r.length<2?e:",
+    "archiveProtected:HTn(T,r).some(e=>{let t=T.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})",
+    "archiveProtected:HTn(K,e).some(e=>{let t=K.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})",
+    "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(De||L)?Ne:t",
+    "Ve=Ce&&!MTKsidebarArchiveProtected(se)?Me:null",
+    "if(Ce&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`",
+    "archive:MTKsidebarArchiveProtected(e.task.id)?null:n,getMenuItems:q&&!MTKsidebarArchiveProtected(e.task.id)?e=>d(["
+  ];
+  if (primarySource != null && build8109Applied.every(contract => source.includes(contract) || primarySource.includes(contract))) return "applied";
+
+  const build8109NeedsApply = [
+    "archive:w?void 0:{id:`archive-thread`,onSelect:()=>i()}",
+    "function ajn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i}){return r.length<2?e:",
+    "selectedThreadKeys:HTn(T,r),threadKey:r})",
+    "selectedThreadKeys:HTn(K,e),threadKey:e})",
+    "archive:t!=null&&(De||L)?Ne:t",
+    "Ve=Ce?Me:null",
+    "if(Ce&&e.push({id:`archive-task`",
+    "archive:n,getMenuItems:q?e=>d(["
+  ];
+  if (primarySource != null && build8109NeedsApply.every(contract => primarySource.includes(contract))) return "needs-apply";
+
   const build7942Applied = [
     "globalThis.__MTKsidebarArchiveProtected=MTKsidebarArchiveProtected",
     "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function VAn(",
@@ -284,12 +310,25 @@ function appProfile(source) {
       seam: "function Oks(){let e=(0,jks.c)(12),",
       patchedSeam: "function Oks(){MTKusePaletteBootstrap();let e=(0,jks.c)(12),",
       fixedOwnerRoot: true,
+      excludeMarker: "function Rb(e,t){let n=e.get(zb);",
       helperReplacements: [["A_($)", "hb(Q)"], ["x$c.useEffect", "Mks.useEffect"], ["e.get($g)", "e.get(Db)"], ["e($g)", "e(Db)"], ['Qg(e,"local")', 'Eb(e,"local")']],
+      bottomFadeBefore: null,
+      bottomFadeAfter: null
+    },
+    {
+      name: "26.901.51231-8109",
+      seam: "function Oks(){let e=(0,jks.c)(12),",
+      patchedSeam: "function Oks(){MTKusePaletteBootstrap();let e=(0,jks.c)(12),",
+      fixedOwnerRoot: true,
+      marker: "function Rb(e,t){let n=e.get(zb);",
+      helperReplacements: [["A_($)", "Db(Q)"], ["x$c.useEffect", "Mks.useEffect"], ["e.get($g)", "e.get(zb)"], ["e($g)", "e(zb)"], ['Qg(e,"local")', 'Rb(e,"local")']],
       bottomFadeBefore: null,
       bottomFadeAfter: null
     }
   ];
-  const matches = profiles.filter(profile => source.includes(profile.seam));
+  const matches = profiles.filter(profile => source.includes(profile.seam) &&
+    (profile.marker == null || source.includes(profile.marker)) &&
+    (profile.excludeMarker == null || !source.includes(profile.excludeMarker)));
   return matches.length === 1 ? matches[0] : null;
 }
 
@@ -309,6 +348,11 @@ function bottomFadeProfile(appSource, primarySource) {
       file: "app-primary",
       before: '(0,b3.jsx)(`div`,{"aria-hidden":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})',
       after: '(0,b3.jsx)(`div`,{"aria-hidden":!0,"data-mtk-palette-bottom-fade":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})'
+    },
+    {
+      file: "app-primary",
+      before: '(0,y3.jsx)(`div`,{"aria-hidden":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})',
+      after: '(0,y3.jsx)(`div`,{"aria-hidden":!0,"data-mtk-palette-bottom-fade":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})'
     }
   ];
   const matches = profiles.filter(profile => (profile.file === "app-initial" ? appSource : primarySource).includes(profile.before));
@@ -343,6 +387,10 @@ function localProfile(source) {
     { name: "26.901.41123-7942", cacheBefore: "function $o(e){let t=(0,os.c)(88),", cacheAfter: "function $o(e){let t=(0,os.c)(89),",
       rootBefore: 't[72]!==G||t[73]!==K||t[74]!==q||t[75]!==J||t[76]!==ie||t[77]!==ae||t[78]!==oe||t[79]!==se||t[80]!==le||t[81]!==ue||t[82]!==de||t[83]!==fe?(pe=(0,Q.jsxs)(`div`,{ref:U,className:`relative h-full min-h-0`,children:[G,K,q,J,re,ie,ae,oe,se,le,ue,de,fe]}),t[72]=G,t[73]=K,t[74]=q,t[75]=J,t[76]=ie,t[77]=ae,t[78]=oe,t[79]=se,t[80]=le,t[81]=ue,t[82]=de,t[83]=fe,t[84]=pe):pe=t[84];',
       rootAfter: 't[72]!==G||t[73]!==K||t[74]!==q||t[75]!==J||t[76]!==ie||t[77]!==ae||t[78]!==oe||t[79]!==se||t[80]!==le||t[81]!==ue||t[82]!==de||t[83]!==fe||t[88]!==r?(pe=(0,Q.jsxs)(`div`,{ref:U,"data-mtk-palette-room-host":!0,"data-mtk-palette-thread-id":r,className:`relative h-full min-h-0`,children:[G,K,q,J,re,ie,ae,oe,se,le,ue,de,fe]}),t[72]=G,t[73]=K,t[74]=q,t[75]=J,t[76]=ie,t[77]=ae,t[78]=oe,t[79]=se,t[80]=le,t[81]=ue,t[82]=de,t[83]=fe,t[88]=r,t[84]=pe):pe=t[84];' }
+    ,
+    { name: "26.901.51231-8109", cacheBefore: "function $o(e){let t=(0,os.c)(88),", cacheAfter: "function $o(e){let t=(0,os.c)(89),",
+      rootBefore: 't[72]!==W||t[73]!==G||t[74]!==K||t[75]!==q||t[76]!==ie||t[77]!==oe||t[78]!==se||t[79]!==ce||t[80]!==le||t[81]!==de||t[82]!==fe||t[83]!==pe?(he=(0,Q.jsxs)(`div`,{ref:ne,className:`relative h-full min-h-0`,children:[W,G,K,q,re,ie,oe,se,ce,le,de,fe,pe]}),t[72]=W,t[73]=G,t[74]=K,t[75]=q,t[76]=ie,t[77]=oe,t[78]=se,t[79]=ce,t[80]=le,t[81]=de,t[82]=fe,t[83]=pe,t[84]=he):he=t[84];',
+      rootAfter: 't[72]!==W||t[73]!==G||t[74]!==K||t[75]!==q||t[76]!==ie||t[77]!==oe||t[78]!==se||t[79]!==ce||t[80]!==le||t[81]!==de||t[82]!==fe||t[83]!==pe||t[88]!==r?(he=(0,Q.jsxs)(`div`,{ref:ne,"data-mtk-palette-room-host":!0,"data-mtk-palette-thread-id":r,className:`relative h-full min-h-0`,children:[W,G,K,q,re,ie,oe,se,ce,le,de,fe,pe]}),t[72]=W,t[73]=G,t[74]=K,t[75]=q,t[76]=ie,t[77]=oe,t[78]=se,t[79]=ce,t[80]=le,t[81]=de,t[82]=fe,t[83]=pe,t[88]=r,t[84]=he):he=t[84];' }
   ];
   const matches = profiles.filter(profile => source.includes(profile.cacheBefore) && source.includes(profile.rootBefore));
   return matches.length === 1 ? matches[0] : null;
@@ -606,6 +654,44 @@ function addReasoningPolicyBridge(source, prefix) {
 function patchSidebarArchiveAffordances(file, primaryFile) {
   let source = fs.readFileSync(file, "utf8");
   let primarySource = fs.readFileSync(primaryFile, "utf8");
+  if (primarySource.includes("function UAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,")) {
+    primarySource = replaceOnce(
+      primarySource,
+      "function UAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,",
+      "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function UAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,",
+      "build-8109 archive classifier bridge"
+    );
+    primarySource = replaceOnce(primarySource, "archive:w?void 0:{id:`archive-thread`,onSelect:()=>i()}", "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}", "build-8109 local context archive item");
+    primarySource = replaceOnce(
+      primarySource,
+      "function ajn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i}){return r.length<2?e:",
+      "function ajn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i,archiveProtected:a}){return a&&(e=e.filter(e=>e.id!==`archive-thread`&&e.id!==`archive-task`)),r.length<2?e:",
+      "build-8109 bulk archive filter"
+    );
+    primarySource = replaceOnce(
+      primarySource,
+      "selectedThreadKeys:HTn(T,r),threadKey:r})",
+      "selectedThreadKeys:HTn(T,r),threadKey:r,archiveProtected:HTn(T,r).some(e=>{let t=T.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})})",
+      "build-8109 local protected selection"
+    );
+    primarySource = replaceOnce(
+      primarySource,
+      "selectedThreadKeys:HTn(K,e),threadKey:e})",
+      "selectedThreadKeys:HTn(K,e),threadKey:e,archiveProtected:HTn(K,e).some(e=>{let t=K.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})})",
+      "build-8109 unified protected selection"
+    );
+    primarySource = replaceOnce(primarySource, "archive:t!=null&&(De||L)?Ne:t,getMenuItems:", "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(De||L)?Ne:t,getMenuItems:", "build-8109 local inline archive");
+    primarySource = replaceOnce(primarySource, "Ve=Ce?Me:null", "Ve=Ce&&!MTKsidebarArchiveProtected(se)?Me:null", "build-8109 cloud inline archive");
+    primarySource = replaceOnce(primarySource, "if(Ce&&e.push({id:`archive-task`", "if(Ce&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`", "build-8109 cloud context archive item");
+    primarySource = replaceOnce(
+      primarySource,
+      "archive:n,getMenuItems:q?e=>d([",
+      "archive:MTKsidebarArchiveProtected(e.task.id)?null:n,getMenuItems:q&&!MTKsidebarArchiveProtected(e.task.id)?e=>d([",
+      "build-8109 remote row archive"
+    );
+    fs.writeFileSync(primaryFile, primarySource);
+    return;
+  }
   if (primarySource.includes("function VAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,")) {
     primarySource = replaceOnce(
       primarySource,

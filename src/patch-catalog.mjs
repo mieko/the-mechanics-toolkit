@@ -56,7 +56,7 @@ const definitions = [
   {
     name: "tinrelay-pointer-presentation",
     script: "patches/tinrelay-pointer-presentation/patch.mjs",
-    probe: "test/tinrelay-pointer-presentation.test.mjs",
+    probe: "test/tinrelay-presentation.test.mjs",
     config: true
   },
   {

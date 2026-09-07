@@ -2,7 +2,7 @@
 
 - **Current state:** Infrastructure
 - **Public extraction:** Complete
-- **Current evidence:** Build `7982` static stage green; build `7942` live-accepted, 2026-09-05
+- **Current evidence:** Build `8109` static stage and live composition green, 2026-09-07
 
 ## Why it exists
 

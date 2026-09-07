@@ -13,7 +13,7 @@ const matches = names.filter(name => name.endsWith(".js") &&
 assert.equal(matches.length, 1, "unique sidebar-collapse owner");
 const source = fs.readFileSync(path.join(assets, matches[0]), "utf8");
 const helperStart = source.indexOf('const MTK_SIDEBAR_ACTIONS_STORAGE_KEY=');
-const helperBoundary = source.slice(helperStart).match(/function (?:cql|lJl|hYl|g\$c|ear|dar)\(e\)\{/);
+const helperBoundary = source.slice(helperStart).match(/function (?:cql|lJl|hYl|g\$c|ear|dar|par)\(e\)\{/);
 const rootBoundary = helperBoundary == null ? -1 : helperStart + helperBoundary.index;
 const attentionBoundary = source.indexOf('const MTKattentionRelativePath=', helperStart);
 const helperEnd = attentionBoundary >= 0 && attentionBoundary < rootBoundary ? attentionBoundary : rootBoundary;
@@ -22,7 +22,25 @@ const rawHelper = source.slice(helperStart, helperEnd);
 const build7345 = rawHelper.includes("function MTKuseSidebarActionCollapse7345(");
 const build7746 = rawHelper.includes("function MTKuseSidebarActionCollapse7746(");
 const build7942 = rawHelper.includes("function MTKuseSidebarActionCollapse7942(");
-const helper = build7942 ? rawHelper
+const build8109 = rawHelper.includes("function MTKuseSidebarActionCollapse8109(");
+if (build8109) {
+  assert.ok(rawHelper.includes("(0,j4.useState)(MTKreadSidebarActionsCollapsed8109)"),
+    "build 8109 state hook uses the sidebar owner's React namespace");
+  assert.ok(rawHelper.includes("j4.useEffect(") && rawHelper.includes("j4.useCallback("),
+    "build 8109 effects and callbacks use the sidebar owner's React namespace");
+  assert.ok(!rawHelper.includes("M4.useState") && !rawHelper.includes("M4.useEffect") && !rawHelper.includes("M4.useCallback"),
+    "build 8109 does not mistake the JSX runtime for React hooks");
+}
+const helper = build8109 ? rawHelper
+  .replaceAll("MTKreadSidebarActionsCollapsed8109", "MTKreadSidebarActionsCollapsed")
+  .replaceAll("MTKuseSidebarActionCollapse8109", "MTKuseSidebarActionCollapse")
+  .replaceAll("MTKsidebarCollapsedDestinations8109", "MTKsidebarCollapsedDestinations")
+  .replaceAll("MTKsidebarActionDisclosure8109", "MTKsidebarActionDisclosure")
+  .replaceAll("(0,j4.useState)", "(0,fql.useState)")
+  .replaceAll("j4.useEffect", "fql.useEffect")
+  .replaceAll("j4.useCallback", "fql.useCallback")
+  .replaceAll("(0,M4.jsx)", "(0,x7.jsx)")
+  .replaceAll("me()", "vd()") : build7942 ? rawHelper
   .replaceAll("MTKreadSidebarActionsCollapsed7942", "MTKreadSidebarActionsCollapsed")
   .replaceAll("MTKuseSidebarActionCollapse7942", "MTKuseSidebarActionCollapse")
   .replaceAll("MTKsidebarActionDisclosure7942", "MTKsidebarActionDisclosure")
@@ -98,12 +116,12 @@ storageListener({ key: "the-mechanics-toolkit:sidebar-global-actions-collapsed:v
 assert.equal(collapsed, false, "another-window storage event updates renderer state");
 
 const collapsedDisclosure = api.MTKsidebarActionDisclosure({ collapsed: true, onToggle: toggle });
-if (!build7746 && !build7942) {
+if (!build7746 && !build7942 && !build8109) {
   assert.equal(collapsedDisclosure.component, "Tooltip");
   assert.equal(collapsedDisclosure.props.tooltipContent, "Show navigation actions");
 }
-const collapsedButton = build7746 || build7942 ? collapsedDisclosure : collapsedDisclosure.props.children;
-assert.equal(collapsedButton.component, build7746 || build7942 ? "button" : "IconButton");
+const collapsedButton = build7746 || build7942 || build8109 ? collapsedDisclosure : collapsedDisclosure.props.children;
+assert.equal(collapsedButton.component, build7746 || build7942 || build8109 ? "button" : "IconButton");
 assert.equal(collapsedButton.props["aria-expanded"], false);
 assert.equal(collapsedButton.props["aria-label"], "Show navigation actions");
 assert.equal(collapsedButton.props.children.component, "svg");
@@ -114,12 +132,12 @@ assert.ok(!helper.includes("(0,x7.jsx)(Af") && !helper.includes("(0,x7.jsx)(XF")
 assert.equal(collapsedButton.props.children.props.className.includes("rotate-90"), false);
 
 const expandedDisclosure = api.MTKsidebarActionDisclosure({ collapsed: false, onToggle: toggle });
-const expandedButton = build7746 || build7942 ? expandedDisclosure : expandedDisclosure.props.children;
+const expandedButton = build7746 || build7942 || build8109 ? expandedDisclosure : expandedDisclosure.props.children;
 assert.equal(expandedButton.props["aria-expanded"], true);
 assert.equal(expandedButton.props["aria-label"], "Hide navigation actions");
 assert.equal(expandedButton.props.children.props.className.includes("rotate-90"), true);
 
-if (build7345) {
+if (build7345 || build8109) {
   const destinations = [
     { id: "projects" },
     { id: "pull-requests" },
@@ -138,10 +156,18 @@ if (source.includes("defaultMessage:`Library`")) stockLabels.push("Library", "Se
 for (const label of stockLabels) {
   assert.ok(source.includes(`defaultMessage:\`${label}\``), `stock Codex-mode label remains: ${label}`);
 }
-const helperSuffix = build7942 ? "7942" : build7746 ? "7746" : build7345 ? "7345" : "";
+const helperSuffix = build8109 ? "8109" : build7942 ? "7942" : build7746 ? "7746" : build7345 ? "7345" : "";
 assert.equal(count(source, `function MTKuseSidebarActionCollapse${helperSuffix}(`), 1);
 assert.equal(count(source, `function MTKsidebarActionDisclosure${helperSuffix}(`), 1);
-if (build7942) {
+if (build8109) {
+  assert.ok(source.includes("let De=MTKsidebarCollapsedDestinations8109(MTKsidebarActionsCollapsed,$Sn(Ee),Hy.projects),Oe;"),
+    "collapsed state filters the stock global destination family to Projects only");
+  assert.ok(source.includes("MTKsidebarActionsCollapsed?null:(0,M4.jsx)(tTn,"), "collapsed state hides the stock New chat row");
+  assert.ok(source.includes("(0,M4.jsx)(MTKsidebarActionDisclosure8109,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})"),
+    "disclosure shares the Codex sidebar header controls");
+  assert.ok(source.includes("t[144]!==MTKsidebarActionsCollapsed") && source.includes("t[144]=MTKsidebarActionsCollapsed"),
+    "disclosure state participates in the stock memo cache");
+} else if (build7942) {
   assert.ok(source.includes("let MTKsidebarDestinations=ZSn(we),Te=MTKsidebarActionsCollapsed?[]:MTKsidebarDestinations"),
     "collapsed state hides the complete stock global destination family");
   assert.ok(source.includes("MTKsidebarActionsCollapsed?null:(0,N4.jsx)($wn,"), "collapsed state hides the stock New chat row");

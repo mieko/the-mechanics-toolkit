@@ -84,8 +84,11 @@ function inspectPristineRenderer() {
 }
 
 function inspectPristineMain() {
+  const owner = mainSource.match(/var [$\w]+=i\.i\(`electron-message-handler`\)/g) ?? [];
+  if (owner.length !== 1) {
+    throw new Error("Upstream changed: runtime JSON main-process owner is not unique");
+  }
   for (const contract of [
-    "var mQ=i.i(`electron-message-handler`)",
     "case`show-plan-summary`:break;case`update-diff-if-open`:break;",
     "case`electron-add-new-workspace-root-option`:"
   ]) {
@@ -112,12 +115,10 @@ function rendererHelper(workspaceRoot) {
 }
 
 function patchMain(value, workspaceRoot) {
-  let patched = replaceOnce(
-    value,
-    "var mQ=i.i(`electron-message-handler`)",
-    mainHelper(workspaceRoot) + "var mQ=i.i(`electron-message-handler`)",
-    "main-process runtime JSON helper owner"
-  );
+  const owners = value.match(/var [$\w]+=i\.i\(`electron-message-handler`\)/g) ?? [];
+  if (owners.length !== 1) throw new Error("Upstream changed: main-process runtime JSON helper owner is not unique");
+  let patched = replaceOnce(value, owners[0], mainHelper(workspaceRoot) + owners[0],
+    "main-process runtime JSON helper owner");
   patched = replaceOnce(
     patched,
     "case`electron-add-new-workspace-root-option`:",

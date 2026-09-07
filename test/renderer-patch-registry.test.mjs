@@ -91,7 +91,7 @@ if (registry.packages.tinrelayPointerPresentation != null) {
   assert.equal(registry.packages.tinrelayPointerPresentation.version, 1);
   assert.equal(registry.packages.tinrelayPointerPresentation.contract, "tinrelay-local-pointer-v1");
   assert.equal(registry.packages.tinrelayPointerPresentation.disclosure, "automatic-local-inspection");
-  assert.equal(registry.packages.tinrelayPointerPresentation.rendering, "inert-plain-text");
+  assert.equal(registry.packages.tinrelayPointerPresentation.rendering, "stock-safe-markdown");
 }
 assert.ok(!bootstrap.includes("subscribe") && !bootstrap.includes("addEventListener") && !bootstrap.includes("MutationObserver"),
   "registry has no lifecycle or event machinery");

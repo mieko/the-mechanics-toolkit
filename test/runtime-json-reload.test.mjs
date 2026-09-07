@@ -82,7 +82,8 @@ assert.deepEqual(serialized, [{ initial: true }, { initial: false }],
   "changes during validation coalesce into one later acceptance pass");
 
 const mainStart = mainSource.indexOf('const MTKruntimeJsonFs=');
-const mainEnd = mainSource.indexOf("var mQ=", mainStart);
+const mainOwner = mainSource.slice(mainStart).match(/var [$\w]+=i\.i\(`electron-message-handler`\)/);
+const mainEnd = mainOwner == null ? -1 : mainStart + mainOwner.index;
 assert.ok(mainStart >= 0 && mainEnd > mainStart, "main helper boundary");
 const mainHelper = mainSource.slice(mainStart, mainEnd);
 let watchCallback = null;
