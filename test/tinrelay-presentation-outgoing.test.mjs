@@ -175,8 +175,8 @@ assert.ok(rendererSource.includes("circle at 7% 72%"),
   "outgoing emission rings expose their source along the left edge");
 assert.ok(rendererSource.includes("background:#303438!important"),
   "outgoing surface uses a slightly darker inverted palette");
-assert.ok(rendererSource.includes("rgba(11,12,14,.68) 0 5px"),
-  "outgoing wake begins with a visible dark transmitter source");
+assert.ok(rendererSource.includes("transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px"),
+  "outgoing wake implies its left-edge source with sparse crisp rings rather than a solid core");
 const [route, card] = rendered.props.children;
 assert.deepEqual(route.props.children, ["📡 ", `mechanic@${localShip} → aster@friendly-ship`]);
 assert.equal(card.type, StockMessageBubble, "outgoing cards use the shared Tinrelay stock-bubble presentation");

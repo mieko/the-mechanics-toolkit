@@ -26,7 +26,15 @@ const PREVIOUS_CONTINUOUS_VISUAL_CSS = ONE_SHOT_VISUAL_CSS
 const PREVIOUS_NEXT_VISUAL_CSS = `${PREVIOUS_CONTINUOUS_VISUAL_CSS}${CURRENT_BODY_CSS}`;
 const PREVIOUS_CUSTOM_CARD_VISUAL_CSS = `${PREVIOUS_NEXT_VISUAL_CSS}${OPTICAL_ALIGNMENT_CSS}`;
 const PREVIOUS_STOCK_BUBBLE_VISUAL_CSS = '@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{width:100%}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal>.group{align-items:flex-start}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{position:relative;overflow:hidden;isolation:isolate;background:#0B0C0E;box-shadow:inset 0 0 0 1px #34383D;color:#F1F3F5}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{content:"";position:absolute;z-index:0;inset:-38%;transform-origin:14% 82%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 34px,rgba(116,124,134,.18) 35px 43px,transparent 44px 78px);animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#303438;box-shadow:inset 0 0 0 1px #626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 7px,transparent 8px 31px,rgba(11,12,14,.32) 32px 45px,transparent 46px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{display:none}}';
-const NEXT_VISUAL_CSS = "@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{width:100%}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal>.group{align-items:flex-start}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{position:relative;overflow:hidden;isolation:isolate;background:#050607!important;box-shadow:inset 0 0 0 1px #34383D;color:#F1F3F5!important}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{content:\"\";position:absolute;z-index:0;inset:-38%;transform-origin:14% 82%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 35px,rgba(190,196,204,.22) 35px 37px,transparent 37px 78px);animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#303438!important;box-shadow:inset 0 0 0 1px #626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 5px,transparent 5px 33px,rgba(11,12,14,.38) 33px 35px,transparent 35px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{display:none}}";
+const PREVIOUS_CRISP_VISUAL_CSS = "@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal{width:100%}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal>.group{align-items:flex-start}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{position:relative;overflow:hidden;isolation:isolate;background:#050607!important;box-shadow:inset 0 0 0 1px #34383D;color:#F1F3F5!important}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{content:\"\";position:absolute;z-index:0;inset:-38%;transform-origin:14% 82%;pointer-events:none;background:repeating-radial-gradient(circle at 14% 82%,transparent 0 35px,rgba(190,196,204,.22) 35px 37px,transparent 37px 78px);animation:mtk-tinrelay-signal 6s linear infinite;will-change:transform,opacity}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#303438!important;box-shadow:inset 0 0 0 1px #626971}[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,[data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{inset:0;transform-origin:7% 72%;background:repeating-radial-gradient(circle at 7% 72%,rgba(11,12,14,.68) 0 5px,transparent 5px 33px,rgba(11,12,14,.38) 33px 35px,transparent 35px 78px)}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]>*{position:relative;z-index:1}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}@media (prefers-reduced-motion:reduce){[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before{animation:none;transform:scale(1);opacity:.58}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{display:none}}";
+const PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS = PREVIOUS_CRISP_VISUAL_CSS.replace(
+  "rgba(190,196,204,.22) 35px 37px",
+  "rgba(190,196,204,.34) 35px 37px"
+);
+const NEXT_VISUAL_CSS = PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS.replace(
+  "rgba(11,12,14,.68) 0 5px,transparent 5px 33px,rgba(11,12,14,.38) 33px 35px,transparent 35px 78px",
+  "transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px"
+);
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -97,6 +105,8 @@ function inspectState() {
         rendererSource.includes(JSON.stringify(PREVIOUS_NEXT_VISUAL_CSS)) ||
         rendererSource.includes(JSON.stringify(PREVIOUS_CUSTOM_CARD_VISUAL_CSS)) ||
         rendererSource.includes(JSON.stringify(PREVIOUS_STOCK_BUBBLE_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_CRISP_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS)) ||
         rendererSource.includes(LEGACY_BODY_CLASS) ||
         !rendererSource.includes("function MTKtinrelayMessageView(") ||
         !rendererSource.includes("function MTKtinrelayScrollSnapshot(") ||
@@ -158,8 +168,8 @@ function inspectAppliedRenderer(source) {
     'repeating-radial-gradient',
     'circle at 14% 82%',
     'circle at 7% 72%',
-    'rgba(11,12,14,.68) 0 5px',
-    'rgba(190,196,204,.22) 35px 37px',
+    'transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px',
+    'rgba(190,196,204,.34) 35px 37px',
     '@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}',
     'animation:mtk-tinrelay-signal 6s linear infinite',
     'mtk-tinrelay-signal [data-user-message-bubble]::after{animation-delay:-3s}',
@@ -388,6 +398,20 @@ function migrateRendererPresentation(value) {
       JSON.stringify(PREVIOUS_NEXT_VISUAL_CSS),
       JSON.stringify(NEXT_VISUAL_CSS),
       "Tinrelay optical vertical alignment"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_CRISP_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_CRISP_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay incoming wave contrast"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay outgoing wave simplification"
     );
   } else if (patched.includes(JSON.stringify(ONE_SHOT_VISUAL_CSS))) {
     patched = replaceOnce(

@@ -249,8 +249,8 @@ assert.ok(rendererHelpers.includes('className:"mtk-tinrelay-signal'), "radio sur
 assert.ok(rendererHelpers.includes("repeating-radial-gradient"), "radio surface carries faint emission rings");
 assert.ok(rendererHelpers.includes("circle at 14% 82%"), "radio wake enters from a diagonal lower-left origin");
 assert.ok(rendererHelpers.includes("circle at 7% 72%"), "outgoing radio wake exposes its source on the left edge");
-assert.ok(rendererHelpers.includes("rgba(190,196,204,.22) 35px 37px"),
-  "incoming radio wake uses one crisp two-pixel light ring");
+assert.ok(rendererHelpers.includes("rgba(190,196,204,.34) 35px 37px"),
+  "incoming radio wake uses one clearly visible crisp two-pixel light ring");
 assert.ok(rendererHelpers.includes("@keyframes mtk-tinrelay-signal{0%{transform:scale(1);opacity:0}15%{opacity:.28}50%{opacity:.52}85%{opacity:.28}100%{transform:scale(1.12);opacity:0}}"),
   "each radio wave resets only while transparent");
 assert.ok(rendererHelpers.includes("animation:mtk-tinrelay-signal 6s linear infinite"),
@@ -273,10 +273,10 @@ assert.ok(rendererHelpers.includes("background:#050607!important"),
   "incoming radio surface overrides the stock blue user-message field with opaque near-black");
 assert.ok(rendererHelpers.includes("background:#303438!important"),
   "outgoing surface overrides the stock field with its directional gray");
-assert.ok(rendererHelpers.includes("rgba(11,12,14,.68) 0 5px"),
-  "outgoing surface shows the small transmitter end of the wake");
-assert.ok(rendererHelpers.includes("rgba(11,12,14,.38) 33px 35px"),
-  "outgoing radio wake uses one crisp two-pixel dark ring");
+assert.ok(!rendererHelpers.includes("rgba(11,12,14,.68) 0 5px"),
+  "outgoing radio wake does not add a competing animated transmitter core");
+assert.ok(rendererHelpers.includes("transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px"),
+  "outgoing radio wake mirrors the incoming surface with one crisp two-pixel dark ring");
 assert.ok(rendererHelpers.includes('className:"flex w-full flex-col items-end justify-end gap-1"'),
   "incoming radio surface remains on the receiving side");
 assert.ok(rendererHelpers.includes("box-shadow:inset 0 0 0 1px #34383D"), "radio surface has a dark-gray inset edge");

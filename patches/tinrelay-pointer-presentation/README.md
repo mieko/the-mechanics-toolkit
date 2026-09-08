@@ -15,9 +15,9 @@ with fine light rings, while outgoing cards use a gray field with fine dark ring
 small transmitter origin on their left edge. Two staggered ring layers travel outward continuously;
 each resets only while transparent, so the wake neither stops nor visibly hitches between cycles.
 
-![An authenticated Tinrelay transmission rendered in Codex as white text over a dark radio-wake card](tinrelay-recv.png)
+![A two-way Tinrelay exchange rendered inline in a color-mapped Codex room, with distinct incoming and outgoing radio-wake cards](tinrelay-recv.png)
 
-*An outside signal looks like an outside signal, without becoming active content.*
+*Outside correspondence belongs in the conversation without pretending it came from inside the room.*
 
 ## Incoming transmissions
 
