@@ -32,7 +32,7 @@ const helper = source.slice(helperStart, helperEnd);
 assert.ok(!helper.includes("k9e"), "palette decoder does not capture a minified bundle binding");
 assert.ok(helper.includes("new TextDecoder().decode(Uint8Array.from(atob(e)"), "palette decoder is self-contained");
 const api = Function(
-  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected,MTKreasoningShouldStayOpen}`
+  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected,MTKreasoningShouldStayOpen,MTKmodelPinForTask}`
 )();
 
 const palette = JSON.parse(fs.readFileSync(path.join(projectRoot, ".codex/task-visual-palette.json"), "utf8"));
@@ -122,6 +122,9 @@ const reasoningEntry = configuredEntries.find(([, rule]) =>
 );
 assert.ok(reasoningEntry, "configured palette has an exact-ID reasoning-retention rule");
 const [reasoningKey, engineRule] = reasoningEntry;
+const modelPinEntry = configuredEntries.find(([, rule]) => rule.modelPin != null);
+assert.ok(modelPinEntry, "configured palette has an exact-ID model pin");
+const [modelPinKey, modelPinRule] = modelPinEntry;
 const protectedEntries = configuredEntries.filter(([, rule]) => rule.protectSidebarArchive === true);
 const protectedRules = protectedEntries.map(([, rule]) => rule);
 assert.ok(protectedRules.length >= 1, "archive protection is an explicit per-rule opt-in");
@@ -147,6 +150,9 @@ assert.equal(api.MTKsidebarArchiveProtected("Bridge Keeper — Coordination", lo
 assert.equal(api.MTKreasoningShouldStayOpen(engineRule.taskId, loaded), true);
 assert.equal(api.MTKreasoningShouldStayOpen("Engine Tender — Repairs", loaded), false, "titles never authorize reasoning retention");
 assert.equal(api.MTKreasoningShouldStayOpen(ordinaryTaskId, loaded), false);
+assert.deepEqual(api.MTKmodelPinForTask(modelPinRule.taskId, loaded), modelPinRule.modelPin);
+assert.equal(api.MTKmodelPinForTask("Engine Tender — Repairs", loaded), null, "titles never acquire model pins");
+assert.equal(api.MTKmodelPinForTask(ordinaryTaskId, loaded), null);
 
 const coloredUnprotected = await parse({
   ...palette,
@@ -177,6 +183,20 @@ assert.equal(await parse({
   ...palette,
   rules: { ...palette.rules, [reasoningKey]: missingReasoningTaskId }
 }), null, "reasoning retention requires an exact task ID");
+assert.equal(await parse({
+  ...palette,
+  rules: { ...palette.rules, [modelPinKey]: { ...modelPinRule, modelPin: "gpt-5.6-sol" } }
+}), null, "model pin is a structured pair");
+assert.equal(await parse({
+  ...palette,
+  rules: { ...palette.rules, [modelPinKey]: { ...modelPinRule, modelPin: { model: "gpt-5.6-sol", reasoningEffort: "warp" } } }
+}), null, "model pin effort uses the supported vocabulary");
+const missingModelPinTaskId = { ...modelPinRule };
+delete missingModelPinTaskId.taskId;
+assert.equal(await parse({
+  ...palette,
+  rules: { ...palette.rules, [modelPinKey]: missingModelPinTaskId }
+}), null, "model pins require an exact task ID");
 for (const rule of loaded.rules) {
   assert.ok(contrast(rule.dark.selection, rule.dark.text) >= 4.5, `${rule.color} dark selection contrast`);
   assert.ok(contrast(rule.light.selection, rule.light.text) >= 4.5, `${rule.color} light selection contrast`);
@@ -199,6 +219,15 @@ const bridgeSidebar = element({
   "data-app-action-sidebar-thread-id": protectedTaskId,
   "data-app-action-sidebar-thread-selected": "true"
 });
+const bridgeRecent = element({
+  "data-app-action-sidebar-thread-row": "",
+  "data-app-action-sidebar-thread-title": "Bridge Keeper — Coordination",
+  "data-app-action-sidebar-thread-id": protectedTaskId,
+  "data-app-action-sidebar-thread-selected": "false"
+});
+const projectList = element({
+  "data-app-action-sidebar-project-list-id": "fictional-project"
+}, [bridgeSidebar]);
 const ordinarySidebar = element({
   "data-app-action-sidebar-thread-row": "",
   "data-app-action-sidebar-thread-title": "Bridge Keeper ticket",
@@ -217,7 +246,7 @@ const genericDelegation = element({
   "data-mtk-palette-source-title": "Unmapped task",
   "data-mtk-palette-source-id": "unmapped"
 });
-const domElements = [bridgeSidebar, ordinarySidebar, bridgeRoom, mappedDelegation, genericDelegation];
+const domElements = [projectList, bridgeSidebar, bridgeRecent, ordinarySidebar, bridgeRoom, mappedDelegation, genericDelegation];
 globalThis.document = {
   documentElement,
   body: {},
@@ -265,6 +294,15 @@ assert.equal(mappedDelegation.style.get("--mtk-bubble-dark"), protectedLoadedRul
 assert.equal(mappedDelegation.style.get("--mtk-selection-dark"), protectedLoadedRule.dark.selection);
 assert.equal(genericDelegation.getAttribute("data-mtk-palette-delegation"), null);
 assert.equal(ordinarySidebar.getAttribute("data-mtk-palette-row"), null);
+assert.equal(bridgeSidebar.getAttribute("data-mtk-palette-sidebar-context"), "project");
+assert.equal(bridgeRecent.getAttribute("data-mtk-palette-sidebar-context"), "loose");
+assert.equal(bridgeSidebar.style.get("--mtk-sidebar-chip"), protectedLoadedRule.color,
+  "project rows receive the configured saturated identity chip without an inset override");
+assert.equal(bridgeRecent.style.get("--mtk-sidebar-chip"), protectedLoadedRule.color,
+  "Recents and View Activity rows receive the same identity chip");
+assert.equal(bridgeSidebar.style.has("--mtk-row-dark"), false, "inactive rows do not carry a custom background");
+assert.equal(bridgeSidebar.style.get("--mtk-row-selected-dark"), protectedLoadedRule.dark.selected,
+  "selected rows retain their mapped background");
 
 manager = {};
 file(`${owner}/.codex/task-visual-palette.json`, "{partial");
@@ -287,6 +325,11 @@ for (const contract of [
   "var(--color-token-interactive-label-accent-default,var(--color-token-text-link-foreground,#339cff)) var(--mtk-generic-bubble-strength)",
   "opacity:var(--mtk-watermark-dark-opacity)",
   "opacity:var(--mtk-watermark-light-opacity)",
+  '[data-mtk-palette-row=true]{position:relative}',
+  'inset-inline-start:12px;top:50%;width:9px;height:9px;border-radius:999px',
+  'background-color:var(--mtk-sidebar-chip)',
+  '[data-mtk-palette-row=true][data-mtk-palette-sidebar-context=loose]{padding-inline-start:calc(var(--padding-row-cell-x,var(--padding-row-x)) + 14px)!important}',
+  '[data-mtk-palette-row=true][data-app-action-sidebar-thread-selected=true],[data-mtk-palette-row=true][data-app-action-sidebar-thread-active=true]{background-color:var(--mtk-row-selected-dark)!important}',
   "[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-selected=true],[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-active=true]{box-shadow:inset 0 0 0 1px var(--color-token-text-tertiary)!important}",
   "box-shadow:inset 0 0 0 1px var(--mtk-accent-dark)!important",
   "box-shadow:inset 0 0 0 1px var(--mtk-accent-light)!important",
@@ -297,8 +340,12 @@ for (const contract of [
   "--tw-gradient-via:var(--mtk-room-light)"
 ]) assert.ok(rendererSource.includes(contract), `renderer contract: ${contract}`);
 assert.ok(!source.includes("[data-user-message-bubble]{opacity:"), "bubble text is never dimmed");
+assert.ok(!source.includes('inset-inline-start:2px;top:50%'), "project identity chips do not hug the sidebar edge");
 assert.ok(!source.includes("[data-mtk-palette-room=true]{opacity:"), "room content is never dimmed");
 assert.ok(!source.includes(":not([data-mtk-palette-delegation=true]) ::selection"), "unmapped delegation selection stays native");
+assert.ok(!source.includes('[data-mtk-palette-row=true]{background-color:'), "inactive mapped rows retain stock backgrounds");
+assert.ok(!source.includes('[data-mtk-palette-row=true]:hover{background-color:'), "inactive mapped rows retain stock hover behavior");
+assert.ok(!source.includes('setProperty("--mtk-row-dark"'), "unused inactive-row colors are not installed inline");
 assert.ok(source.includes("function MTKloadPaletteWhenReady("), "startup has an App Server readiness boundary");
 assert.ok(source.includes(".when(({get:"), "startup waits for the manager atom instead of throwing");
 assert.ok(source.includes("function MTKqueueSidebar(e){if(!MTKpaletteMutationRelevant(e))return;"), "observer rejects irrelevant transcript mutations before queueing");
@@ -402,6 +449,9 @@ assert.equal(count(source, "box-shadow:inset 0 0 0 1px var(--mtk-accent-dark)!im
 assert.ok(!source.includes("[data-mtk-palette-mark=true]{background-color"), "watermark opacity stays off the room host");
 
 api.MTKclearPaletteSurfaces();
+assert.equal(bridgeSidebar.getAttribute("data-mtk-palette-row"), null);
+assert.equal(bridgeSidebar.getAttribute("data-mtk-palette-sidebar-context"), null);
+assert.equal(bridgeSidebar.style.has("--mtk-sidebar-chip"), false);
 for (const property of [
   "--mtk-user-bubble-strength",
   "--mtk-generic-bubble-strength",
@@ -413,7 +463,7 @@ process.stdout.write(`${JSON.stringify({
   state: "green",
   rules: loaded.rules.length,
   calibration: loaded.calibration,
-  surfaces: ["user-bubble", "mapped-delegation", "generic-delegation", "derived-selection", "watermark", "room-bottom-fade"],
+  surfaces: ["user-bubble", "mapped-delegation", "generic-delegation", "sidebar-identity-chip", "selected-sidebar-color", "derived-selection", "watermark", "room-bottom-fade"],
   startup: "waits-for-app-server-manager",
   startupFallback: "invalid-or-missing-palette-leaves-native-styles",
   reloadFallback: "invalid-or-missing-replacement-keeps-last-good-palette",
@@ -444,6 +494,7 @@ function element(attributes = {}, children = []) {
   const properties = new Map();
   const entry = {
     nodeType: 1,
+    parentElement: null,
     attributes: values,
     children,
     style: {
@@ -456,6 +507,12 @@ function element(attributes = {}, children = []) {
     setAttribute(name, value) { values.set(name, String(value)); },
     removeAttribute(name) { values.delete(name); },
     matches(selector) { return selectorAttributes(selector).some(name => values.has(name)); },
+    closest(selector) {
+      for (let current = this; current != null; current = current.parentElement) {
+        if (current.matches?.(selector)) return current;
+      }
+      return null;
+    },
     querySelector(selector) {
       for (const child of children) {
         if (child.matches?.(selector)) return child;
@@ -465,6 +522,7 @@ function element(attributes = {}, children = []) {
       return null;
     }
   };
+  for (const child of children) child.parentElement = entry;
   return entry;
 }
 

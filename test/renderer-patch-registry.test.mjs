@@ -48,6 +48,8 @@ const allSources = files.map(file => fs.readFileSync(file, "utf8"));
 const expectedNames = [
   ["crossTaskAttribution", source => source.includes("function MTKsender(")],
   ["outgoingMessageReceipt", source => source.includes("function MTKOutboundMessageReceipt(")],
+  ["modelIdentityGuard", source => source.includes("function MTKinstallModelIdentityGuard(") &&
+    source.includes("data-mtk-model-guard-mismatch")],
   ["sidebarActionCollapse", source => source.includes("function MTKsidebarActionDisclosure(") ||
     source.includes("function MTKsidebarActionDisclosure7345(") || source.includes("function MTKsidebarActionDisclosure7746(") ||
     source.includes("function MTKsidebarActionDisclosure7942(")],

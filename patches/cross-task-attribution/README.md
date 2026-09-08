@@ -12,10 +12,10 @@ and preserves click-through to it. That forces a human to infer identity from pr
 link—precisely when several agents may be coordinating at once.
 
 This patch resolves the source task through Codex's own renderer store and replaces the generic
-label with the name before a title's ` — ` separator. If authoritative metadata is missing it keeps
-the stock generic label. It never parses message prose as identity. The retained label helper can
-also render `Project/Task title` when an older renderer profile supplies project metadata, but the
-current build-`7942` profile does not claim that metadata path.
+label with the name before a title's ` — ` separator, or with the complete task title when no named
+role separator exists. If authoritative title metadata is missing it keeps the stock generic label.
+It never parses message prose as identity. The retained label helper can also render
+`Project/Task title` when an older renderer profile supplies project metadata.
 
 The patch also applies Codex's existing muted semantic accent only to the delegated user-message
 bubble. It does not tint the whole turn, dim text, or remove the source-task link.

@@ -34,6 +34,8 @@ if (command === "apply" && state !== "applied") {
     patchReasoningPolicyBridge(appInitial);
   } else if (state === "needs-universal-selection-outline") {
     patchUniversalSelectionOutline(appInitial);
+  } else if (state === "needs-model-pin-bridge") {
+    patchModelPinPolicyBridge(appInitial);
   } else {
     patchAppInitial(appInitial, configuredWorkspaceRoot());
     patchBottomFade(appInitial, appPrimary);
@@ -49,7 +51,7 @@ if (command === "apply" && state !== "applied") {
 }
 
 process.stdout.write(`${JSON.stringify({
-  state: new Set(["needs-observer-gate", "needs-archive-protection", "needs-reasoning-policy-bridge", "needs-universal-selection-outline"]).has(state) ? "needs-apply" : state,
+  state: new Set(["needs-observer-gate", "needs-archive-protection", "needs-reasoning-policy-bridge", "needs-universal-selection-outline", "needs-model-pin-bridge"]).has(state) ? "needs-apply" : state,
   targets: [appInitial, appPrimary, localPage, delegation].map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
@@ -85,7 +87,7 @@ function inspectState() {
     delegationSource.includes('"data-mtk-palette-source-title"') && delegationSource.includes('"data-mtk-palette-source-id"') && delegationSource.includes("messageBubbleStyle:MTKdelegatedBubbleStyle")
   ];
   if (applied.every(Boolean)) {
-      const archiveProtection = inspectSidebarArchiveProtection(appSource, appPrimarySource);
+    const archiveProtection = inspectSidebarArchiveProtection(appSource, appPrimarySource);
     if (
       appSource.includes("function MTKqueueSidebar(e){if(!MTKpaletteMutationRelevant(e))return;") &&
       appSource.includes("const MTKpaletteSurfaceSelector=")
@@ -95,6 +97,11 @@ function inspectState() {
           !appSource.includes("globalThis.__MTKreasoningShouldStayOpen=MTKreasoningShouldStayOpen") ||
           !appSource.includes("globalThis.__MTKreasoningSubscribe=MTKreasoningSubscribe")) {
         return "needs-reasoning-policy-bridge";
+      }
+      if (!appSource.includes("function MTKmodelPinForTask(") ||
+          !appSource.includes("globalThis.__MTKmodelPinForTask=MTKmodelPinForTask") ||
+          !appSource.includes("globalThis.__MTKmodelPinSubscribe=MTKmodelPinSubscribe")) {
+        return "needs-model-pin-bridge";
       }
       return appSource.includes(universalSelectionOutlineCss) ? "applied" : "needs-universal-selection-outline";
     }
@@ -458,7 +465,7 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
   let domOnlyHelper = sidebarNullSafeHelper
     .replace(
       'label:MTKcontrast(m,l)>=4.5?m:s,text:s}}function MTKvisualRule',
-      'label:MTKcontrast(m,l)>=4.5?m:s,selection:n?MTKmix("#20232A",e,.55):MTKmix("#F2F4F7",e,.34),text:s}}function MTKvisualRule'
+      'label:MTKcontrast(m,l)>=4.5?m:s,selection:n?MTKmix("#20232A",e,.4):MTKmix("#F2F4F7",e,.34),text:s}}function MTKvisualRule'
     )
     .replace(
       ',bubbleStyle:{backgroundColor:r.bubble,background:"light-dark("+i.bubble+","+r.bubble+")",boxShadow:"0 1px 8px color-mix(in srgb, "+r.accent+" 12%, transparent)"},attributionStyle:{color:"light-dark("+i.label+","+r.label+")"}',
@@ -466,6 +473,22 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
     )
     .replaceAll(";box-shadow:inset 1px 0 0 var(--mtk-accent-dark)", "")
     .replaceAll(";box-shadow:inset 1px 0 0 var(--mtk-accent-light)", "")
+    .replace(
+      '[data-mtk-palette-row=true]{background-color:var(--mtk-row-dark)!important}[data-mtk-palette-row=true]:hover{background-color:var(--mtk-row-hover-dark)!important}',
+      '[data-mtk-palette-row=true]{position:relative}[data-mtk-palette-row=true]::before{content:\\\"\\\";position:absolute;z-index:1;inset-inline-start:12px;top:50%;width:9px;height:9px;border-radius:999px;transform:translateY(-50%);background-color:var(--mtk-sidebar-chip);box-shadow:0 0 0 1px color-mix(in srgb,var(--color-text) 18%,transparent);pointer-events:none}[data-mtk-palette-row=true][data-mtk-palette-sidebar-context=loose]{padding-inline-start:calc(var(--padding-row-cell-x,var(--padding-row-x)) + 14px)!important}[data-mtk-palette-row=true][data-mtk-palette-sidebar-context=loose]::before{inset-inline-start:8px}'
+    )
+    .replace(
+      'html.electron-light [data-mtk-palette-row=true]{background-color:var(--mtk-row-light)!important}html.electron-light [data-mtk-palette-row=true]:hover{background-color:var(--mtk-row-hover-light)!important}',
+      ""
+    )
+    .replace(
+      'function MTKclearSidebarRow(e){e.removeAttribute("data-mtk-palette-row");for(let t of["--mtk-row-dark","--mtk-row-light","--mtk-row-hover-dark","--mtk-row-hover-light","--mtk-row-selected-dark","--mtk-row-selected-light","--mtk-accent-dark","--mtk-accent-light"])e.style.removeProperty(t)}',
+      'function MTKclearSidebarRow(e){e.removeAttribute("data-mtk-palette-row"),e.removeAttribute("data-mtk-palette-sidebar-context");for(let t of["--mtk-row-selected-dark","--mtk-row-selected-light","--mtk-accent-dark","--mtk-accent-light","--mtk-sidebar-chip"])e.style.removeProperty(t)}'
+    )
+    .replace(
+      't.setAttribute("data-mtk-palette-row","true"),t.style.setProperty("--mtk-row-dark",n.dark.row),t.style.setProperty("--mtk-row-light",n.light.row),t.style.setProperty("--mtk-row-hover-dark",n.dark.hover),t.style.setProperty("--mtk-row-hover-light",n.light.hover),t.style.setProperty("--mtk-row-selected-dark",n.dark.selected),t.style.setProperty("--mtk-row-selected-light",n.light.selected),t.style.setProperty("--mtk-accent-dark",n.dark.accent),t.style.setProperty("--mtk-accent-light",n.light.accent)',
+      't.setAttribute("data-mtk-palette-row","true"),t.setAttribute("data-mtk-palette-sidebar-context",t.closest("[data-app-action-sidebar-project-list-id]")!=null?"project":"loose"),t.style.setProperty("--mtk-row-selected-dark",n.dark.selected),t.style.setProperty("--mtk-row-selected-light",n.light.selected),t.style.setProperty("--mtk-accent-dark",n.dark.accent),t.style.setProperty("--mtk-accent-light",n.light.accent),t.style.setProperty("--mtk-sidebar-chip",n.color)'
+    )
     .replace('[data-mtk-palette-mark=true]{background-color:var(--mtk-mark-dark);opacity:.075;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}', "")
     .replace('html.electron-light [data-mtk-palette-mark=true]{background-color:var(--mtk-mark-light);opacity:.05;filter:drop-shadow(0 1px 1px rgba(255,255,255,.5))}', "")
     .replace(
@@ -503,7 +526,7 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
       'function MTKuseTaskVisual(e,t){let n=Ss(Q),r=Y(Can),i=MTKpaletteKey(r),[a,o]=QSl.useState(null);return QSl.useEffect(()=>{let e=!1;if(i.length===0)return o(null),MTKinstallSidebar(null),()=>{e=!0};let t=r.filter(e=>e.projectKind==="local").flatMap(e=>e.rootPaths??[]);return MTKpalettePromiseKey!==i&&(MTKpalettePromiseKey=i,MTKpalettePromise=MTKloadPalette(Qg(n,"local"),t)),MTKpalettePromise.then(t=>{e||(o(t),MTKinstallSidebar(t))}),()=>{e=!0}},[n,i]),MTKmatchPalette(a,e,t)}function MTKuseThreadVisual(e){let t=typeof e==="string"?Iy(e):null,n=bs(Zx,t),r=n?.kind==="local"?n.conversation?.title:n?.kind==="remote"?n.task?.title:null;return MTKuseTaskVisual(r,e)}',
       'async function MTKloadPaletteWhenReady(e,t){try{return e.get($g)==null&&await e.when(({get:e})=>e($g)!=null),await MTKloadPalette(Qg(e,"local"),t)}catch{return null}}function MTKusePaletteBootstrap(){let e=Ss(Q),t=Y(Can),n=MTKpaletteKey(t);return QSl.useEffect(()=>{let r=!1;if(n.length===0)return MTKinstallSidebar(null),()=>{r=!0};let i=t.filter(e=>e.projectKind==="local").flatMap(e=>e.rootPaths??[]);return MTKpalettePromiseKey!==n&&(MTKpalettePromiseKey=n,MTKpalettePromise=MTKloadPaletteWhenReady(e,i)),MTKpalettePromise.then(e=>{r||MTKinstallSidebar(e)}),()=>{r=!0}},[e,n]),null}'
     );
-  for (const contract of ["MTKapplyPaletteSurfaces", "data-mtk-palette-delegation", "::before", "::selection", "selection:n?MTKmix", "MTKclearPaletteSurfaces"]) {
+  for (const contract of ["MTKapplyPaletteSurfaces", "data-mtk-palette-delegation", "data-mtk-palette-sidebar-context", "--mtk-sidebar-chip", "::before", "::selection", "selection:n?MTKmix", "MTKclearPaletteSurfaces"]) {
     if (!domOnlyHelper.includes(contract)) throw new Error(`missing DOM-only palette contract ${contract}`);
   }
   if (domOnlyHelper.includes("box-shadow:inset 1px 0 0")) throw new Error("rejected sidebar accent remains");
@@ -521,6 +544,7 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
     "palette archive classifier bridge"
   );
   domOnlyHelper = addReasoningPolicyBridge(domOnlyHelper, "MTK");
+  domOnlyHelper = addModelPinPolicyBridge(domOnlyHelper, "MTK");
   if (profile.fixedOwnerRoot === true) {
     const bootstrap = /function MTKusePaletteBootstrap\(\)\{let e=Ss\(Q\),t=Y\(Can\),n=MTKpaletteKey\(t\);return QSl\.useEffect\(\(\)=>\{let r=!1;if\(n\.length===0\)return MTKinstallSidebar\(null\),\(\)=>\{r=!0\};let i=t\.filter\(e=>e\.projectKind==="local"\)\.flatMap\(e=>e\.rootPaths\?\?\[\]\);return MTKpalettePromiseKey!==n&&\(MTKpalettePromiseKey=n,MTKpalettePromise=MTKloadPaletteWhenReady\(e,i\)\),MTKpalettePromise\.then\(e=>\{r\|\|MTKinstallSidebar\(e\)\}\),\(\)=>\{r=!0\}\},\[e,n\]\),null\}/;
     const replacement = `function MTKusePaletteBootstrap(){let e=A_($),t=${JSON.stringify(workspaceRoot)};return x$c.useEffect(()=>{let n=!1;return MTKpalettePromiseKey!==t&&(MTKpalettePromiseKey=t,MTKpalettePromise=MTKloadPaletteWhenReady(e,[t])),MTKpalettePromise.then(e=>{n||MTKinstallSidebar(e)}),()=>{n=!0}},[e]),null}`;
@@ -617,6 +641,11 @@ function patchReasoningPolicyBridge(file) {
   fs.writeFileSync(file, addReasoningPolicyBridge(source, "MTK"));
 }
 
+function patchModelPinPolicyBridge(file) {
+  const source = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, addModelPinPolicyBridge(source, "MTK"));
+}
+
 function addReasoningPolicyBridge(source, prefix) {
   const visualRuleBefore = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,dark:r,light:i}`;
   const visualRuleAfter = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,keepReasoningOpen:t.keepReasoningOpen===!0,dark:r,light:i}`;
@@ -647,6 +676,40 @@ function addReasoningPolicyBridge(source, prefix) {
     `function ${prefix}installSidebar(e){if(${prefix}sidebarPalette=e,e==null){`,
     `function ${prefix}installSidebar(e){${prefix}sidebarPalette=e;for(let t of ${prefix}reasoningListeners)t();if(e==null){`,
     "palette reasoning update notification"
+  );
+  return source;
+}
+
+function addModelPinPolicyBridge(source, prefix) {
+  const visualRuleBefore = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,keepReasoningOpen:t.keepReasoningOpen===!0,dark:r,light:i}`;
+  const visualRuleAfter = `return{pattern:n,color:t.color,markDataUrl:t.markDataUrl??null,taskId:t.taskId??null,protectSidebarArchive:t.protectSidebarArchive===!0,keepReasoningOpen:t.keepReasoningOpen===!0,modelPin:t.modelPin??null,dark:r,light:i}`;
+  source = replaceOnce(source, visualRuleBefore, visualRuleAfter, "palette model-pin metadata");
+  source = replaceOnce(
+    source,
+    'e!=="taskId"&&e!=="protectSidebarArchive"&&e!=="keepReasoningOpen")',
+    'e!=="taskId"&&e!=="protectSidebarArchive"&&e!=="keepReasoningOpen"&&e!=="modelPin")',
+    "palette model-pin key"
+  );
+  source = replaceOnce(
+    source,
+    'r.keepReasoningOpen!==void 0&&typeof r.keepReasoningOpen!=="boolean"||r.keepReasoningOpen===!0&&r.taskId===void 0',
+    'r.keepReasoningOpen!==void 0&&typeof r.keepReasoningOpen!=="boolean"||r.keepReasoningOpen===!0&&r.taskId===void 0||r.modelPin!==void 0&&(!MTKplainObject(r.modelPin)||Object.keys(r.modelPin).some(e=>e!=="model"&&e!=="reasoningEffort")||typeof r.modelPin.model!=="string"||r.modelPin.model.length===0||r.modelPin.model.length>128||typeof r.modelPin.reasoningEffort!=="string"||!MTKmodelPinEfforts.has(r.modelPin.reasoningEffort)||r.taskId===void 0)',
+    "palette model-pin validation"
+  );
+  source = replaceOnce(
+    source,
+    'protectSidebarArchive:r.protectSidebarArchive,keepReasoningOpen:r.keepReasoningOpen},a))',
+    'protectSidebarArchive:r.protectSidebarArchive,keepReasoningOpen:r.keepReasoningOpen,modelPin:r.modelPin},a))',
+    "palette model-pin projection"
+  );
+  const reasoningBridge = `const ${prefix}reasoningListeners=new Set;function MTKreasoningShouldStayOpen(e,t=${prefix}sidebarPalette){return typeof e==="string"&&t!=null&&t.rules.some(t=>t.keepReasoningOpen===!0&&t.taskId===e)}function ${prefix}reasoningSubscribe(e){return ${prefix}reasoningListeners.add(e),()=>${prefix}reasoningListeners.delete(e)}globalThis.__MTKreasoningShouldStayOpen=MTKreasoningShouldStayOpen;globalThis.__MTKreasoningSubscribe=${prefix}reasoningSubscribe;`;
+  const modelPinBridge = `const ${prefix}modelPinEfforts=new Set(["none","minimal","low","medium","high","xhigh","max","ultra","persistent"]),${prefix}modelPinListeners=new Set;function MTKmodelPinForTask(e,t=${prefix}sidebarPalette){if(typeof e!=="string"||t==null)return null;let n=t.rules.find(t=>t.taskId===e);return n?.modelPin??null}function ${prefix}modelPinSubscribe(e){return ${prefix}modelPinListeners.add(e),()=>${prefix}modelPinListeners.delete(e)}globalThis.__MTKmodelPinForTask=MTKmodelPinForTask;globalThis.__MTKmodelPinSubscribe=${prefix}modelPinSubscribe;`;
+  source = replaceOnce(source, reasoningBridge, reasoningBridge + modelPinBridge, "palette model-pin bridge");
+  source = replaceOnce(
+    source,
+    `function ${prefix}installSidebar(e){${prefix}sidebarPalette=e;for(let t of ${prefix}reasoningListeners)t();if(e==null){`,
+    `function ${prefix}installSidebar(e){${prefix}sidebarPalette=e;for(let t of ${prefix}reasoningListeners)t();for(let t of ${prefix}modelPinListeners)t();if(e==null){`,
+    "palette model-pin update notification"
   );
   return source;
 }

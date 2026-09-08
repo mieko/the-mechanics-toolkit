@@ -22,6 +22,14 @@ if (command === "apply" && state === "label-capability-upgrade") {
   if (state !== "applied") throw new Error("cross-task attribution label-capability upgrade did not verify");
 }
 
+if (command === "apply" && state === "plain-title-fallback-upgrade") {
+  const patched = replaceOnce(owner.source, genericPlainTitleHelper(), currentHelper(), "plain task-title fallback upgrade");
+  fs.writeFileSync(owner.file, patched);
+  syntaxCheck(owner.file);
+  state = inspectState(patched);
+  if (state !== "applied") throw new Error("cross-task attribution plain-title fallback upgrade did not verify");
+}
+
 if (command === "apply" && state === "needs-apply") {
   const details = inspectPristine(owner.source);
   const patched = patchAttribution(owner.source, owner.file, details);
@@ -74,7 +82,8 @@ function inspectState(source) {
     if (source.includes("className:`w-full rounded-xl px-2 py-1`") || source.includes("`bg-text/5`) max-w-")) {
       throw new Error("Unrecognized attribution patch: rejected delegated-bubble prototype remains");
     }
-    if (count(source, "function MTKshortTaskTitle(") === 1) return "applied";
+    if (source.includes(currentHelper())) return "applied";
+    if (source.includes(genericPlainTitleHelper())) return "plain-title-fallback-upgrade";
     if (count(source, "function MTKshortTaskTitle(") === 0 && source.includes(legacyHelper())) return "label-capability-upgrade";
     throw new Error("Unrecognized attribution patch: shared task-label helper is partial");
   }
@@ -171,6 +180,14 @@ function legacyHelper() {
 }
 
 function currentHelper() {
+  return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
+    "function MTKshortTaskTitle(e){if(typeof e!==`string`)return null;let t=e.trim();if(t.length===0)return null;" +
+    "let n=t.indexOf(` — `);return n>0?t.slice(0,n).trim():t}" +
+    "function MTKsender(e,t){let n=MTKshortTaskTitle(e);if(n==null)return null;return n!==e.trim()?n:" +
+    "typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:n}";
+}
+
+function genericPlainTitleHelper() {
   return "var MTKdelegatedBubbleStyle={backgroundColor:`var(--color-token-interactive-bg-accent-muted-context,rgba(51,156,255,.1))`};" +
     "function MTKshortTaskTitle(e){if(typeof e!==`string`)return null;let t=e.trim();if(t.length===0)return null;" +
     "let n=t.indexOf(` — `);return n>0?t.slice(0,n).trim():t}" +

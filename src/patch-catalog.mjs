@@ -25,6 +25,12 @@ const definitions = [
     requires: ["task-visual-palette"]
   },
   {
+    name: "model-identity-guard",
+    script: "patches/model-identity-guard/patch.mjs",
+    probe: "test/model-identity-guard.test.mjs",
+    requires: ["task-visual-palette"]
+  },
+  {
     name: "macos-menu-title",
     script: "patches/macos-menu-title/patch.mjs",
     probe: "test/macos-menu-title.test.mjs",

@@ -29,7 +29,8 @@ try {
     ["unknown patch", ["imaginary-patch"], /Unknown enabled patches/],
     ["duplicate patch", ["terminal-toggle", "terminal-toggle"], /contains duplicates/],
     ["missing palette dependency", ["task-visual-palette"], /requires: cross-task-attribution/],
-    ["missing reasoning dependency", ["reasoning-retention"], /requires: task-visual-palette/]
+    ["missing reasoning dependency", ["reasoning-retention"], /requires: task-visual-palette/],
+    ["missing model guard dependency", ["model-identity-guard"], /requires: task-visual-palette/]
   ]) {
     const rejectedConfig = path.join(scratch, `${label}.json`);
     fs.writeFileSync(rejectedConfig, JSON.stringify({enabledPatches}));

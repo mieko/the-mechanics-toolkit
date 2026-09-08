@@ -49,6 +49,7 @@ Configuration-backed patches use these values:
 - `workspaceRoot` locates `.codex/task-visual-palette.json` and
   `.codex/task-attention-policy.json`;
 - reasoning retention consumes exact task opt-ins from the visual palette;
+- the model identity guard consumes exact task model-and-effort pins from the visual palette;
 - `tinrelay.client` and `tinrelay.localShip` identify the local Tinrelay boundary.
 
 The toolkit configuration itself is staging input and is not watched. In an adopted build, the

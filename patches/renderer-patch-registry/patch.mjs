@@ -70,6 +70,13 @@ function activePackages() {
         : "function MTKsidebarActionDisclosure7746(",
       call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("sidebarActionCollapse",{version:1});`
     });
+    addIf(packages, source.includes("function MTKinstallModelIdentityGuard(") &&
+      source.includes("data-mtk-model-guard-mismatch"), {
+      name: "modelIdentityGuard",
+      file,
+      anchor: 'const MTKmodelGuardStyleId=',
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("modelIdentityGuard",{version:1,policy:"exact-task-model-and-effort-pin",mismatch:"red-selector-and-locked-composer"});`
+    });
     addIf(packages, source.includes("function MTKsender(") && source.includes("messageBubbleStyle:MTKdelegatedBubbleStyle"), {
       name: "crossTaskAttribution",
       file,

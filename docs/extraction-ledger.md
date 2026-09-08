@@ -16,6 +16,7 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | Runtime JSON reload | Extracted; renderer/main fixture and build-8109 live save green | Requalify after the next Codex update |
 | Task palette | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
 | Reasoning retention | Extracted; exact-task fixture and build-8109 live use green | Requalify after the next Codex update |
+| Model identity guard | Extracted; exact-task model/effort policy, locked-composer behavior, and pristine build-8109 full-fleet stage green | Live-accept mismatch alarm and recovery, then requalify after the next Codex update |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
 | Task attention policy | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
 | Tinrelay presentation | Extracted as one patch; incoming/outgoing build-8109 surfaces live-accepted; persistence-gated source-turn pagination is statically green | Live restart-plus-pagination check, then requalify after the next Codex or Tinrelay observer-contract change |
@@ -28,7 +29,7 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 ## Current build qualification
 
 Codex Desktop `26.901.51231` (build `8109`) was inspected and staged from a pristine vendor update
-on 2026-09-07. The complete selected fleet applied without broadening a matcher, passed every
+on 2026-09-08. The complete selected fleet, including the model identity guard, applied without broadening a matcher, passed every
 focused probe before and after repacking, remained byte-identical on a second application,
 preserved the native package tree and executable helper, and produced a valid code signature and
 ASAR seal.

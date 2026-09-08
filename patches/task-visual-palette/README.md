@@ -7,14 +7,16 @@
 ## Why it exists
 
 A long-lived task should be recognizable before its title has been read. This patch gives configured
-tasks a restrained color identity across the room canvas, sidebar row, selected-row outline, and
-provenanced delegated messages. An optional SVG mark can sit behind a room as a low-opacity
-watermark. Unconfigured tasks keep stock styling, including the same neutral outline when selected,
-so selection never masquerades as identity.
+tasks a restrained color identity across the room canvas, a saturated sidebar identity chip,
+selected-row background and outline, and provenanced delegated messages. Inactive rows keep Codex's
+stock background; project rows use their existing gutter for the chip, while Recents and View
+Activity rows move their contents over to make room. An optional SVG mark can sit behind a room as a
+low-opacity watermark. Unconfigured tasks keep stock styling, including the same neutral outline
+when selected, so selection never masquerades as identity.
 
-![Codex Desktop showing task-specific sidebar colors, a neutral selected outline, and a matching room sigil](agent-colors-and-sigils.png)
+![Codex Desktop showing task-specific sidebar dots, a matching selected outline, and a room sigil](agent-colors-and-sigils.png)
 
-*Color carries identity; the outline carries selection.*
+*The chip carries identity at a glance; the colored room and selected row carry place.*
 
 The same rule may opt an exact task ID out of sidebar archive affordances. That protection is based
 on the task ID, never merely a matching title, and it removes archive actions without hiding the
@@ -34,7 +36,9 @@ requires a six-digit hex `color` and may include:
 - `taskId`: an exact UUID also matched by the rule;
 - `protectSidebarArchive`: a boolean requiring `taskId`;
 - `keepReasoningOpen`: a boolean requiring `taskId`, consumed by the separate
-  [reasoning-retention patch](../reasoning-retention/); and
+  [reasoning-retention patch](../reasoning-retention/);
+- `modelPin`: an exact internal `model` and `reasoningEffort` pair requiring `taskId`, consumed by
+  the separate [model identity guard](../model-identity-guard/); and
 - `mark`: a safe relative path to an SVG below `workspaceRoot`.
 
 Calibration values are bounded percentages. Unknown keys, invalid expressions, duplicate task IDs,
@@ -43,8 +47,8 @@ one owning palette leaves Codex on native styles.
 
 With [runtime JSON reload](../runtime-json-reload/) selected, saving a complete valid palette from
 an external editor updates the open app without a restart. Validation runs before publication; a
-partial or invalid save leaves the last-good colors, archive protection, and reasoning-retention
-decisions in place.
+partial or invalid save leaves the last-good colors, archive protection, reasoning-retention, and
+model-pin decisions in place.
 
 ## Owned seam
 
@@ -83,8 +87,10 @@ second application.
 
 The private build-`7942` implementation was also accepted in live use before extraction: room and
 sidebar colors, source-colored delegated bubbles, optional background marks, neutral unnamed-task
-selection, and exact-ID archive protection all remained usable. That is historical evidence for
-the design, not a claim that this separately namespaced public transform is installed.
+selection, and exact-ID archive protection all remained usable. The later identity-chip treatment
+is covered by the current transform and static behavioral probes until separately accepted in live
+use. Historical evidence for an earlier treatment is not a claim that this separately namespaced
+public transform is installed.
 
 ## Non-goals
 

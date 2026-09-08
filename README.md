@@ -23,11 +23,12 @@ additions instead of presenting every repair and convenience as equally exciting
 | Patch | What it gives you | Interesting? |
 | --- | --- | --- |
 | [Tinrelay presentation](patches/tinrelay-pointer-presentation/) | Render verified incoming and accepted outgoing [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/mieko/tinrelay)) transmissions as readable radio messages—even after an app restart—with opposing signal wakes that show which way the message is traveling. | **Especially** |
-| [Task visual palette](patches/task-visual-palette/) | Give important agents and tasks stable colors across rooms, sidebar rows, and provenanced messages, with optional background sigils. | **Yes** |
+| [Task visual palette](patches/task-visual-palette/) | Give important agents and tasks stable room colors, saturated sidebar identity chips, selected-row accents, and provenanced-message colors, with optional background sigils. | **Yes** |
 | [Cross-task attribution](patches/cross-task-attribution/) | See which agent actually sent a delegated message instead of inferring who “another Codex task” was. | **Yes** |
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | Keep a compact, hover-previewable record of what an agent sent and where—even after the sending task or app is reopened. | **Yes** |
 | [Wait-thread roster](patches/wait-thread-roster/) | Replace opaque `Wait threads` activity with the names of the agents and tasks actually being awaited, linked and colored when Codex knows them. | **Yes** |
 | [Reasoning retention](patches/reasoning-retention/) | Keep completed reasoning open for selected continuing agents while preserving manual collapse. | **Yes** |
+| [Model identity guard](patches/model-identity-guard/) | Pin a continuing task to an expected model and effort; if Codex silently substitutes either, turn the model selector into a flashing red alarm and lock message entry until the pin is restored. | **Yes** |
 | [Task attention policy](patches/task-attention-policy/) | Silence routine sidebar badges, Dock badges, and completion attention for explicitly matched utility tasks. | **Yes** |
 | [Runtime JSON reload](patches/runtime-json-reload/) | Change palette and attention policy while Codex is running; invalid or partial saves leave the last good policy in place. | Supporting |
 | [Sidebar action collapse](patches/sidebar-action-collapse/) | Fold away the tall stock action block so the tasks you care about stay near the top of the sidebar. | Convenience |

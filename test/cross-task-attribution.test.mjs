@@ -28,7 +28,7 @@ assert.equal(api.MTKshortTaskTitle("Bridge Keeper — Coordination"), "Bridge Ke
 assert.equal(api.MTKshortTaskTitle("documentation-research"), "documentation-research");
 assert.equal(api.MTKsender("Bridge Keeper — Coordination", "Example Ship"), "Bridge Keeper");
 assert.equal(api.MTKsender("Index repair", "Archive Engine"), "Archive Engine/Index repair");
-assert.equal(api.MTKsender("Index repair", null), null, "missing project metadata retains generic attribution");
+assert.equal(api.MTKsender("Index repair", null), "Index repair", "plain task title survives without project metadata");
 assert.equal(api.MTKsender(null, "Archive Engine"), null, "missing task metadata retains generic attribution");
 assert.ok(api.MTKdelegatedBubbleStyle.backgroundColor.includes("interactive-bg-accent-muted-context"),
   "unmapped delegation keeps the existing semantic accent fallback");
