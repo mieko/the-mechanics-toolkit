@@ -15,7 +15,7 @@ sidebar header controls. When collapsed, it hides New Chat and the complete stoc
 global-destination family while preserving
 Projects and task navigation. The choice persists locally and follows the renderer across windows.
 
-![The Codex sidebar with its global actions collapsed while Projects and colored task rows remain visible](sidebar-collapse.png)
+![The Codex sidebar disclosure expanding and collapsing its global actions while Projects remain visible](sidebar-action-collapse-demo.webp)
 
 *The chrome folds away; the work stays where your eyes expect it.*
 

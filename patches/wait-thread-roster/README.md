@@ -19,6 +19,10 @@ store—remain explicit `Task 0123abcd…` fallbacks rather than receiving inven
 While a wait is active, Codex's stock shimmer is limited to the words `Waiting for`; it does not
 repaint the linked names and wash out their palette colors.
 
+![Codex showing a live wait for Vera, Rowan, and Elias with linked, individually colored names](wait-thread-roster.png)
+
+*Waiting becomes part of the legible coordination record instead of an anonymous pause.*
+
 ## Composition
 
 The patch works by itself. If the renderer patch registry and task visual palette are also active,
