@@ -18,6 +18,8 @@ Unknown or unhydrated targets—including anything not represented in Codex's re
 store—remain explicit `Task 0123abcd…` fallbacks rather than receiving invented names or links.
 While a wait is active, Codex's stock shimmer is limited to the words `Waiting for`; it does not
 repaint the linked names and wash out their palette colors.
+Palette-derived labels choose separate light- and dark-theme colors and enforce readable contrast
+against each native activity surface, including unusually bright configured identity colors.
 
 ![Codex showing a live wait for Vera, Rowan, and Elias with linked, individually colored names](wait-thread-roster.png)
 

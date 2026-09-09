@@ -282,6 +282,18 @@ assert.ok(rendererHelpers.includes('className:"flex w-full flex-col items-end ju
 assert.ok(rendererHelpers.includes("box-shadow:inset 0 0 0 1px #34383D"), "radio surface has a dark-gray inset edge");
 assert.ok(rendererHelpers.includes("color:#F1F3F5"),
   "message body remains high contrast without an opaque slab over the signal rings");
+assert.ok(rendererHelpers.includes("mtk-tinrelay-signal [data-user-message-bubble] *{color:#F1F3F5!important}"),
+  "dark-mode Markdown descendants remain white");
+assert.ok(rendererHelpers.includes("html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{background:#F7F8FA!important;box-shadow:inset 0 0 0 1px #C9D0D7;color:#1B1F23!important}"),
+  "incoming light-mode transmissions use a porcelain surface with dark text");
+assert.ok(rendererHelpers.includes("html.electron-light [data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#E3E7EB!important;box-shadow:inset 0 0 0 1px #B5BEC7;color:#171B1F!important}"),
+  "outgoing light-mode transmissions use a distinct mist-gray surface");
+assert.ok(rendererHelpers.includes("rgba(69,78,88,.24) 35px 37px"),
+  "incoming light-mode radio waves are crisp dark hairlines");
+assert.ok(rendererHelpers.includes("rgba(52,62,72,.28) 35px 37px"),
+  "outgoing light-mode radio waves remain directionally distinct");
+assert.ok(rendererHelpers.includes("html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble] *{color:inherit!important}"),
+  "light-mode Markdown inherits the card's dark foreground");
 assert.ok(!rendererHelpers.includes("padding-top:"),
   "Tinrelay adds no independent vertical-padding correction to the stock bubble");
 assert.ok(!rendererHelpers.includes("mtk-tinrelay-body"),

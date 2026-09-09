@@ -175,6 +175,12 @@ assert.ok(rendererSource.includes("circle at 7% 72%"),
   "outgoing emission rings expose their source along the left edge");
 assert.ok(rendererSource.includes("background:#303438!important"),
   "outgoing surface uses a slightly darker inverted palette");
+assert.ok(rendererSource.includes("mtk-tinrelay-signal [data-user-message-bubble] *{color:#F1F3F5!important}"),
+  "outgoing Markdown descendants remain white in dark mode");
+assert.ok(rendererSource.includes("html.electron-light [data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#E3E7EB!important;box-shadow:inset 0 0 0 1px #B5BEC7;color:#171B1F!important}"),
+  "outgoing light-mode transmissions have their own mist-gray palette");
+assert.ok(rendererSource.includes("html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble] *{color:inherit!important}"),
+  "outgoing light-mode Markdown inherits the card's dark foreground");
 assert.ok(rendererSource.includes("transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px"),
   "outgoing wake implies its left-edge source with sparse crisp rings rather than a solid core");
 const [route, card] = rendered.props.children;

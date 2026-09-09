@@ -10,6 +10,10 @@ const legacyRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgo
 const flatCacheRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:2,persistence:"bounded-private-restart-cache",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
 const acklessRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:3,persistence:"bounded-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
 const currentRegistryCall = 'globalThis.__MTK_PATCH_REGISTRY__?.register?.("outgoingMessageReceipt",{version:4,persistence:"acknowledged-private-task-buckets",visibility:"persistent-after-restart-and-collapse",preview:"stock-hover",messageRendering:"recipient-user-message"});';
+const legacyTaskColorFunction = 'function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}';
+const themedTaskColorFunctions = `${legacyTaskColorFunction}function MTKoutboundParseHex(e){return{r:parseInt(e.slice(1,3),16),g:parseInt(e.slice(3,5),16),b:parseInt(e.slice(5,7),16)}}function MTKoutboundMix(e,t,n){let r=MTKoutboundParseHex(e),i=MTKoutboundParseHex(t),a=e=>Math.round(e).toString(16).padStart(2,"0");return("#"+a(r.r+(i.r-r.r)*n)+a(r.g+(i.g-r.g)*n)+a(r.b+(i.b-r.b)*n)).toUpperCase()}function MTKoutboundLum(e){let t=Object.values(MTKoutboundParseHex(e)).map(e=>{let t=e/255;return t<=.04045?t/12.92:((t+.055)/1.055)**2.4});return.2126*t[0]+.7152*t[1]+.0722*t[2]}function MTKoutboundContrast(e,t){let n=MTKoutboundLum(e),r=MTKoutboundLum(t);return(Math.max(n,r)+.05)/(Math.min(n,r)+.05)}function MTKoutboundLabelColor(e,t){let n=t?.38:.34,r=t?"#FFFFFF":"#111318",i=t?"#101114":"#FFFFFF";for(;n<=1.001;n+=.08){let t=MTKoutboundMix(e,r,Math.min(1,n));if(MTKoutboundContrast(t,i)>=4.5)return t}return r}`;
+const legacyTaskColorStyle = 'l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=';
+const themedTaskColorStyle = 'l=c==null?void 0:{color:"light-dark("+MTKoutboundLabelColor(c,!1)+","+MTKoutboundLabelColor(c,!0)+")"},u=';
 if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
   throw new Error("usage: outgoing-message-receipt/patch.mjs check|apply EXTRACTED_ASAR_ROOT");
 }
@@ -68,6 +72,15 @@ if (command === "apply" && state === "acknowledgment-upgrade") {
   syntaxCheck(mainTarget);
   state = inspectState();
   if (state !== "applied") throw new Error("outgoing receipt acknowledgment upgrade did not verify");
+}
+
+if (command === "apply" && state === "theme-label-upgrade") {
+  source = replaceOnce(source, legacyTaskColorFunction, themedTaskColorFunctions, "outgoing receipt contrast helpers");
+  source = replaceOnce(source, legacyTaskColorStyle, themedTaskColorStyle, "outgoing receipt theme-aware label color");
+  fs.writeFileSync(target, source);
+  syntaxCheck(target);
+  state = inspectState();
+  if (state !== "applied") throw new Error("outgoing receipt theme-label upgrade did not verify");
 }
 
 if (command === "apply" && state === "needs-apply") {
@@ -168,6 +181,7 @@ function inspectState() {
       taskBucketConversationApplied && taskBucketMainApplied) {
     if (source.includes(legacyRegistryCall)) return "registry-upgrade";
     if (source.includes(flatCacheRegistryCall)) return "task-bucket-upgrade";
+    if (!source.includes("function MTKoutboundLabelColor(") || source.includes(legacyTaskColorStyle)) return "theme-label-upgrade";
     return "applied";
   }
   if (count(source, green) === 1 && count(source, red) === 0 && ownerApplied && conversationApplied && mainApplied &&
@@ -242,9 +256,14 @@ function patchSource(value) {
 }
 
 function buildHelper(send) {
-  return String.raw`
+  const helper = String.raw`
 function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null,o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0,i){let a=MTKoutboundArguments(e.arguments);if(t==="row"&&a!=null){if(e.completed&&e.success===!0&&typeof e.callId==="string"&&e.callId.length>0&&i!=null&&typeof i.conversationId==="string"&&i.conversationId.length>0&&typeof i.turnId==="string"&&i.turnId.length>0&&typeof globalThis.__MTK_OUTBOUND_REMEMBER__==="function"){let t={callId:e.callId,contract:"outgoing-message-receipt-v1",prompt:a.prompt,recordedAtMs:Date.now(),sourceThreadId:i.conversationId,sourceTurnId:i.turnId,targetHostId:a.hostId??"local",targetThreadId:a.threadId};if(globalThis.__MTK_OUTBOUND_REMEMBER__(t)===!0)return null}return(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e})}return ${send.genericRender}(e,t,n,r)}
 `;
+  const themed = helper.replace(legacyTaskColorFunction, themedTaskColorFunctions).replace(legacyTaskColorStyle, themedTaskColorStyle);
+  if (!themed.includes(themedTaskColorFunctions) || !themed.includes(themedTaskColorStyle)) {
+    throw new Error("unrecognized outgoing receipt theme-color seam");
+  }
+  return themed;
 }
 
 function inspectPristineConversation(value) {

@@ -101,6 +101,8 @@ const guardStyle = styles.get("mtk-model-identity-guard-style").textContent;
 assert.match(guardStyle, /content:attr\(data-mtk-model-guard-message\)/);
 assert.match(guardStyle, /\.prosemirror-placeholder::before\{content:none!important\}/, "stock placeholder is not double-painted");
 assert.match(guardStyle, /::after\{[^}]*inset:0;display:block;padding:0;[^}]*font-size:inherit;line-height:inherit;/, "recovery text keeps the native composer baseline");
+assert.match(guardStyle, /html\.electron-light \[data-mtk-model-guard-editor="true"\]::after\{color:#A61B1B!important\}/,
+  "light mode uses an opaque dark-red recovery message instead of translucent red");
 assert.doesNotMatch(guardStyle, /::after\{[^}]*align-items:center/, "recovery text is not vertically recentered below the native first line");
 
 let prevented = false, stopped = false;

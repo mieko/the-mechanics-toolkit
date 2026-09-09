@@ -32,7 +32,7 @@ const helper = source.slice(helperStart, helperEnd);
 assert.ok(!helper.includes("k9e"), "palette decoder does not capture a minified bundle binding");
 assert.ok(helper.includes("new TextDecoder().decode(Uint8Array.from(atob(e)"), "palette decoder is self-contained");
 const api = Function(
-  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected,MTKreasoningShouldStayOpen,MTKmodelPinForTask}`
+  `${helper};return {MTKloadPalette,MTKparsePalette,MTKmatchPalette,MTKcalibration,MTKderive,MTKpaletteMutationRelevant,MTKapplyPaletteSurfaces,MTKclearPaletteSurfaces,MTKsidebarArchiveProtected,MTKreasoningShouldStayOpen,MTKmodelPinForTask}`
 )();
 
 const palette = JSON.parse(fs.readFileSync(path.join(projectRoot, ".codex/task-visual-palette.json"), "utf8"));
@@ -201,6 +201,18 @@ for (const rule of loaded.rules) {
   assert.ok(contrast(rule.dark.selection, rule.dark.text) >= 4.5, `${rule.color} dark selection contrast`);
   assert.ok(contrast(rule.light.selection, rule.light.text) >= 4.5, `${rule.color} light selection contrast`);
 }
+const neutralCalibration = {canvas: 0, userBubble: 0, mappedBubble: 0, genericBubble: 0, sidebar: 0, watermarkDark: 0, watermarkLight: 0};
+assert.deepEqual(api.MTKderive("#FF0000", neutralCalibration, false), {
+  canvas: "#FCFCFD",
+  bubble: "#F4F5F7",
+  row: "#F7F8FA",
+  hover: "#F7F1F3",
+  selected: "#F7EAEC",
+  accent: "#D40304",
+  label: "#AE0608",
+  selection: "#F6A1A3",
+  text: "#17191C"
+}, "light mode starts from airy neutral surfaces and adds a pale accent wash");
 
 const changedCanvas = await parseWith({ canvas: 12 });
 const changedMapped = await parseWith({ mappedBubble: 41 });

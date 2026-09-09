@@ -14,6 +14,10 @@ Activity rows move their contents over to make room. An optional SVG mark can si
 low-opacity watermark. Unconfigured tasks keep stock styling, including the same neutral outline
 when selected, so selection never masquerades as identity.
 
+The room treatment follows Codex's active theme. Dark rooms dim the configured color into the
+canvas; light rooms fade it into a pale neutral surface, preserving the sense of place without
+turning the conversation into a saturated sheet of color.
+
 ![Codex Desktop showing task-specific sidebar dots, a matching selected outline, and a room sigil](agent-colors-and-sigils.png)
 
 *The chip carries identity at a glance; the colored room and selected row carry place.*
@@ -81,7 +85,7 @@ replaces a working application.
 
 `test/task-visual-palette-transform.test.mjs` creates a synthetic pristine build-`7942` renderer
 tree with the exact attribution prerequisite and a quoted fictional workspace path. It proves
-config refusal, exact-root quoting, all four transformations, palette parsing, color contrast,
+config refusal, exact-root quoting, all four transformations, palette parsing, theme-specific color contrast,
 room/sidebar/delegation behavior, archive suppression, mutation filtering, and byte-identical
 second application.
 

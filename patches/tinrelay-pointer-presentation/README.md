@@ -10,10 +10,13 @@
 Tinrelay messages should feel like correspondence, not plumbing. A verified incoming pointer should
 become the message it identifies, and an accepted outgoing send should remain visible in the
 conversation instead of collapsing into a JSON receipt. Both directions use the same crisp radio
-language, but direction is visible before the route is read: incoming cards use a near-black field
-with fine light rings, while outgoing cards use a gray field with fine dark rings and expose the
-small transmitter origin on their left edge. Two staggered ring layers travel outward continuously;
-each resets only while transparent, so the wake neither stops nor visibly hitches between cycles.
+language, but direction is visible before the route is read. In dark mode, incoming cards use a
+near-black field with fine light rings while outgoing cards use a gray field with fine dark rings.
+In light mode, incoming cards use a pale porcelain field and outgoing cards a deeper mist-gray,
+with dark foregrounds and restrained graphite rings instead of borrowing the dark treatment.
+Outgoing cards expose the small transmitter origin on their left edge. Two staggered ring layers
+travel outward continuously; each resets only while transparent, so the wake neither stops nor
+visibly hitches between cycles.
 
 ![A two-way Tinrelay exchange rendered inline in a color-mapped Codex room, with distinct incoming and outgoing radio-wake cards](tinrelay-exchange-browser-render.webp)
 
@@ -129,8 +132,9 @@ The transform fixture proves fail-closed configuration and ownership, both exact
 byte-identical second application, syntax validity, and composition with the runtime watcher. The
 behavior probes cover exact pointer parsing, fixed no-shell inspection, metadata equality, stock
 safe Markdown with paragraph-aware soft wrapping and six-line disclosure, directional radio wakes
-that never contract below the card while animating, guarded post-hoist scrolling, outgoing palette
-inversion and visible transmitter origin, ordinary-send recognition, collapsed-turn hoisting,
+that never contract below the card while animating, distinct light- and dark-theme surfaces,
+guarded post-hoist scrolling, outgoing palette inversion and visible transmitter origin,
+ordinary-send recognition, collapsed-turn hoisting,
 private socket permissions, fragmented events, lookup-before-event ordering, first-valid duplicate
 handling, the
 20 KiB ceiling, bounded private persistence, source-task/source-turn reconstruction after process

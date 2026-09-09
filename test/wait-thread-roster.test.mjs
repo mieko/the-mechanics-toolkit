@@ -21,6 +21,11 @@ const names = [
   "MTKwaitFallbackLabel",
   "MTKwaitTaskLabel",
   "MTKwaitTaskColor",
+  "MTKwaitParseHex",
+  "MTKwaitMix",
+  "MTKwaitLum",
+  "MTKwaitContrast",
+  "MTKwaitLabelColor",
   "MTKwaitResolvedTarget",
   "MTKwaitNavigate",
   "MTKWaitThreadRoster",
@@ -82,6 +87,12 @@ assert.equal(api.MTKwaitTargets({targets: Array.from({length: 9}, (_, index) => 
 assert.equal(api.MTKwaitTargets({targets: [{threadId: "one", hostId: 2}]}), null);
 assert.equal(api.MTKwaitTaskLabel("The Mechanic — Engine Rooms"), "The Mechanic", "shared label capability is used");
 assert.equal(api.MTKwaitTaskColor("elias", "Elias — Deployment"), "#AABBCC");
+for (const raw of ["#AABBCC", "#39FF14", "#C6A13D"]) {
+  assert.ok(api.MTKwaitContrast(api.MTKwaitLabelColor(raw, false), "#FFFFFF") >= 4.5,
+    `${raw} remains readable in light mode`);
+  assert.ok(api.MTKwaitContrast(api.MTKwaitLabelColor(raw, true), "#101114") >= 4.5,
+    `${raw} remains readable in dark mode`);
+}
 
 const known = api.MTKwaitResolvedTarget({threadId: "elias", hostId: "local"}, tasks.get("local:elias"));
 assert.deepEqual(known, {
@@ -129,7 +140,8 @@ const duplicate = api.MTKWaitThreadRoster({item: {
 const duplicateButtons = duplicate.props.children[1].props.children.filter(node => node?.type === "button");
 assert.equal(new Set(duplicateButtons.map(button => button.key)).size, 2,
   "duplicate wait targets retain distinct React identities");
-assert.ok(buttons[0].props.style.color.includes("#AABBCC"), "palette color decorates a known name");
+assert.match(buttons[0].props.style.color, /^light-dark\(#[0-9A-F]{6},#[0-9A-F]{6}\)$/,
+  "palette color decorates a known name with a contrast-checked theme pair");
 assert.ok(!spinner.props.children?.props, "active shimmer does not wrap or repaint colored task names");
 buttons[0].props.onClick({preventDefault() {}, stopPropagation() {}});
 assert.deepEqual(dispatched, [{type: "navigate-to-route", path: "/local/normalized:elias"}]);

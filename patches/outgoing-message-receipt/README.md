@@ -15,7 +15,8 @@ This patch keeps the send activity visible as a compact left-aligned receipt: di
 current send state, recipient, and the first meaningful line. Hovering opens the complete message
 through Codex's stock interactive hover and user-message formatter. Clicking the recipient follows
 Codex's stock task route. When the task palette publishes a compatible registry capability, only
-the recipient label borrows its color; otherwise the receipt remains neutral.
+the recipient label borrows a contrast-safe light- or dark-theme form of its color; otherwise the
+receipt remains neutral.
 
 After the send tool reports success, a bounded private presentation cache records the call ID,
 source task and turn, destination, and message text. The assistant-turn renderer reattaches that

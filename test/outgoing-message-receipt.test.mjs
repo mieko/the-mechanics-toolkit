@@ -105,7 +105,7 @@ const values = [
   id => `/local/${id}`,
   () => ({type: "stock-fallback"})
 ];
-const api = Function(...names, `${helper};return {MTKoutboundArguments,MTKoutboundLabel,MTKoutboundPreview,MTKoutboundTaskColor,MTKOutboundMessageReceipt,MTKrenderOutboundMessage}`)(...values);
+const api = Function(...names, `${helper};return {MTKoutboundArguments,MTKoutboundLabel,MTKoutboundPreview,MTKoutboundTaskColor,MTKoutboundContrast,MTKoutboundLabelColor,MTKOutboundMessageReceipt,MTKrenderOutboundMessage}`)(...values);
 
 assert.equal(api.MTKoutboundArguments({threadId: "bridge-keeper", prompt: "hello"})?.threadId, "bridge-keeper");
 assert.equal(api.MTKoutboundArguments({threadId: "bridge-keeper"}), null, "prompt is required");
@@ -128,6 +128,12 @@ globalThis.__MTK_PATCH_REGISTRY__.packages.taskVisualPalette.resolveTaskColor = 
   return "#6b8e72";
 };
 assert.equal(api.MTKoutboundTaskColor("bridge-keeper", "Bridge Keeper — Coordination"), "#6B8E72");
+for (const raw of ["#6B8E72", "#39FF14", "#C6A13D"]) {
+  assert.ok(api.MTKoutboundContrast(api.MTKoutboundLabelColor(raw, false), "#FFFFFF") >= 4.5,
+    `${raw} recipient label remains readable in light mode`);
+  assert.ok(api.MTKoutboundContrast(api.MTKoutboundLabelColor(raw, true), "#101114") >= 4.5,
+    `${raw} recipient label remains readable in dark mode`);
+}
 
 const prompt = "Please inspect this exact behavior.\nDo not reply.";
 const receipt = api.MTKOutboundMessageReceipt({item: {
@@ -151,7 +157,8 @@ const [arrow, status, recipient, separator, preview] = summary.props.children;
 assert.equal(arrow.props.children, "↗", "outbound direction is explicit");
 assert.equal(status.props.children, "Sent to");
 assert.equal(recipient.props.children, "Bridge Keeper");
-assert.ok(recipient.props.style.color.includes("#6B8E72"), "recipient name opportunistically uses palette color");
+assert.match(recipient.props.style.color, /^light-dark\(#[0-9A-F]{6},#[0-9A-F]{6}\)$/,
+  "recipient name opportunistically uses a contrast-checked theme pair");
 assert.equal(separator.props.children, "·");
 assert.equal(preview.props.children, "Please inspect this exact behavior.");
 assert.equal(summary.props.children.length, 5, "hover receipt has no click-disclosure indicator");

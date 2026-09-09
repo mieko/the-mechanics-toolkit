@@ -15,6 +15,7 @@ On mismatch, the existing model selector flashes red and displays `BAD MODEL`, i
 the expected and current model/effort pair, and the composer editor is disabled. The disabled
 editor visibly names the expected pair and tells the operator to restore it. The selector stays
 usable; matching the pin immediately returns the editor and any existing draft to normal.
+The alert and recovery text retain deliberate warning contrast in both Codex themes.
 
 ![The model identity guard locking the composer after a pinned task is switched away from its expected model](model-identity-guard-demo.webp)
 
@@ -71,7 +72,8 @@ ownership, syntax, idempotence, upgrade from the first guard revision, and the f
 probe. The behavioral probe verifies exact model-and-effort comparison, visible expected/current
 diagnostics, the in-editor recovery instruction, draft-preserving editor lock, submit suppression,
 selector availability, recovery after the live pair matches, and stock behavior for an unpinned
-task.
+task. It also checks the light-theme recovery treatment rather than assuming the dark warning color
+will remain readable on a pale composer.
 
 ## Non-goals
 

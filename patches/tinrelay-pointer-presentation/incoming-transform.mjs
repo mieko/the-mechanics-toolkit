@@ -31,10 +31,16 @@ const PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS = PREVIOUS_CRISP_VISUAL_CSS.replace(
   "rgba(190,196,204,.22) 35px 37px",
   "rgba(190,196,204,.34) 35px 37px"
 );
-const NEXT_VISUAL_CSS = PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS.replace(
+const PREVIOUS_LIGHT_MODE_VISUAL_CSS = PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS.replace(
   "rgba(11,12,14,.68) 0 5px,transparent 5px 33px,rgba(11,12,14,.38) 33px 35px,transparent 35px 78px",
   "transparent 0 35px,rgba(11,12,14,.52) 35px 37px,transparent 37px 78px"
 );
+const PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS = PREVIOUS_LIGHT_MODE_VISUAL_CSS.replace(
+  "color:#F1F3F5!important}",
+  "color:#F1F3F5!important}[data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble] *{color:#F1F3F5!important}"
+);
+const LIGHT_THEME_VISUAL_CSS = 'html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]{background:#F7F8FA!important;box-shadow:inset 0 0 0 1px #C9D0D7;color:#1B1F23!important}html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble] *{color:inherit!important}html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::before,html.electron-light [data-mtk-tinrelay-pointer].mtk-tinrelay-signal [data-user-message-bubble]::after{background:repeating-radial-gradient(circle at 14% 82%,transparent 0 35px,rgba(69,78,88,.24) 35px 37px,transparent 37px 78px)}html.electron-light [data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]{background:#E3E7EB!important;box-shadow:inset 0 0 0 1px #B5BEC7;color:#171B1F!important}html.electron-light [data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::before,html.electron-light [data-mtk-tinrelay-pointer][data-mtk-tinrelay-outgoing].mtk-tinrelay-signal [data-user-message-bubble]::after{background:repeating-radial-gradient(circle at 7% 72%,transparent 0 35px,rgba(52,62,72,.28) 35px 37px,transparent 37px 78px)}';
+const NEXT_VISUAL_CSS = `${PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS}${LIGHT_THEME_VISUAL_CSS}`;
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -107,6 +113,8 @@ function inspectState() {
         rendererSource.includes(JSON.stringify(PREVIOUS_STOCK_BUBBLE_VISUAL_CSS)) ||
         rendererSource.includes(JSON.stringify(PREVIOUS_CRISP_VISUAL_CSS)) ||
         rendererSource.includes(JSON.stringify(PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_LIGHT_MODE_VISUAL_CSS)) ||
+        rendererSource.includes(JSON.stringify(PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS)) ||
         rendererSource.includes(LEGACY_BODY_CLASS) ||
         !rendererSource.includes("function MTKtinrelayMessageView(") ||
         !rendererSource.includes("function MTKtinrelayScrollSnapshot(") ||
@@ -179,6 +187,7 @@ function inspectAppliedRenderer(source) {
     'background:#303438!important',
     '.mtk-tinrelay-signal .whitespace-pre-wrap{white-space:normal}',
     'color:#F1F3F5',
+    'mtk-tinrelay-signal [data-user-message-bubble] *{color:#F1F3F5!important}',
     'mtk-tinrelay-signal>.group{align-items:flex-start}',
     'function MTKtinrelayScrollSnapshot()',
     'Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)',
@@ -412,6 +421,20 @@ function migrateRendererPresentation(value) {
       JSON.stringify(PREVIOUS_VISIBLE_INCOMING_VISUAL_CSS),
       JSON.stringify(NEXT_VISUAL_CSS),
       "Tinrelay outgoing wave simplification"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_LIGHT_MODE_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_LIGHT_MODE_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay light-mode foreground"
+    );
+  } else if (patched.includes(JSON.stringify(PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS))) {
+    patched = replaceOnce(
+      patched,
+      JSON.stringify(PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS),
+      JSON.stringify(NEXT_VISUAL_CSS),
+      "Tinrelay light-mode palette"
     );
   } else if (patched.includes(JSON.stringify(ONE_SHOT_VISUAL_CSS))) {
     patched = replaceOnce(
