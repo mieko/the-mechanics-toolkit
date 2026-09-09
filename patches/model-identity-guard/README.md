@@ -11,9 +11,10 @@ showing that new selection in the composer. For a continuity-bearing agent, noti
 after several turns is too late. This patch compares the live selector state with an independent,
 exact-task pin and fails loudly before another message can be entered.
 
-On mismatch, the existing model selector flashes red and displays `RED ALERT`, its tooltip names
-the expected and current model/effort pair, and the composer editor is disabled. The selector stays
-usable so the operator can restore the pin; matching it immediately unlocks the composer.
+On mismatch, the existing model selector flashes red and displays `BAD MODEL`, its tooltip names
+the expected and current model/effort pair, and the composer editor is disabled. The disabled
+editor visibly names the expected pair and tells the operator to restore it. The selector stays
+usable; matching the pin immediately returns the editor and any existing draft to normal.
 
 ## Configuration
 
@@ -61,10 +62,11 @@ and application replacement remain separate operations.
 ## Verification
 
 `test/model-identity-guard-transform.test.mjs` proves prerequisite refusal, exact build-`8109`
-ownership, syntax, idempotence, and the focused behavioral probe. The behavioral probe verifies
-exact model-and-effort comparison, visible expected/current diagnostics, editor lock, submit
-suppression, selector availability, recovery after the live pair matches, and stock behavior for an
-unpinned task.
+ownership, syntax, idempotence, upgrade from the first guard revision, and the focused behavioral
+probe. The behavioral probe verifies exact model-and-effort comparison, visible expected/current
+diagnostics, the in-editor recovery instruction, draft-preserving editor lock, submit suppression,
+selector availability, recovery after the live pair matches, and stock behavior for an unpinned
+task.
 
 ## Non-goals
 

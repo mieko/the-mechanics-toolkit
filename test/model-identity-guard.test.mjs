@@ -51,7 +51,8 @@ class FakeElement {
 const room = new FakeElement({"data-mtk-palette-room-host": "", "data-mtk-palette-thread-id": "task-1"});
 const selector = new FakeElement({"data-codex-intelligence-trigger": "true", title: "Choose model"});
 selector.tagName = "BUTTON";
-const editor = new FakeElement({contenteditable: "true", role: "textbox"});
+const stockPlaceholder = "Whatever upstream currently says";
+const editor = new FakeElement({contenteditable: "true", role: "textbox", "aria-label": "Message", "data-placeholder": stockPlaceholder});
 editor.tagName = "DIV";
 const send = new FakeElement({type: "submit"});
 send.tagName = "BUTTON";
@@ -78,11 +79,12 @@ const realm = {
   __MTKmodelPinSubscribe() { return () => {}; }
 };
 const S7 = {useEffect(callback) { return callback(); }};
-const api = Function("document", "MutationObserver", "Element", "S7", "globalThis", `${helper};return {guard:MTKmodelIdentityGuard,mismatch:MTKmodelGuardMismatch,describe:MTKmodelGuardDescription,use:MTKuseModelIdentityGuard}`)(document, FakeMutationObserver, FakeElement, S7, realm);
+const api = Function("document", "MutationObserver", "Element", "S7", "globalThis", `${helper};return {guard:MTKmodelIdentityGuard,mismatch:MTKmodelGuardMismatch,describe:MTKmodelGuardDescription,recovery:MTKmodelGuardRecoveryMessage,use:MTKuseModelIdentityGuard}`)(document, FakeMutationObserver, FakeElement, S7, realm);
 
 assert.equal(api.mismatch(pin, {model: "gpt-5.6-sol", reasoningEffort: "high"}), false);
 assert.equal(api.mismatch(pin, {model: "gpt-5.6-luna", reasoningEffort: "low"}), true);
 assert.match(api.describe({model: "gpt-5.6-luna", reasoningEffort: "low"}, pin), /Expected GPT-5.6 Sol \/ High; current GPT-5.6 Luna \/ Light/);
+assert.equal(api.recovery(pin), "Expected: GPT-5.6 Sol High — restore that selection to continue.");
 
 const releaseWrong = api.guard.publish("task-1", "gpt-5.6-luna", "low");
 await tick();
@@ -91,6 +93,15 @@ assert.equal(selector.getAttribute("data-mtk-model-guard-alert"), "true");
 assert.match(selector.getAttribute("title"), /Select the pinned model to unlock input/);
 assert.equal(editor.getAttribute("contenteditable"), "false");
 assert.equal(editor.getAttribute("aria-disabled"), "true");
+assert.equal(editor.getAttribute("data-mtk-model-guard-message"), "Expected: GPT-5.6 Sol High — restore that selection to continue.");
+assert.equal(editor.getAttribute("aria-label"), "Expected: GPT-5.6 Sol High — restore that selection to continue.");
+assert.equal(editor.getAttribute("placeholder"), "Expected: GPT-5.6 Sol High — restore that selection to continue.");
+assert.equal(editor.getAttribute("data-placeholder"), "Expected: GPT-5.6 Sol High — restore that selection to continue.");
+const guardStyle = styles.get("mtk-model-identity-guard-style").textContent;
+assert.match(guardStyle, /content:attr\(data-mtk-model-guard-message\)/);
+assert.match(guardStyle, /\.prosemirror-placeholder::before\{content:none!important\}/, "stock placeholder is not double-painted");
+assert.match(guardStyle, /::after\{[^}]*inset:0;display:block;padding:0;[^}]*font-size:inherit;line-height:inherit;/, "recovery text keeps the native composer baseline");
+assert.doesNotMatch(guardStyle, /::after\{[^}]*align-items:center/, "recovery text is not vertically recentered below the native first line");
 
 let prevented = false, stopped = false;
 listeners.get("submit")({type: "submit", target: room, preventDefault() { prevented = true; }, stopImmediatePropagation() { stopped = true; }});
@@ -107,6 +118,10 @@ assert.equal(selector.getAttribute("data-mtk-model-guard-alert"), null);
 assert.equal(selector.getAttribute("title"), "Choose model", "stock selector title is restored");
 assert.equal(editor.getAttribute("contenteditable"), "true");
 assert.equal(editor.getAttribute("aria-disabled"), null);
+assert.equal(editor.getAttribute("data-mtk-model-guard-message"), null);
+assert.equal(editor.getAttribute("aria-label"), "Message");
+assert.equal(editor.getAttribute("placeholder"), null);
+assert.equal(editor.getAttribute("data-placeholder"), stockPlaceholder);
 
 pin = null;
 api.guard.refresh();

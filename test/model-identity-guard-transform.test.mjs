@@ -32,6 +32,27 @@ try {
   assert.equal(behavior.status, 0, behavior.stderr || behavior.stdout);
   assert.equal(run("apply").state, "applied");
   assert.deepEqual(fs.readFileSync(owner), once, "second application is byte-identical");
+
+  const current = fs.readFileSync(owner, "utf8");
+  const helperStart = current.indexOf('const MTKmodelGuardStyleId=');
+  const helperEnd = current.indexOf("function _Lr(e){", helperStart);
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, "current helper upgrade boundaries");
+  const baselineShifted = 'const MTKmodelGuardStyleId="mtk-model-identity-guard-style";function MTKmodelGuardEnsureStyle(){return\'data-mtk-model-guard-mismatch data-mtk-model-guard-message content:"BAD MODEL" align-items:center\'}function MTKinstallModelIdentityGuard(){return{version:3}}const MTKmodelIdentityGuard=MTKinstallModelIdentityGuard();function MTKuseModelIdentityGuard(){}';
+  fs.writeFileSync(owner, current.slice(0, helperStart) + baselineShifted + current.slice(helperEnd));
+  assert.equal(run("check").state, "needs-upgrade", "the pre-alignment BAD MODEL helper upgrades");
+  assert.equal(run("apply").state, "applied");
+  const alignedBehavior = spawnSync(process.execPath, [probe, extracted], {encoding: "utf8"});
+  assert.equal(alignedBehavior.status, 0, alignedBehavior.stderr || alignedBehavior.stdout);
+
+  const aligned = fs.readFileSync(owner, "utf8");
+  const alignedHelperStart = aligned.indexOf('const MTKmodelGuardStyleId=');
+  const alignedHelperEnd = aligned.indexOf("function _Lr(e){", alignedHelperStart);
+  const legacy = 'const MTKmodelGuardStyleId="mtk-model-identity-guard-style";function MTKmodelGuardEnsureStyle(){return\'data-mtk-model-guard-mismatch content:"RED ALERT"\'}function MTKinstallModelIdentityGuard(){return{version:1}}const MTKmodelIdentityGuard=MTKinstallModelIdentityGuard();function MTKuseModelIdentityGuard(){}';
+  fs.writeFileSync(owner, aligned.slice(0, alignedHelperStart) + legacy + aligned.slice(alignedHelperEnd));
+  assert.equal(run("check").state, "needs-upgrade");
+  assert.equal(run("apply").state, "applied");
+  const upgradedBehavior = spawnSync(process.execPath, [probe, extracted], {encoding: "utf8"});
+  assert.equal(upgradedBehavior.status, 0, upgradedBehavior.stderr || upgradedBehavior.stdout);
   process.stdout.write("model identity guard transform probe passed\n");
 
   function raw(action) {
