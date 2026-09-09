@@ -16,6 +16,11 @@ the expected and current model/effort pair, and the composer editor is disabled.
 editor visibly names the expected pair and tells the operator to restore it. The selector stays
 usable; matching the pin immediately returns the editor and any existing draft to normal.
 
+![The model identity guard locking the composer after a pinned task is switched away from its expected model](model-identity-guard-demo.webp)
+
+*The task remains readable, but another message cannot be sent until the pinned model and effort
+are restored.*
+
 ## Configuration
 
 The patch consumes an optional `modelPin` from an exact-ID
