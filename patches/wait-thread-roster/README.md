@@ -1,7 +1,7 @@
 # Wait-thread roster
 
 - **State:** Active
-- **Current evidence:** Build `8109` disposable extracted-tree transform and focused probes green,
+- **Patch-specific evidence:** Build `8109` disposable extracted-tree transform and focused probes green,
   2026-09-07; live single- and three-target names, grammar, order, palette colors, and navigation
   green in active, expanded, and completed summaries
 - **Owned seam:** The renderer entry for the `codex_app.wait_threads` activity item

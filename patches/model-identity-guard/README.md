@@ -2,7 +2,7 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the standalone transform
-- **Current evidence:** Build `8109` synthetic transform and behavioral probes green, 2026-09-08
+- **Patch-specific evidence:** Build `8109` synthetic transform and behavioral probes green, 2026-09-08
 
 ## Why it exists
 

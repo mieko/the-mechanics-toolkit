@@ -15,8 +15,9 @@ one bounded repair in an explicit target, and fail closed when the structure cha
   the exact qualified revision. Building, application staging, installation, and launch remain
   separate authority seams.
 - The staging command must refuse a destination inside `/Applications`, must never launch it, and
-  must remove a newly created partial destination on failure. A future installation command must
-  require an explicit operator action and preserve a recoverable external copy.
+  must remove a newly created partial destination on failure. Candidate adoption belongs only to
+  the restart supervisor: it requires an explicit operator action, captures and verifies the
+  current canonical app first, and preserves that known-working copy through live acceptance.
 - Prefer acquiring an offered vendor application before interrupting the running app. Keep that
   vendor bundle untouched, stage and prove the complete selected fleet while the current app stays
   available, then ask for one final quit-and-relaunch seam.

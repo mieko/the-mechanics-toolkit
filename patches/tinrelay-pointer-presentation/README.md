@@ -2,10 +2,10 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer and main-process families
-- **Current evidence:** Build `8378` full-fleet stage and launch green, including a causal probe that
-  incoming and outgoing presentation share the same renderer host bus; build `8109` live
-  incoming/outgoing presentation green. Build `8378` restart reconstruction remains pending live
-  acceptance, 2026-09-09
+- **Patch-specific evidence:** Build `8576` full-fleet stage and launch green, including causal probes
+  for the shared renderer host bus and outgoing hoist order; build `8109` live incoming/outgoing
+  presentation green. Build `8576` restart-plus-pagination reconstruction remains pending live
+  acceptance, 2026-09-10
 
 ## Why it exists
 

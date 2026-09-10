@@ -52,21 +52,24 @@ last 2 MiB of one desktop log and only error-level Sentry breadcrumbs. It does n
 copy conversation bodies, or enable additional telemetry. Home-directory paths are shortened to
 `~`; review the output before sharing it outside the machine.
 
-## Restart with automatic rescue
+## Adopt and restart with automatic rescue
 
-After a candidate has been adopted with the required authority, use the safe-start supervisor from
-the Codex task that should own recovery:
+After a candidate has passed static proof and the person has authorized adoption, use the
+safe-start supervisor from the Codex task that should own recovery:
 
 ```sh
-tmtk-restart /Applications/ChatGPT.app
+tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+  /Applications/ChatGPT.app
 ```
 
-The command arms a detached supervisor and returns immediately. On macOS, a blocking dialog offers
-**Relaunch Codex** and **Cancel**. The invoking agent should finish its response without polling or
-waiting; the person clicks **Relaunch Codex** after reading it. **Cancel** leaves the running
-application untouched. Codex may then present its own schedules warning; the supervisor waits for
-the person's answer, and cancelling that native quit also leaves the app open without starting
-rescue.
+Before arming, the command verifies both applications and copies the current canonical app into its
+private incident directory as the exact known-working rollback. It then arms a detached supervisor
+and returns immediately. On macOS, a blocking dialog offers **Don't Restart** and **Relaunch
+Codex**. The invoking agent should finish its response without polling or waiting; the person
+clicks **Relaunch Codex** after every active agent reaches a safe stopping point. **Don't Restart**
+leaves the running application untouched and discards the unused rollback copy. Only **Relaunch
+Codex** authorizes the supervisor to quit the current app, copy the verified candidate into the
+canonical path, verify it again, and launch it.
 
 Use `--prompt TEXT` to prepend incident-specific context. The generated rescue message still states
 that Desktop failed, that the resumed task is in Codex CLI without native task-to-task messaging,
@@ -77,6 +80,19 @@ the subprocess `PWD`, and opens the same task in a terminal if the application e
 renderer readiness or stays unready through the configured grace period. See
 [safe restart and rescue](safe-start.md) for lifecycle, fallback configuration, private diagnostics,
 and `did-codex-launch`.
+
+After three unsuccessful repair-and-relaunch turns, the supervisor offers **Restore
+Known-Working** and **Open Terminal Line with Agent**. Restore copies the exact pre-adoption app
+back into the canonical path, verifies it, closes the owned rescue terminal, and launches it after
+the same strict single-writer handoff. The terminal choice keeps the same task open as an ordinary
+interactive Codex CLI session. A plain supervised restart remains available when there is no
+candidate to adopt:
+
+```sh
+tmtk-restart /Applications/ChatGPT.app
+```
+
+That form detects and rescues launch failure but has no pre-adoption app to restore automatically.
 
 ## Local configuration
 

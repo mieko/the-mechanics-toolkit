@@ -2,7 +2,7 @@
 
 - **Current state:** Infrastructure
 - **Public extraction:** Complete
-- **Current evidence:** Build `8378` static composition green; predecessor build `8109` live
+- **Patch-specific evidence:** Build `8576` static composition green; predecessor build `8109` live
   composition green
 
 ## Why it exists

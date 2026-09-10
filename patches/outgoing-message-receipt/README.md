@@ -2,7 +2,7 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer family
-- **Current evidence:** Build `8109` live mounted behavior and disposable acknowledged
+- **Patch-specific evidence:** Build `8109` live mounted behavior and disposable acknowledged
   persistence/restart probes green; live restart reconstruction pending, 2026-09-07
 
 ## Why it exists

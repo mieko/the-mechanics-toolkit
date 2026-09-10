@@ -45,9 +45,10 @@ results discardable.
 ## Qualified source
 
 [`codex-0.153.4.patch`](codex-0.153.4.patch) applies only to OpenAI Codex tag `rust-v0.153.4`, commit
-`3d2ee51ca2d5db578f328aa75e20aa22c0197c9a`. That is the CLI bundled with Codex Desktop
-`26.903.61454` (build `8378`). The source-patch command verifies the exact commit and every target
-file's qualified before or after hash.
+`3d2ee51ca2d5db578f328aa75e20aa22c0197c9a`. Codex Desktop `26.903.71938` (build `8576`) bundles
+that same CLI version, and the qualified desktop candidate integrates the patched binary. The
+source-patch command verifies the exact commit and every target file's qualified before or after
+hash.
 
 ```sh
 node bin/toolkit.mjs source-patch standalone-output-compaction check /path/to/codex

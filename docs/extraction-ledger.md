@@ -8,40 +8,39 @@ experiment.
 
 | Area | Public state | Next boundary |
 | --- | --- | --- |
-| ASAR raw-header integrity | Extracted, fixture-tested, and used by staging | Qualify a disposable supported-build candidate |
-| Read-only app inspection | Extracted and fixture-tested | Record exact accepted builds |
-| Safe restart and rescue | Extracted; task-catalog lookup, exit/timeout behavior, diagnostics, build-8378 full-fleet stage green, live healthy readiness accepted, and real blank-renderer bundled-CLI rescue with strict no-overlap handoff green | Live-accept a living React recovery-page failure through bundled-CLI rescue on build 8378 |
-| Terminal toggle | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Staging, repacking, signing | Extracted; synthetic, build-8109, and build-8378 stages green | Requalify a disposable candidate from the next inspected pristine build |
-| Native app-tools peer authorization | Extracted; three main-process profiles red/green; build-8378 static stage and build-8109 native messaging green | Live-accept on build 8378 |
+| ASAR raw-header integrity | Extracted, fixture-tested, and used by the build-8576 full-fleet stage | Requalify a disposable candidate from the next inspected pristine build |
+| Read-only app inspection | Extracted, fixture-tested, and exercised against pristine and staged build 8576 | Record each newly accepted build |
+| Safe restart and rescue | Extracted; task-catalog lookup, exit/timeout behavior, diagnostics, build-8576 healthy supervised launch and real failed-launch return green, plus build-8378 real blank-renderer rescue with strict no-overlap handoff green | Live-accept the living React recovery-page exhaustion and known-working rollback path |
+| Terminal toggle | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
+| Staging, repacking, signing | Extracted; synthetic, build-8109, build-8378, and build-8576 stages green | Requalify a disposable candidate from the next inspected pristine build |
+| Native app-tools peer authorization | Extracted; three main-process profiles red/green; build-8576 static stage and build-8109 native messaging green | Live-accept on build 8576 |
 | Standalone-output compaction source | Exact Codex 0.153.4 source diff, before/after hashes, focused compaction tests green, and native arm64 release binary built | Live-accept a task-message-triggered compaction boundary |
-| Patched Codex binary integration | Same-version check, staged-copy hash verification, build-8378 full-fleet static stage, and app launch green | Live-accept the source repair above |
-| Cross-task attribution | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Outgoing send receipt | Extracted; build-8378 static stage and build-8109 live mounted persistence/restart behavior green | Live-accept restart reconstruction on build 8378 |
-| Wait-thread roster | Extracted; build-8378 static stage and build-8109 names, links, colors, and multi-target behavior live-accepted | Live-accept on build 8378 |
-| Runtime JSON reload | Extracted; build-8378 static stage and build-8109 live save green | Live-accept on build 8378 |
-| Task palette | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Reasoning retention | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8378 full-fleet stage and build-8109 live acceptance green | Live-accept mismatch alarm and recovery on build 8378 |
+| Patched Codex binary integration | Same-version check, staged-copy hash verification, build-8576 full-fleet static stage, and app launch green | Live-accept the source repair above |
+| Cross-task attribution | Extracted; build-8576 static stage and live delegated-message rendering green | Exercise unnamed-task title fallback on build 8576 |
+| Outgoing send receipt | Extracted; build-8576 static stage and build-8109 live mounted persistence/restart behavior green | Live-accept restart reconstruction on build 8576 |
+| Wait-thread roster | Extracted; build-8576 static stage and build-8109 names, links, colors, and multi-target behavior live-accepted | Live-accept on build 8576 |
+| Runtime JSON reload | Extracted; build-8576 static stage and build-8109 live save green | Live-accept on build 8576 |
+| Task palette | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
+| Reasoning retention | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
+| Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8576 full-fleet stage and build-8109 live acceptance green | Live-accept mismatch alarm and recovery on build 8576 |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
-| Task attention policy | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Tinrelay presentation | Extracted as one patch; build-8378 full-fleet launch and shared renderer-host-bus regression probe green; incoming/outgoing build-8109 surfaces live-accepted | Live restart-plus-pagination check on build 8378 |
-| Sidebar action collapse | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
-| Patch registry | Extracted; per-realm API and build-8378 full-fleet composition green | Live-accept on build 8378 |
+| Task attention policy | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
+| Tinrelay presentation | Extracted as one patch; build-8576 full-fleet launch plus shared renderer-host-bus and outgoing-order regression probes green; incoming/outgoing build-8109 surfaces live-accepted | Live restart-plus-pagination check on build 8576 |
+| Sidebar action collapse | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
+| Patch registry | Extracted; per-realm API and build-8576 full-fleet composition green | Exercise current live capability consumers on build 8576 |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
 | Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
 | Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
 
 ## Current build qualification
 
-Codex Desktop `26.903.61454` (build `8378`) was inspected and staged from a pristine vendor update
-on 2026-09-09. The complete selected desktop-package fleet—including the separately built Codex
-0.153.4 binary—passed every focused probe before and after repacking,
-remained byte-identical on a second application, preserved the native package tree and executable
-helper, and produced a valid code signature and ASAR seal. The first installed candidate exposed a
-Tinrelay composition defect: incoming and outgoing presentation had resolved different aliases for
-the same renderer host bus. A causal equality probe now covers that seam. The rebuilt full fleet
-was installed and reached the healthy Codex task surface; each patch's own live behavior remains an
+Codex Desktop `26.903.71938` (build `8576`) was inspected and staged from a pristine vendor update
+on 2026-09-10. The complete selected desktop-package fleet—including the separately built Codex
+0.153.4 binary—passed every focused probe before and after repacking, remained byte-identical on a
+second application, preserved the native package tree and executable helper, and produced a valid
+code signature and ASAR seal. The rebuilt full fleet was installed and reached the healthy Codex
+task surface. Current regression probes cover renderer-store capture, shared Tinrelay host-bus
+ownership, and outgoing-radio hoist order; each patch's remaining live behavior is still an
 independent acceptance boundary where the table says so.
 
 The predecessor qualification remains useful evidence: the installed build `8109` launched

@@ -11,5 +11,5 @@ variable. The toolkit creates a fresh private path for every attempt, so an old 
 a later launch look healthy. The patch does not restart Codex, choose a rescue agent, open a
 terminal, or kill a wedged process; those decisions belong to `tmtk-restart`.
 
-The current transform is qualified only for Codex Desktop `26.903.61454` (`8378`) and fails closed
+The current transform is qualified only for Codex Desktop `26.903.71938` (`8576`) and fails closed
 when the app-shell owner, trusted IPC boundary, or stock marker writer changes.

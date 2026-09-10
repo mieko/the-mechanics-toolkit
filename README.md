@@ -1,4 +1,4 @@
-# The Mechanic's Toolkit
+# The Mechanic's Toolkit (TMTK)
 
 <p align="center">
   <img src="assets/the-mechanics-toolkit-icon.svg" width="168" alt="The Mechanic's Toolkit: a precision extraction rig opening a lit path through a dark machine room">
@@ -25,6 +25,62 @@ Most user-specific behavior here is configured through private JSON files that h
 valid save. The expected interface is conversational: tell your Codex agent what you want changed,
 and let it inspect and edit the appropriate configuration rather than hand-editing unfamiliar JSON.
 
+## Start here: use a pre-qualified build
+
+Give this repository to the Codex agent that will perform the work. First have it check for an
+offered official Codex update, identify the exact version and internal build, and compare that with
+the qualification named under [Codex Desktop package patches](#codex-desktop-package-patches). If
+the offered build is already qualified, patch that pristine update directly instead of spending a
+restart on the older installed build. If it is not an exact match, the agent must explicitly port
+and qualify the selected patches; nearby version numbers are not compatibility evidence. The full
+build-selection route is in [Preparing a patched Codex update](docs/update-workflow.md).
+
+For an exact pre-qualified macOS build, the ordinary agent-operated path is:
+
+```sh
+git clone https://github.com/mieko/the-mechanics-toolkit.git
+cd the-mechanics-toolkit
+npm install
+cp toolkit.example.json toolkit.local.json
+
+node bin/toolkit.mjs inspect /path/to/Pristine-ChatGPT.app
+node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app \
+  /path/to/ChatGPT-MechanicsToolkit.app \
+  --config toolkit.local.json
+```
+
+`npm install` prepares this repository's tooling; it does not patch or install Codex. The agent
+should configure `toolkit.local.json` with the person, stage and prove all selected patches
+together, and explain the interruption and recovery path. After obtaining authority, it gives the
+verified candidate to the supervisor from the task that should own recovery:
+
+```sh
+bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+  /Applications/ChatGPT.app
+```
+
+The supervisor verifies the current and candidate applications, preserves the current working app
+inside its private recovery directory, and bounds that storage to one full rollback. It presents a
+calm **Don't Restart** / **Relaunch Codex** dialog so every active agent can reach a safe stopping
+point. Only after **Relaunch Codex** does it quit the current app, adopt the candidate at the single
+canonical `/Applications/ChatGPT.app` location, and launch it. A healthy renderer simply returns
+the person to Codex.
+
+An incomplete launch opens the same agent task in a visible terminal with bounded local
+diagnostics and allows up to three sequential repair-and-relaunch turns. If all three fail, the
+person can choose **Restore Known-Working** or **Open Terminal Line with Agent**. The first choice
+restores the exact app captured before adoption; the second leaves an ordinary interactive Codex
+CLI session for continued troubleshooting. TMTK cannot promise that an arbitrary future build or
+every launch failure is repairable; it makes failure observable and preserves both a verified
+rollback and a route back to the agent who was already doing the work.
+
+After the new build passes its live checks, close the update instead of leaving a workbench behind:
+delete the staged candidate, remove unpacked source applications and work from older releases, and
+keep at most one compact pristine vendor artifact if future restaging is useful. Preserve a failed
+run only while it still supports an active diagnosis or qualification. TMTK cleans its own internal
+scratch and bounds supervisor rollback storage; the agent remains responsible for the explicit
+source and destination paths it chose.
+
 The [`qualification/`](qualification/) runbooks are for toolkit maintainers and agents actively
 porting or validating TMTK with explicit authority to replace the installed application. Some of
 those procedures deliberately install a broken Codex build to prove recovery. They are not normal
@@ -34,6 +90,7 @@ feature checks—not recreate the maintainer's destructive failure fixtures.
 
 ## Contents
 
+- [Start here: use a pre-qualified build](#start-here-use-a-pre-qualified-build)
 - [Two patch layers](#two-patch-layers)
 - [Codex Desktop package patches](#codex-desktop-package-patches)
 - [Codex App Server and Core source patches](#codex-app-server-and-core-source-patches)
@@ -83,11 +140,12 @@ and live acceptance remain separate actions.
 
 ## Codex Desktop package patches
 
-The desktop package fleet is currently qualified against **Codex Desktop `26.903.61454` (`8378`)**.
+The desktop package fleet is currently qualified against **Codex Desktop `26.903.71938` (`8576`)**.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
 and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
 evidence. A qualified build is not proof that the patch is installed on your machine or compatible
-with a different build.
+with a different build. “Active” means the patch is maintained on this repository's current branch;
+it does not mean the patch is qualified for an unnamed Codex build.
 
 | Patch | What changes for the person using Codex |
 | --- | --- |
@@ -114,7 +172,7 @@ desktop-package transforms above.
 
 | Source patch | Qualified source | What it repairs |
 | --- | --- | --- |
-| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.153.4` / Desktop `26.903.61454` (`8378`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
+| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.153.4` / Desktop `26.903.71938` (`8576`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
 
 ## See the patches
 
@@ -216,8 +274,8 @@ exits first—or stays alive but never becomes ready—the supervisor records bo
 and opens the invoking Codex task in a terminal. It recovers the task's stored project directory
 from Codex's local catalog rather than trusting `PWD`, and it gives a freshly signed build time to
 wait for a person at a macOS Keychain prompt. On macOS, the detached supervisor first blocks behind
-an explicit **Relaunch Codex** / **Cancel** dialog so the invoking agent can finish its response and
-the person—not a race—chooses when the application closes.
+an explicit **Don't Restart** / **Relaunch Codex** dialog so active agents can reach a safe stopping
+point and the person—not a race—chooses when the application closes.
 
 ### Native app-tools peer authorization
 
@@ -329,9 +387,10 @@ Restarts interrupt the room and may trigger macOS permission or Storage Key prom
 by qualifying the complete desired fleet as one candidate. A
 [`persistent local signing identity`](docs/local-signing.md) can stabilize permissions tied to the
 application's designated requirement, although Codex's Storage Key may still enforce a separate
-exact-hash policy. When the readiness patch is part of the adopted fleet, use
-[`tmtk-restart`](docs/safe-start.md) so a failed launch returns the operator to the same task with
-the relevant local evidence instead of leaving a blank application as the only signal.
+exact-hash policy. When the readiness patch is part of the candidate, use
+[`tmtk-restart`](docs/safe-start.md) with `--candidate` so adoption, rollback capture, and restart
+share one supervised lifecycle. A failed launch then returns the operator to the same task with the
+relevant local evidence instead of leaving a blank application as the only signal.
 
 ## Repository boundary
 

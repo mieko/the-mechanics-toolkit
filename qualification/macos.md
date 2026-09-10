@@ -42,9 +42,9 @@ untouched. If the fleet includes a rebuilt Codex binary, the receipt must also c
 upstream source commit, patch state, focused Rust tests, release build command, executable hash, and
 same-version integration proof.
 
-Adoption into canonical `/Applications/ChatGPT.app` remains an explicit operator action with an
-external recovery artifact. Do not call a staged candidate live-qualified before adoption and the
-remaining phases.
+Adoption into canonical `/Applications/ChatGPT.app` remains an explicit operator action. The
+supervisor captures the currently working canonical app before adopting a candidate; do not call a
+staged candidate live-qualified before supervised adoption and the remaining phases.
 
 ## 2. Qualify supervisor capability when its contract changes
 
@@ -70,7 +70,8 @@ and caused a duplicate-ordinal rollout incident. Do not recreate that automation
 -->
 
 At a witnessed qualification seam, manually prepare two controlled broken forms of the fully
-patched candidate and preserve a separately verified restoration source:
+patched candidate. Begin with a verified, working canonical app so the supervisor can capture the
+real pre-adoption rollback:
 
 1. **Blank renderer:** fail before the stock React recovery surface can render. Electron may open a
    window and the App Server may initialize, but the healthy route tree never emits readiness and
@@ -79,47 +80,79 @@ patched candidate and preserve a separately verified restoration source:
    top-level error boundary. Codex must remain alive while visibly showing its stock **ChatGPT hit a
    snag** recovery page.
 
-For each fixture, rebuild the ASAR seal, sign it, inspect it, record its exact hash and failure seam,
-and only then replace the canonical `/Applications/ChatGPT.app`. Do not launch it as part of the
-preparation step. These phases deliberately break the real installed application; a parallel or
-isolated copy does not qualify recovery of the canonical application. A fixture that produces the
-wrong visible state does not count for the other case.
+For each fixture, rebuild the ASAR seal, sign it, inspect it, and record its exact hash and failure
+seam. Do not replace or launch it during preparation. The supervisor must perform the real canonical
+adoption during each phase; a parallel or isolated launch does not qualify recovery of the
+canonical application. A fixture that produces the wrong visible state does not count for the
+other case.
 
 Prepare and verify both fixtures before installing either one. Record the ordered phase queue and a
 distinct token for each phase in the qualification receipt:
 
 ```text
-blank renderer -> verified restoration -> living Oops -> verified restoration -> healthy launch
+blank renderer -> agent repair -> living Oops x3 -> known-working restore -> healthy launch
 ```
 
 Before installing the first fixture, show the person the prepared fixture and restoration hashes,
 the ordered phase queue, and the actions they will need to perform, then ask once whether to begin.
-That authorization covers both controlled fixture replacements, both supervisor runs, and both
-restorations. When Desktop returns healthy after the blank-renderer rescue, the qualifying agent
-reads the receipt, installs the already verified living-Oops fixture, and arms its supervisor
-without asking the person to start the second case. After the living-Oops rescue returns, the agent
-completes the final healthy launch in this sequence. Stop only for a failed assertion, unexpected
-state, or an explicit pause. This is sequential agent-run qualification across real task
-continuations, not one automation process: do not automate broken-app installation, supervisor
-launch, or task resume into a competing writer.
+That authorization covers both controlled fixture adoptions, the blank-renderer repair, three
+deliberately exhausted living-Oops repair turns, the supervisor's known-working restore, and the
+final healthy launch. When Desktop returns healthy after the blank-renderer rescue, the qualifying
+agent reads the receipt and arms the living-Oops phase without asking the person to start it. After
+the known-working restore returns, the agent completes the final healthy launch. Stop only for a
+failed assertion, unexpected state, or an explicit pause. This is sequential agent-run
+qualification across real task continuations, not one automation process: do not automate
+supervisor launch or task resume into a competing writer.
 
-Run the following supervisor sequence first for the blank fixture and then automatically for the
-living-Oops fixture. While in the originating Desktop task for the current phase, start the
-supervisor with a unique prompt that names the failure case and exact candidate restoration source
-and tells the automatic repair turn how to verify it:
+For the blank-renderer phase, start the supervisor from the originating Desktop task with the
+broken fixture as its candidate. Give the automatic repair turn the exact healthy staged source it
+must restore and verify:
 
 ```sh
-tmtk-restart --prompt "CONTROLLED QUALIFICATION TOKEN. Restore /Applications/ChatGPT.app directly from $CANDIDATE_APP, verify its signature and ASAR integrity, then finish the turn." /Applications/ChatGPT.app
+tmtk-restart --candidate "$BLANK_FIXTURE" \
+  --prompt "CONTROLLED BLANK QUALIFICATION TOKEN. Restore /Applications/ChatGPT.app directly from $CANDIDATE_APP, verify its signature and ASAR integrity, then finish the turn." \
+  /Applications/ChatGPT.app
 ```
 
 The command must return immediately after arming the detached supervisor and tell the invoking
 agent not to poll or wait. The agent finishes its response while a blocking macOS dialog offers
-**Relaunch Codex** and **Cancel**. On the first failure-case run, click **Cancel** and verify that the
-canonical app remains open and the recorded phase becomes `cancelled`; this dialog behavior does
-not need to be repeated for the second fixture. Arm the supervisor again, wait for the agent's
-response to finish, and click **Relaunch Codex**. If Codex presents its own warning that schedules
-will not run while it is closed, confirm that native quit. The supervisor must wait for that answer
-without timing out or opening rescue early.
+**Don't Restart** and **Relaunch Codex**. On the first run, click **Don't Restart** and verify that
+the canonical app remains open, the unused rollback copy is removed, and the recorded phase becomes
+`cancelled`; this dialog behavior does not need to be repeated. Arm the same phase again, wait for
+the agent's response to finish, and click **Relaunch Codex**. The supervisor must quit the current
+app, install and verify the blank fixture itself, and only then launch it.
+
+After the repaired candidate returns healthy, arm the living-Oops phase. This phase deliberately
+exhausts the repair ladder so the rollback choice itself is exercised. The qualification prompt
+must make that boundary unmistakable to each resumed turn: the correct action is to inspect the
+current evidence, verify that the exact controlled fixture remains installed, leave it unchanged,
+and finish the turn. Use the living-Oops fixture as the candidate:
+
+```sh
+tmtk-restart --candidate "$OOPS_FIXTURE" \
+  --prompt "CONTROLLED LIVING-OOPS QUALIFICATION TOKEN. This phase deliberately exercises all three failed repair-and-relaunch attempts. Inspect the evidence, verify that /Applications/ChatGPT.app still matches the recorded Oops fixture, do not repair or replace it during these three attempts, and finish the turn." \
+  /Applications/ChatGPT.app
+```
+
+After **Relaunch Codex**, the supervisor must capture the healthy canonical app, adopt the Oops
+fixture, and launch it. Close the visible Oops application with Command-Q after each launch. Each
+exit must open a new owned rescue Terminal for the next numbered attempt; each turn must preserve
+the fixture, complete durably, close its Terminal surface, and relaunch without overlap. After the
+third failed relaunch, the next rescue Terminal must show the native toolkit choice:
+
+```text
+Codex could not be repaired after three attempts.
+
+Restore the last known-working version, or open a terminal line to continue troubleshooting with the agent.
+```
+
+Choose **Restore Known-Working**. The supervisor must verify and reinstall the exact app it captured
+before adopting the Oops fixture, close the rescue Terminal through the same strict handoff, and
+return to healthy Desktop. Record the restored version, build, ASAR hash, signature and integrity,
+plus whether readiness came from the real renderer marker or the documented ten-second
+known-working fallback. The Oops phase fails if the fallback choice appears before three completed
+attempts, if the fixture changes during those attempts, if **Open Terminal Line with Agent** is
+selected, or if restoration does not return a usable canonical application.
 
 For the blank fixture, verify that a real application window opens without the stock recovery page
 and without renderer readiness, then focus it and quit it with Command-Q. For the living-Oops
@@ -135,7 +168,9 @@ the failed application's main process and bundled Codex CLI or App Server writer
 the five databases required by Codex's state runtime must accept a write reservation; lingering
 crashpad, renderer, and other non-writer helpers do not block recovery. Inherited Codex
 task-identity variables must not be allowed to override the task ID frozen when the supervisor was
-armed. That turn must restore and verify the candidate. Its invocation-scoped Stop hook must write
+armed. In the blank phase, the turn must restore and verify the healthy candidate. In the Oops
+phase, it must preserve and verify the controlled broken fixture as instructed. Its
+invocation-scoped Stop hook must write
 a receipt for the exact task and turn, and the supervisor must wait for the matching durable
 `task_complete` rollout event before closing the TUI. It must then close its dedicated rescue
 Terminal window, quit Terminal when TMTK launched that application, and prove both the CLI process
@@ -156,7 +191,7 @@ substitute for the other.
 From that same task, run:
 
 ```sh
-tmtk-restart /Applications/ChatGPT.app
+tmtk-restart --candidate "$CANDIDATE_APP" /Applications/ChatGPT.app
 ```
 
 Wait for the invoking response to finish, then click **Relaunch Codex** in the confirmation dialog.
@@ -241,3 +276,8 @@ Desktop does fail.
 Qualification applies only to the recorded macOS architecture, version, build, toolkit commit,
 source-patch commit, configuration shape, and selected fleet. Do not generalize it to Windows,
 Linux, another Codex build, or a different patch selection.
+
+After recording the accepted receipt, close the bench: delete the staged candidate and unpacked
+source, remove superseded release directories, and keep at most one pristine vendor ZIP. Retain a
+controlled failure fixture only while the supervisor boundary still needs it; qualification evidence
+belongs in the receipt, not in an indefinitely growing collection of application bundles.

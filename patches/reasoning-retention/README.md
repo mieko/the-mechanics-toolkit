@@ -2,7 +2,7 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete
-- **Current evidence:** Build `8109` static stage and live next-turn/manual-state acceptance green,
+- **Patch-specific evidence:** Build `8109` static stage and live next-turn/manual-state acceptance green,
   2026-09-07
 
 ## Why it exists

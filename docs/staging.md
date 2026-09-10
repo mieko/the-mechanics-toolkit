@@ -52,8 +52,24 @@ false` because runtime behavior remains deliberately unclaimed.
 
 ## Next seam
 
-Launching the candidate is a separate operator decision. Installing it at the canonical
-`/Applications/ChatGPT.app` path is a different and more consequential decision that also needs an
-external recovery artifact. Do not retain a separately named live copy with the same bundle
-identifier. Neither adoption nor launch is implied by a successful stage, and neither command
-exists here yet.
+Launching the candidate is a separate operator decision. After explicit authority, the macOS
+supervisor can own the adoption boundary:
+
+```sh
+bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+  /Applications/ChatGPT.app
+```
+
+It verifies the candidate and current app, captures the current app as a private known-working
+rollback, and does not replace anything until the person clicks **Relaunch Codex**. Do not retain a
+separately named live copy with the same bundle identifier. Neither adoption nor launch is implied
+by a successful stage.
+
+The staging command removes its own extracted-ASAR scratch tree on both success and failure. The
+explicit destination candidate remains operator-owned. The restart supervisor bounds its private
+storage to one full known-working application by pruning only superseded toolkit-owned rollback
+payloads when the next candidate adoption captures a newer baseline. Maintainer-created `.work`
+trees are evidence benches, not an automatic cache; keep only the pristine input, current candidate,
+and deliberate failure fixtures still needed for qualification. After live acceptance, delete the
+candidate and unpacked source, remove prior-release work, and retain at most one pristine vendor ZIP
+if another staging pass may be useful.

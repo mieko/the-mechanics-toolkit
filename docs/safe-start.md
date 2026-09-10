@@ -1,21 +1,26 @@
 # Safe restart and rescue
 
-`tmtk-restart` makes the vulnerable restart seam observable. It launches the exact canonical Codex
-application under a private one-use readiness marker. If the application exits before its healthy
-route tree mounts or remains alive without becoming ready, it opens a visible Terminal recovery
-and gives the originating task as many as three automatic repair turns in Codex's normal colored
-interactive interface. The person can watch those turns, but does not need to type or manage them.
+`tmtk-restart` makes the vulnerable adoption and restart seam observable. With `--candidate`, it
+verifies the staged candidate, captures the current canonical Codex application as a private
+known-working rollback, and replaces nothing until the person approves the restart. It then adopts
+the candidate and launches it under a private one-use readiness marker. If the application exits
+before its healthy route tree mounts or remains alive without becoming ready, it opens a visible
+Terminal recovery and gives the originating task as many as three automatic repair turns in
+Codex's normal colored interactive interface. The person can watch those turns, but does not need
+to type or manage them.
 
 From an agent turn whose environment contains Codex's task identity:
 
 ```sh
-tmtk-restart /Applications/ChatGPT.app
+tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+  /Applications/ChatGPT.app
 ```
 
 An agent can prepend incident-specific instructions to the automatic rescue briefing:
 
 ```sh
-tmtk-restart --prompt "Preserve the staged candidate while diagnosing this launch." \
+tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+  --prompt "Preserve the staged candidate while diagnosing this launch." \
   /Applications/ChatGPT.app
 ```
 
@@ -30,7 +35,8 @@ When running directly from a retained checkout instead of a PATH installation, u
 the application path is accepted for shell callers, and `/Applications` remains supported as
 shorthand for `/Applications/ChatGPT.app`.
 
-The command:
+Without `--candidate`, the command supervises a restart of the existing canonical app but has no
+pre-adoption rollback to offer. The command:
 
 1. reads `CODEX_THREAD_ID` or `CODEX_SESSION_ID` from the invoking Codex subprocess;
 2. looks up that exact local task, its selected model, and reasoning effort in
@@ -38,36 +44,54 @@ The command:
    thread catalog at `~/.codex/sqlite/codex-dev.db`;
 3. records the task's stored project directory rather than trusting the subprocess's incidental
    `PWD`;
-4. returns control to the invoking agent immediately while the detached supervisor presents a
-   blocking macOS dialog with **Relaunch Codex** and **Cancel**;
-5. after **Relaunch Codex**, asks the existing canonical application to quit, waits until its main process and bundled Codex
-   CLI or App Server writers have stopped, and launches the application through macOS LaunchServices
-   with a fresh private marker path;
-6. accepts readiness only when Codex's stock trusted-renderer `ready` event reaches the patched
-   main process; and
-7. opens a visible Terminal recovery in the recorded project if the exact child exits before
+4. when `--candidate` is present, verifies it and captures the current canonical app as the exact
+   known-working rollback inside the private incident directory;
+5. returns control to the invoking agent immediately while the detached supervisor presents a
+   blocking macOS dialog with **Don't Restart** and **Relaunch Codex**;
+6. after **Relaunch Codex**, asks the existing canonical application to quit and waits until its
+   main process and bundled Codex CLI or App Server writers have stopped;
+7. when adopting, copies the still-verified candidate into the canonical path and verifies the
+   installed result before launching it through macOS LaunchServices with a fresh private marker;
+8. accepts readiness only when Codex's stock trusted-renderer `ready` event reaches the patched
+   main process;
+9. opens a visible Terminal recovery in the recorded project if the exact child exits before
    readiness or misses the readiness deadline;
-8. runs ordinary `codex resume TASK_ID PROMPT` for as many as three repair attempts in that same
-   task, with one invocation-scoped stock `Stop` hook, announcing each attempt and telling the
-   person that no Terminal input is needed;
-9. treats the hook's private receipt only as evidence that the model stopped, then waits for the
-   same turn ID's durable `task_complete` rollout event before closing that TUI;
-10. hands control to a detached supervisor, closes the dedicated rescue window and, when TMTK
+10. runs ordinary `codex resume TASK_ID PROMPT` for as many as three repair attempts in that same
+    task, with one invocation-scoped stock `Stop` hook, announcing each attempt and telling the
+    person that no Terminal input is needed;
+11. treats the hook's private receipt only as evidence that the model stopped, then waits for the
+    same turn ID's durable `task_complete` rollout event before closing that TUI;
+12. hands control to a detached supervisor, closes the dedicated rescue window and, when TMTK
     launched it, the Terminal application, and only after both the rescue process and terminal-close
-    receipt exist does it launch Desktop; and
-11. accepts the repair only when the newly launched renderer writes readiness; and
-12. after three unsuccessful attempts, prints `All non-interactive attempts failed` and changes the
-   same Terminal window into an ordinary interactive escape line for the user and agent.
+    receipt exist does it launch Desktop;
+13. accepts the repair only when the newly launched renderer writes readiness; and
+14. after three unsuccessful attempts, offers **Restore Known-Working** or **Open Terminal Line
+    with Agent** when a rollback was captured. Restore verifies and reinstalls that exact app before
+    the same strict return handoff; the terminal choice leaves the same task open interactively.
 
 The invoking agent must not poll the supervisor or wait for the application lifecycle. After
 `tmtk-restart` prints that the supervisor is armed, the agent finishes its current response and
 tells the person to click **Relaunch Codex** when ready. The detached supervisor remains blocked at
-the dialog until that click. **Cancel** records a cancelled attempt and exits without asking Codex
-to quit. After **Relaunch Codex**, Codex may present its own warning that schedules will not run
-while the application is closed. The supervisor sends a normal application quit request and waits
-without an artificial shell timeout while the person answers that native prompt. Cancelling either
-dialog leaves the app open and does not start rescue. Automatic repair retries do not show the
-toolkit confirmation again.
+the dialog until that click. **Don't Restart** records a cancelled attempt and exits without asking
+Codex to quit. The supervisor sends a normal application quit request and waits without an
+artificial shell timeout for it to complete. Cancelling either dialog leaves the app open and does
+not start rescue. Automatic repair retries do not show the toolkit confirmation again.
+
+The rollback source is not inferred from filenames, neighboring applications, or version order. It
+is the exact canonical application inspected and copied before candidate adoption. Its version,
+build, ASAR hash, ASAR integrity, and signature are frozen in the incident state and verified again
+before restoration. The candidate receives the same treatment before adoption. If restoration
+fails, TMTK puts the displaced application back when possible and opens the terminal line with the
+agent instead of claiming recovery. The captured app may predate TMTK's readiness marker. Because
+it is the exact app that was already running when adoption began, the fallback accepts either real
+renderer readiness or an otherwise clean launch that remains alive for ten seconds, and records
+which boundary it observed. An early exit opens the terminal line; rollback never loops.
+
+A supervised adoption retains at most one full known-working application. After the current app is
+successfully captured for a new adoption, TMTK removes only older `known-good.app` payloads from its
+private incident directories and preserves their small state, logs, and diagnostics. This bounds
+automatic rollback storage to one application bundle. TMTK does not delete the explicitly supplied
+candidate or anything in a maintainer's `.work` directory because it does not own those paths.
 
 The macOS confirmation uses `assets/TheMechanicsToolkit.icns` when the retained toolkit checkout
 contains it and falls back to the native note icon otherwise. The icon is presentation, not a
@@ -133,9 +157,11 @@ Inspect the last attempt at any time:
 did-codex-launch
 ```
 
-Its exit status is zero only when the last attempt reached renderer readiness. Private launch state,
-supervisor output, application standard output, and a bounded failure diagnostic live under
-`~/.codex/tmtk-rescue/`. No report is uploaded.
+Its exit status is zero when the last attempt reached renderer readiness, or when an exact restored
+known-working app that predates the marker remained alive through the documented ten-second
+fallback. The JSON distinguishes those outcomes. Private launch state, supervisor output,
+application standard output, and a bounded failure diagnostic live under `~/.codex/tmtk-rescue/`.
+No report is uploaded.
 
 ## Plumbing probe
 

@@ -114,17 +114,21 @@ Use these roles instead:
    do not hand-edit the vendor app after signing.
 7. Stage the complete selected fleet as `ChatGPT-MechanicsToolkit.app` outside `/Applications` and
    require the toolkit's complete static proof.
-8. Prepare a recoverable replacement before asking the user to quit. Keep recovery applications
-   inside a disk image or compressed archive rather than as loose `.app` bundles. Do all work that
-   can be completed in the current Codex first.
-9. With explicit operator authority, quit the live app, adopt the candidate at the canonical
-   `/Applications/ChatGPT.app` path, and relaunch it. Prefer adopting the candidate after the old
-   process has exited so a vendor updater completing during termination cannot become the final
-   installed application. When the already-adopted fleet includes safe-start readiness, use
-   [`tmtk-restart`](safe-start.md) as the relaunch command so renderer failure returns to the
-   originating task with local evidence. The utility does not install the candidate itself.
-10. Exercise the narrow live checks for the selected fleet. Keep the recovery artifact until the
-   new build is accepted.
+8. Do all work that can be completed in the current Codex first. Keep the staged candidate outside
+   `/Applications` and unlaunched.
+9. With explicit operator authority, run [`tmtk-restart`](safe-start.md) with `--candidate`, the
+   staged app, and the canonical `/Applications/ChatGPT.app` path. Before showing its confirmation,
+   the supervisor verifies both apps and captures the current canonical app inside its private
+   incident directory as the exact known-working rollback. After **Relaunch Codex**, it waits for
+   the old process to exit, adopts the still-verified candidate, and launches it. A failed renderer
+   returns to the originating task with local evidence; three unsuccessful repairs lead to an
+   explicit known-working restore or interactive terminal choice.
+10. Exercise the narrow live checks for the selected fleet. Retain the supervisor incident until
+    the new build is accepted so its diagnostics and known-working rollback remain available.
+11. Close the update after acceptance. Delete the staged candidate and unpacked staging source,
+    remove work directories from older releases, and keep at most one pristine vendor ZIP when a
+    compact restaging source is useful. Retain a failed candidate or failure fixture only while it
+    supports an active diagnosis or qualification.
 
 ## Troubleshoot ambiguous Sparkle state
 
@@ -185,5 +189,6 @@ installer or application is already present there, and Sparkle may replace, reje
 own working files. Obtain an ordinary vendor artifact and keep the toolkit's staging ownership
 separate.
 
-The toolkit intentionally has no installation command today. Static proof, operator authority,
-application replacement, relaunch, and live acceptance remain distinct seams.
+The toolkit's only installation path is the explicit `tmtk-restart --candidate` handoff. Static
+proof, operator authority, supervised application replacement, relaunch, and live acceptance
+remain distinct seams; staging alone never adopts an application.
