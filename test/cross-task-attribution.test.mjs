@@ -21,7 +21,9 @@ const helperStart = source.indexOf("var MTKdelegatedBubbleStyle=");
 const helperTail = source.slice(helperStart);
 const componentBoundary = helperTail.match(/function [$A-Z_a-z][$\w]*\(e\)\{let t=/);
 assert.ok(helperStart >= 0 && componentBoundary, "attribution helper seam");
-const helper = helperTail.slice(0, componentBoundary.index);
+const bindingStart = helperTail.indexOf("const MTKcrossTaskStoreHook=");
+assert.ok(bindingStart >= 0 && bindingStart < componentBoundary.index, "stock store bindings are captured outside the component");
+const helper = helperTail.slice(0, bindingStart);
 const api = Function(`${helper};return {MTKsender,MTKshortTaskTitle,MTKdelegatedBubbleStyle}`)();
 
 assert.equal(api.MTKshortTaskTitle("Bridge Keeper — Coordination"), "Bridge Keeper");
@@ -36,6 +38,11 @@ assert.ok(api.MTKdelegatedBubbleStyle.backgroundColor.includes("interactive-bg-a
 let metadataKind;
 let metadataContracts;
 if (source.includes("MTKstore.get(MTKtitleAtom")) {
+  const capturedStore = uniqueMatch(
+    source,
+    /const MTKcrossTaskStoreHook=(?<store>[$A-Z_a-z][$\w]*),MTKcrossTaskStoreScope=(?<scope>[$A-Z_a-z][$\w]*);/g,
+    "component-external renderer store bindings"
+  ).groups;
   const titleImport = uniqueMatch(
     source,
     /import\{(?<specifiers>[^}]*MTKtitleAtom[^}]*)\}from"(?<relative>\.\/app-(?:initial|primary)-[^"]+\.js)";/g,
@@ -51,21 +58,23 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
     assert.ok(titleOwner.includes("hasConversation") && titleOwner.includes("localTitle:r") &&
       titleOwner.includes("summaryTitle"), "split title atom retains its stock task-title selector owner");
   } else {
-    assert.ok(["SOn", "EI"].includes(titleInternal), "title atom retains its stock ESM export owner");
+    assert.ok(["SOn", "EI", "xNn"].includes(titleInternal), "title atom retains its stock ESM export owner");
   }
   const metadata = uniqueMatch(
     source,
     /MTKstore=(?<store>[$A-Z_a-z][$\w]*)\((?<scope>[$A-Z_a-z][$\w]*)\),MTKtitle=MTKstore\.get\(MTKtitleAtom,\{hostId:/g,
     "renderer-store title lookup"
   ).groups;
+  assert.equal(metadata.store, "MTKcrossTaskStoreHook", "component uses the collision-proof store binding");
+  assert.equal(metadata.scope, "MTKcrossTaskStoreScope", "component uses the collision-proof scope binding");
   const initialImport = uniqueMatch(
     source,
     /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g,
     "app-initial import"
   ).groups;
   const appInitial = fs.readFileSync(path.resolve(path.dirname(ownerPath), initialImport.relative), "utf8");
-  const storeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.store));
-  const scopeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.scope));
+  const storeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, capturedStore.store));
+  const scopeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, capturedStore.scope));
   if (!["pb", "hb", "Db"].includes(storeInternal)) {
     const storeFunction = functionSource(appInitial, storeInternal);
     assert.ok(storeFunction.includes(".useContext") && storeFunction.includes(".useRef") &&

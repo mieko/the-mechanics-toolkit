@@ -197,7 +197,7 @@ function inspectAppliedRenderer(source) {
   ]) {
     if (!helpers.includes(contract)) throw new Error(`Tinrelay renderer postcondition missing: ${contract}`);
   }
-  if (!["MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)",
+  if (!["MTKtinrelayReact=t(x(),1)", "MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)",
     "MTKtinrelayReact=t(_e(),1)"].some(marker => source.includes(marker))) {
     throw new Error("Tinrelay renderer React owner is not initialized");
   }
@@ -291,6 +291,16 @@ function inspectAppliedMainBase(source) {
 }
 
 function incomingRendererProfile(value) {
+  if (value.includes("function Gb(") && value.includes("function Xb(")) {
+    const moduleBefore = "var Kb,qb,Jb,Yb=e((()=>{Kb=Qo(),hu(),o_(),qb=X(),Jb=2}))";
+    const moduleAfter = "var Kb,MTKtinrelayReact,qb,Jb,Yb=e((()=>{Kb=Qo(),hu(),o_(),MTKtinrelayReact=t(x(),1),qb=X(),Jb=2}))";
+    if (value.includes(moduleBefore) || value.includes(moduleAfter)) {
+      return {
+        cache: "Kb", collapsedLines: "Jb", delegation: "Xb", delegationJsx: "Qb",
+        helperJsx: "qb", jsx: "qb", message: "Gb", messageComponent: "e_", moduleBefore, moduleAfter
+      };
+    }
+  }
   if (value.includes("function Wb(") && value.includes("function Yb(")) {
     const moduleBefore = "var Gb,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),Kb=X(),qb=2}))";
     const moduleAfter = "var Gb,MTKtinrelayReact,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),MTKtinrelayReact=t(_e(),1),Kb=X(),qb=2}))";
@@ -576,7 +586,7 @@ function resolveHostBus(source) {
     "app-initial import"
   );
   const appInitial = fs.readFileSync(path.resolve(path.dirname(renderer), imported.groups.relative), "utf8");
-  const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") ? "H" : "U");
+  const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") || appInitial.includes("function zLs(){") ? "H" : "U");
   const binding = uniqueMatch(
     imported.groups.specifiers,
     new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>[$A-Z_a-z][$\\w]*)(?=,|$)`, "g"),

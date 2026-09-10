@@ -660,8 +660,8 @@ function patchAssistantPresentations(value, turnValue, profile) {
     turnValue = replaceOnce(
       turnValue,
       receipt[0],
-      `${receipt.groups.call},${receipt.groups.prelude},${receipt.groups.body},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId}}),`,
-      "Tinrelay outgoing presentation after the stock turn body"
+      `${receipt.groups.call},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId}}),${receipt.groups.prelude},${receipt.groups.body},`,
+      "Tinrelay outgoing presentation before the stock turn body"
     );
     return {rendererSource: value, turnSource: turnValue};
   }
@@ -675,12 +675,12 @@ function patchAssistantPresentations(value, turnValue, profile) {
   const existing = [...owner.text.matchAll(/(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<body>[$A-Z_a-z][$\w]*),/g)];
   if (existing.length === 1) {
     const match = existing[0];
-    value = replaceOnce(value, match[0], `${match.groups.call},${match.groups.body},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId}}),`, "Tinrelay assistant turn presentation after the stock turn body");
+    value = replaceOnce(value, match[0], `${match.groups.call},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId}}),${match.groups.body},`, "Tinrelay assistant turn presentation before the stock turn body");
     return {rendererSource: value, turnSource: turnValue};
   }
   if (existing.length > 1) throw new Error("Upstream changed: assistant task receipt seam is not unique");
   const children = uniqueMatch(owner.text, /children:\[(?<first>[$A-Z_a-z][$\w]*),/g, "assistant message children");
-  value = replaceOnce(value, children[0], `children:[${children.groups.first},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId}}),`, "Tinrelay assistant turn presentation after the stock turn body");
+  value = replaceOnce(value, children[0], `children:[(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId}}),${children.groups.first},`, "Tinrelay assistant turn presentation before the stock turn body");
   return {rendererSource: value, turnSource: turnValue};
 }
 
@@ -773,12 +773,15 @@ function mainHelperSlice(source) {
 function resolveHostBus(source) {
   const imported = uniqueMatch(source, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-initial import");
   const appInitial = fs.readFileSync(path.resolve(path.dirname(renderer), imported.groups.relative), "utf8");
-  const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") ? "H" : "U");
+  const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") || appInitial.includes("function zLs(){") ? "H" : "U");
   const binding = uniqueMatch(imported.groups.specifiers, new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"), "host bus import");
   return binding.groups.local;
 }
 
 function rendererProfile(source) {
+  if (source.includes("function Xb(") && source.includes("MTKtinrelayReact=t(x(),1)")) {
+    return {jsx: "qb", boundary: "function Xb(", splitTurn: turnRenderer != null};
+  }
   if (source.includes("function Yb(") && source.includes("MTKtinrelayReact=t(_e(),1)")) {
     return {jsx: "Kb", boundary: "function Yb(", splitTurn: turnRenderer != null};
   }

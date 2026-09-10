@@ -17,12 +17,15 @@ const build7746 = source.includes("function MTKuseAttentionBootstrap7746(");
 const build7942 = source.includes("function MTKuseAttentionBootstrap7942(");
 const build8109 = source.includes("function MTKuseAttentionBootstrap8109(");
 const build8378 = source.includes("function MTKuseAttentionBootstrap8378(");
+const build8576 = source.includes("function MTKuseAttentionBootstrap8576(");
 const primaryMatches = names.filter(name => /^app-primary-.*\.js$/.test(name));
 assert.equal(primaryMatches.length, 1, "unique app-primary asset");
 const primarySource = fs.readFileSync(path.join(assets, primaryMatches[0]), "utf8");
 const helperStart = source.indexOf('const MTKattentionRelativePath=');
 const helperTail = source.slice(helperStart);
-const boundary = helperTail.match(build8378
+const boundary = helperTail.match(build8576
+  ? /function zLs\(\)\{MTKuseAttentionBootstrap8576\(\);/
+  : build8378
   ? /function ALs\(\)\{MTKuseAttentionBootstrap8378\(\);/
   : build8109
   ? /function Oks\(\)\{MTKuseAttentionBootstrap8109\(\);/
@@ -35,13 +38,13 @@ const boundary = helperTail.match(build8378
   : /function (?:Fjl|zMl|hYl)\(e\)\{MTKuseAttentionBootstrap\(\);/);
 assert.ok(helperStart >= 0 && boundary, "attention helper seam");
 const rawHelper = helperTail.slice(0, boundary.index);
-const helper = build8378 ? rawHelper.replaceAll("8378", "") : build8109 ? rawHelper.replaceAll("8109", "") : build7942 ? rawHelper.replaceAll("7942", "") : build7746 ? rawHelper.replaceAll("7746", "") : rawHelper;
-const selectorNames = build8378 ? ["kW"] : build7942 ? ["XU", "$P"] : build7746 ? ["aW"] : build7345 ? ["VN", "AH"] : ["Rx", "Lx"];
+const helper = build8576 ? rawHelper.replaceAll("8576", "") : build8378 ? rawHelper.replaceAll("8378", "") : build8109 ? rawHelper.replaceAll("8109", "") : build7942 ? rawHelper.replaceAll("7942", "") : build7746 ? rawHelper.replaceAll("7746", "") : rawHelper;
+const selectorNames = build8576 || build8378 ? ["kW"] : build7942 ? ["XU", "$P"] : build7746 ? ["aW"] : build7345 ? ["VN", "AH"] : ["Rx", "Lx"];
 const api = Function(
   ...selectorNames,
   "Db", "Eb", "Tb", "wb", "Fb", "Pb", "Hg", "Vg", "$g", "Qg", "Rg", "Lg", "Bg", "zg",
   "cW", "Rb", "zb",
-  "db", "PLs", "Cb", "Sb",
+  "db", "PLs", "Cb", "Sb", "ub", "OLs", "xb",
   "build7345",
   `${helper};MTKattentionPolicyAtom={test:!0};return build7345?{MTKloadAttentionPolicy:MTKloadAttentionPolicy7345,MTKparseAttentionPolicy:MTKparseAttentionPolicy7345,MTKattentionMatch:MTKattentionMatch7345,MTKattentionIgnored:MTKattentionIgnored7345,MTKattentionIgnoredThread:MTKattentionIgnoredThread7345,MTKinstallAttentionPolicy:MTKinstallAttentionPolicy7345,MTKacceptAttentionReload:MTKacceptAttentionReload7345,MTKattentionPolicyAtom}:{MTKloadAttentionPolicy,MTKparseAttentionPolicy,MTKattentionMatch,MTKattentionIgnored,MTKattentionIgnoredThread,MTKinstallAttentionPolicy,MTKacceptAttentionReload,MTKattentionPolicyAtom}`
 )(...selectorNames.map(name => name === "$P" ? key => key == null ? null : key.startsWith("local:")
@@ -55,7 +58,8 @@ const api = Function(
   Symbol("Rg"), () => client,
   Symbol("Bg"), () => client,
   Symbol("cW"), () => client, Symbol("zb"),
-  () => ({}), { useEffect() {} }, Symbol("Cb"), () => client,
+  () => ({}), { useEffect() {} }, Symbol("Cb"), build8576 ? Symbol("Sb") : () => client,
+  () => ({}), { useEffect() {} }, () => client,
   build7345);
 
 const owner = "/policy-owner";
@@ -78,7 +82,7 @@ const client = {
   }
 };
 
-const loaded = await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 || build8109 || build8378 ? owner : [owner, owner]);
+const loaded = await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 || build8109 || build8378 || build8576 ? owner : [owner, owner]);
 assert.ok(loaded, "one unique valid owner loads");
 assert.equal(loaded.length, policyObject.ignore.length, "every configured ignore rule loads");
 const behaviorPolicy = api.MTKparseAttentionPolicy(Buffer.from(JSON.stringify({
@@ -93,7 +97,7 @@ assert.equal(api.MTKattentionMatch(behaviorPolicy, "ordinary", "task-local-other
   "similar task IDs do not match");
 assert.equal(api.MTKattentionMatch(behaviorPolicy, "ordinary", "other"), false);
 
-const currentFlattenedEntries = build7345 || build7746 || build8109 || build8378 || helper.includes("r.conversationId!=null");
+const currentFlattenedEntries = build7345 || build7746 || build8109 || build8378 || build8576 || helper.includes("r.conversationId!=null");
 const entries = new Map([
   ["ignored-local", {
     kind: "local",
@@ -144,7 +148,9 @@ assert.equal(api.MTKattentionIgnoredThread(getEntry, pendingKey, behaviorPolicy)
 if (currentFlattenedEntries) {
   assert.ok(!helper.includes("r.conversation.title"),
     "current dock filtering does not assume the retired nested local-entry shape");
-  assert.ok(build8378
+  assert.ok(build8576
+    ? source.includes("MTKattentionPolicyAtom=Ey(Q,null)") && source.includes("function zLs(){MTKuseAttentionBootstrap8576();")
+    : build8378
     ? source.includes("MTKattentionPolicyAtom=Dy(Q,null)") && source.includes("function ALs(){MTKuseAttentionBootstrap8378();")
     : build8109
     ? source.includes("MTKattentionPolicyAtom=Uy(Q,null)") && source.includes("function Oks(){MTKuseAttentionBootstrap8109();")
@@ -174,7 +180,7 @@ assert.deepEqual(policyWrites, [[api.MTKattentionPolicyAtom, behaviorPolicy]],
 file(`${owner}/.codex/task-attention-policy.json`, "{partial");
 assert.equal(await api.MTKacceptAttentionReload(
   policyScope,
-  build7345 || build7746 || build7942 || build8109 || build8378 ? owner : [owner],
+  build7345 || build7746 || build7942 || build8109 || build8378 || build8576 ? owner : [owner],
   { initial: false },
   () => true
 ), false, "invalid external saves are rejected by the consumer acceptance callback");
@@ -183,7 +189,7 @@ assert.equal(api.MTKattentionIgnored("quiet-worker", "task-local-ignore"), true)
 file(`${owner}/.codex/task-attention-policy.json`, '{"ignore":["^replacement$"]}');
 assert.equal(await api.MTKacceptAttentionReload(
   policyScope,
-  build7345 || build7746 || build7942 || build8109 || build8378 ? owner : [owner],
+  build7345 || build7746 || build7942 || build8109 || build8378 || build8576 ? owner : [owner],
   { initial: false },
   () => true
 ), true, "a complete valid external save is accepted");
@@ -191,15 +197,21 @@ assert.equal(policyWrites.length, 2, "accepted policy is published through the s
 assert.equal(api.MTKattentionIgnored("quiet-worker", "task-local-ignore"), false);
 assert.equal(api.MTKattentionIgnored("replacement", "other"), true);
 
-assert.equal(await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 || build8109 || build8378 ? "/missing" : ["/missing"]), null, "zero owners are vanilla");
+assert.equal(await api.MTKloadAttentionPolicy(client, build7345 || build7746 || build7942 || build8109 || build8378 || build8576 ? "/missing" : ["/missing"]), null, "zero owners are vanilla");
 directory("/second/.codex");
 file("/second/.codex/task-attention-policy.json", policy);
-if (!build7345 && !build7746 && !build7942 && !build8109 && !build8378) assert.equal(await api.MTKloadAttentionPolicy(client, [owner, "/second"]), null, "multiple owners fail closed");
+if (!build7345 && !build7746 && !build7942 && !build8109 && !build8378 && !build8576) assert.equal(await api.MTKloadAttentionPolicy(client, [owner, "/second"]), null, "multiple owners fail closed");
 assert.equal(api.MTKparseAttentionPolicy(Buffer.from("not json").toString("base64")), null);
 assert.equal(api.MTKparseAttentionPolicy(Buffer.from('{"ignore":["["]}').toString("base64")), null);
 assert.equal(api.MTKparseAttentionPolicy(Buffer.from('{"ignore":[],"extra":true}').toString("base64")), null);
 
-const rowContracts = build8378 ? [
+const rowContracts = build8576 ? [
+  "MTKattentionIgnoredForTask=MTKuseTaskAttention8576(pt,n)",
+  "let kt=MTKattentionIgnoredForTask?{...Ot,unread:!1,unreadCount:0}:Ot",
+  "Nt=MTKattentionIgnoredForTask?[]:Mt==null?[]:[Mt]",
+  "let zt=MTKattentionIgnoredForTask?void 0:Rt",
+  "hasUnreadTurn:!MTKattentionIgnoredForTask&&!Tt&&et===!0"
+] : build8378 ? [
   "MTKattentionIgnoredForTask=MTKuseTaskAttention8378(pt,n)",
   "let At=MTKattentionIgnoredForTask?{...kt,unread:!1,unreadCount:0}:kt",
   "Pt=MTKattentionIgnoredForTask?[]:Nt==null?[]:[Nt]",
@@ -236,10 +248,10 @@ const rowContracts = build8378 ? [
   "let Rt=MTKattentionIgnoredForTask?void 0:Lt",
   "hasUnreadTurn:!MTKattentionIgnoredForTask&&!Ct&&Qe===!0"
 ];
-const rowSource = build8378 || build8109 || build7942 || build7746 ? primarySource : source;
+const rowSource = build8576 || build8378 || build8109 || build7942 || build7746 ? primarySource : source;
 for (const contract of rowContracts) assert.ok(rowSource.includes(contract), `task-row contract: ${contract}`);
-assert.ok(rowSource.includes(build8378 ? "kt=Me?{type:`loading`}" : build7942 || build8109 ? "Ot=je?{type:`loading`}" : "Ae?{type:`loading`}"), "running state remains owned by the stock status calculation");
-assert.ok(rowSource.includes(build8378 ? "hasSystemError:At.type===`error`" : build7345 || build7942 || build8109 ? "hasSystemError:kt.type===`error`" : "hasSystemError:Ot.type===`error`"),
+assert.ok(rowSource.includes(build8576 ? "Ot=Me?{type:`loading`}" : build8378 ? "kt=Me?{type:`loading`}" : build7942 || build8109 ? "Ot=je?{type:`loading`}" : "Ae?{type:`loading`}"), "running state remains owned by the stock status calculation");
+assert.ok(rowSource.includes(build8576 ? "hasSystemError:kt.type===`error`" : build8378 ? "hasSystemError:At.type===`error`" : build7345 || build7942 || build8109 ? "hasSystemError:kt.type===`error`" : "hasSystemError:Ot.type===`error`"),
   "failure state remains visible in the task hover card");
 
 const notificationMarker = "[desktop-notifications] suppressed task-attention-policy turn-complete";
@@ -249,6 +261,7 @@ assert.ok(
     source.includes("let a=BB(e.getConversation(t.conversationId));if(MTKattentionIgnored7746(a,t.conversationId))") ||
     source.includes("let a=RB(e.getConversation(t.conversationId));if(MTKattentionIgnored7942(a,t.conversationId))") ||
     source.includes("let a=HB(e.getConversation(t.conversationId));if(MTKattentionIgnored8109(a,t.conversationId))") ||
+    source.includes("let a=dV(e.getConversation(t.conversationId));if(MTKattentionIgnored8576(a,t.conversationId))") ||
     source.includes("let a=dV(e.getConversation(t.conversationId));if(MTKattentionIgnored8378(a,t.conversationId))") ||
     source.includes("let a=sx(e.getConversation(t.conversationId));if(MTKattentionIgnored(a,t.conversationId))") ||
     source.includes("let a=ox(e.getConversation(t.conversationId));if(MTKattentionIgnored(a,t.conversationId))") ||
@@ -258,7 +271,7 @@ assert.equal(count(source, "[desktop-notifications] show question"), 1,
   "input-request notification owner remains stock");
 assert.equal(count(source, "[desktop-notifications] show approval"), 1,
   "approval notification owner remains stock");
-const ignoredThreadName = build8378 ? "MTKattentionIgnoredThread8378" : build8109 ? "MTKattentionIgnoredThread8109" : build7942 ? "MTKattentionIgnoredThread7942" : build7746 ? "MTKattentionIgnoredThread7746" : build7345 ? "MTKattentionIgnoredThread7345" : "MTKattentionIgnoredThread";
+const ignoredThreadName = build8576 ? "MTKattentionIgnoredThread8576" : build8378 ? "MTKattentionIgnoredThread8378" : build8109 ? "MTKattentionIgnoredThread8109" : build7942 ? "MTKattentionIgnoredThread7942" : build7746 ? "MTKattentionIgnoredThread7746" : build7345 ? "MTKattentionIgnoredThread7345" : "MTKattentionIgnoredThread";
 assert.equal(count(source, `s=s.filter(t=>!${ignoredThreadName}(e,t,c))`), 1,
   "only the stock unread-task subset is filtered for global attention counts");
 assert.equal(count(source, "electron-set-badge-count"), 1,

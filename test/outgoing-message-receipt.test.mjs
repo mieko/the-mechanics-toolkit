@@ -279,10 +279,27 @@ const receiptBus = {
   dispatchMessage(type, payload) { receiptDispatches.push({type, payload}); },
   subscribe(type, callback) { receiptListeners.set(type, callback); return () => receiptListeners.delete(type); }
 };
+const receiptReact = {
+  useState(initializer) { return [typeof initializer === "function" ? initializer() : initializer, () => {}]; },
+  useEffect() {}
+};
+const receiptJsx = {jsx() { return null; }};
+const receiptReactBinding = conversation.match(
+  /const MTKOutboundReceiptReact=(?<expression>[^;]+);const MTKoutboundReceiptContract=/
+);
+const boundReceiptReact = receiptReactBinding == null ? receiptReact : Function(
+  "gS", "t", "x", `return (${receiptReactBinding.groups.expression})`
+)(receiptReact, value => value, () => receiptReact);
 const conversationApi = Function(
-  hostBusName, "Jy", "Yy", "MTKoutboundReceipt",
-  `${conversationHelper};return {remember:MTKoutboundRemember,state:MTKoutboundReceiptState,values:MTKoutboundReceiptValues}`
-)(receiptBus, {useState() { return [[], () => {}]; }, useEffect() {}}, {jsx() { return null; }}, () => null);
+  hostBusName, "Jy", "Yy", "gS", "_x", "t", "x", "$", "MTKOutboundReceiptReact", "MTKoutboundReceipt",
+  `${conversationHelper};return {component:MTKOutboundTurnReceipts,remember:MTKoutboundRemember,state:MTKoutboundReceiptState,values:MTKoutboundReceiptValues}`
+)(receiptBus, receiptReact, receiptJsx, receiptReact, receiptJsx, value => value, () => receiptReact, receiptJsx,
+  boundReceiptReact, () => null);
+assert.equal(
+  conversationApi.component({conversationId: "source-thread", turnId: "source-turn"}),
+  null,
+  "durable turn receipt uses the owning renderer's React hooks without local binding collisions"
+);
 
 const mainDirectory = path.join(root, ".vite/build");
 const mainOwners = fs.readdirSync(mainDirectory).filter(name => {

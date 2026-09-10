@@ -58,7 +58,7 @@ assert.match(
 );
 assert.match(
   thread.source,
-  /\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*,MTKreasoningThreadRetained\]/,
+  /(?:\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*|\[e,u,ue,x,pe),MTKreasoningThreadRetained\]/,
   "the auto-collapse effect follows live retention-policy changes"
 );
 
@@ -70,9 +70,10 @@ assert.deepEqual(collapse({...base, preventAutoCollapse: false}), {shouldAllowCo
 assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapsed: true}), {shouldAllowCollapse: true, isCollapsed: true}, "manual collapse still wins");
 assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapsed: false}), {shouldAllowCollapse: true, isCollapsed: false}, "manual reopen still wins");
 assert.equal(
-  turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") ||
     turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained") ||
-    turn.source.includes("preventAutoCollapse:Dt||br||MTKreasoningRetained"),
+    turn.source.includes("preventAutoCollapse:Dt||br||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:At||xr||MTKreasoningRetained"),
   true,
   "selected policy reaches the stock collapse decision"
 );

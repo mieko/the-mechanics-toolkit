@@ -69,6 +69,8 @@ function inspectState(source) {
   const legacyMarkers = [
     "var MTKdelegatedBubbleStyle=",
     "function MTKsender(",
+    "const MTKcrossTaskStoreHook=",
+    "MTKcrossTaskStoreScope=",
     "MTKstore.get(MTKtitleAtom,{hostId:",
     "messageBubbleStyle:MTKdelegatedBubbleStyle",
     '"data-user-message-bubble":!0,style:MTKbubbleStyleOverride'
@@ -99,12 +101,25 @@ function inspectPristine(source) {
     {
       delegation: "Cb", delegationCache: "wb", delegationJsx: "Tb",
       wrapper: "vb", wrapperCache: "yb", wrapperJsx: "bb",
-      bubble: "Eg", bubbleCache: "Og"
+      bubble: "Eg", bubbleCache: "Og", collapsedLines: "xb"
     },
     {
       delegation: "Yb", delegationCache: "Xb", delegationJsx: "Zb",
       wrapper: "Wb", wrapperCache: "Gb", wrapperJsx: "Kb",
-      bubble: "$g", bubbleCache: "t_"
+      bubble: "$g", bubbleCache: "t_", collapsedLines: "qb"
+    },
+    {
+      delegation: "Xb", delegationCache: "Zb", delegationJsx: "Qb",
+      wrapper: "Gb", wrapperCache: "Kb", wrapperJsx: "qb",
+      bubble: "e_", bubbleCache: "n_", collapsedLines: "Jb",
+      bubbleDependency: [
+        "t[41]!==J||t[42]!==fe||t[43]!==se||t[44]!==ye){",
+        "t[41]!==J||t[42]!==fe||t[43]!==se||t[44]!==ye||t[127]!==MTKbubbleStyleOverride){"
+      ],
+      bubbleStorage: [
+        "t[41]=J,t[42]=fe,t[43]=se,t[44]=ye,t[45]=be",
+        "t[41]=J,t[42]=fe,t[43]=se,t[44]=ye,t[127]=MTKbubbleStyleOverride,t[45]=be"
+      ]
     }
   ].find(candidate => delegation.text.startsWith(`function ${candidate.delegation}(`));
   if (profile == null) throw new Error("Upstream changed: attribution component family is unknown");
@@ -114,7 +129,7 @@ function inspectPristine(source) {
     `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(13),{conversationId:n,sourceThreadId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c}=e,`,
     `h=(0,${profile.delegationJsx}.jsx)(${profile.wrapper},{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m})`,
     `function ${profile.wrapper}(e){let t=(0,${profile.wrapperCache}.c)(16),{label:n,conversationId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c,onLabelClick:l}=e,`,
-    `m=f?(0,${profile.wrapperJsx}.jsx)(${profile.bubble},{message:i,sentAtMs:a,collapsedLineCount:${profile.wrapper === "vb" ? "xb" : "qb"},compactActions:u,cwd:o,hostId:s,threadId:r}):null`,
+    `m=f?(0,${profile.wrapperJsx}.jsx)(${profile.bubble},{message:i,sentAtMs:a,collapsedLineCount:${profile.collapsedLines},compactActions:u,cwd:o,hostId:s,threadId:r}):null`,
     `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(127),`,
     '"data-user-message-bubble":!0,className:'
   ]) {
@@ -136,7 +151,7 @@ function patchAttribution(source, ownerFile, details) {
   delegation = replaceOnce(delegation, `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(13),`, `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(14),`, "delegation cache size");
   const labelEnd = ",t[1]=p):p=t[1];";
   const metadata =
-    `let MTKstore=${imports.storeHook}(${imports.storeScope}),MTKtitle=MTKstore.get(MTKtitleAtom,{hostId:s??\`local\`,threadId:r}),` +
+    `let MTKstore=MTKcrossTaskStoreHook(MTKcrossTaskStoreScope),MTKtitle=MTKstore.get(MTKtitleAtom,{hostId:s??\`local\`,threadId:r}),` +
     `MTKresolvedSender=MTKsender(MTKtitle,null);MTKresolvedSender!=null&&(p=(0,${profile.delegationJsx}.jsxs)(${profile.delegationJsx}.Fragment,{children:[f,\`Sent by \${MTKresolvedSender}\`]}));`;
   delegation = replaceOnce(delegation, labelEnd, labelEnd + metadata, "delegation metadata insertion");
   delegation = replaceOnce(
@@ -168,21 +183,22 @@ function patchAttribution(source, ownerFile, details) {
     ["cwd:D,hostId:O}=e,", "cwd:D,hostId:O,messageBubbleStyle:MTKbubbleStyleOverride}=e,"] :
     ["cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,"];
   bubble = replaceOnce(bubble, ...bubbleOwner, "bubble style destructuring");
-  const bubbleDependency = bubble.includes("t[42]!==de||t[43]!==ae||t[44]!==_e){") ?
+  const bubbleDependency = profile.bubbleDependency ?? (bubble.includes("t[42]!==de||t[43]!==ae||t[44]!==_e){") ?
     ["t[42]!==de||t[43]!==ae||t[44]!==_e){", "t[42]!==de||t[43]!==ae||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
     bubble.includes("t[42]!==de||t[43]!==oe||t[44]!==_e){") ?
       ["t[42]!==de||t[43]!==oe||t[44]!==_e){", "t[42]!==de||t[43]!==oe||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
-      ["t[42]!==fe||t[43]!==se||t[44]!==ve){", "t[42]!==fe||t[43]!==se||t[44]!==ve||t[127]!==MTKbubbleStyleOverride){"];
+      ["t[42]!==fe||t[43]!==se||t[44]!==ve){", "t[42]!==fe||t[43]!==se||t[44]!==ve||t[127]!==MTKbubbleStyleOverride){"]);
   bubble = replaceOnce(bubble, ...bubbleDependency, "bubble style cache dependency");
   bubble = replaceOnce(bubble, '"data-user-message-bubble":!0,className:', '"data-user-message-bubble":!0,style:MTKbubbleStyleOverride,className:', "bubble semantic accent");
-  const bubbleStorage = bubble.includes("t[42]=de,t[43]=ae,t[44]=_e,t[45]=ve") ?
+  const bubbleStorage = profile.bubbleStorage ?? (bubble.includes("t[42]=de,t[43]=ae,t[44]=_e,t[45]=ve") ?
     ["t[42]=de,t[43]=ae,t[44]=_e,t[45]=ve", "t[42]=de,t[43]=ae,t[44]=_e,t[127]=MTKbubbleStyleOverride,t[45]=ve"] :
     bubble.includes("t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve") ?
       ["t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve", "t[42]=de,t[43]=oe,t[44]=_e,t[127]=MTKbubbleStyleOverride,t[45]=ve"] :
-      ["t[42]=fe,t[43]=se,t[44]=ve,t[45]=be", "t[42]=fe,t[43]=se,t[44]=ve,t[127]=MTKbubbleStyleOverride,t[45]=be"];
+      ["t[42]=fe,t[43]=se,t[44]=ve,t[45]=be", "t[42]=fe,t[43]=se,t[44]=ve,t[127]=MTKbubbleStyleOverride,t[45]=be"]);
   bubble = replaceOnce(bubble, ...bubbleStorage, "bubble style storage");
 
-  const helper = currentHelper();
+  const helper = currentHelper() +
+    `const MTKcrossTaskStoreHook=${imports.storeHook},MTKcrossTaskStoreScope=${imports.storeScope};`;
 
   source = replaceOnce(source, details.bubble.text, bubble, "bubble component");
   source = replaceOnce(source, details.wrapper.text, wrapper, "delegation wrapper component");
@@ -219,6 +235,14 @@ function resolveImports(ownerSource, ownerFile) {
   const appInitialFile = ownedImport(ownerFile, initialImport.groups.relative);
   const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appPrimary.includes("pt=jm(xNn,{hostId:Je??`local`,threadId:n})??Ue?.title??null")) {
+    return {
+      before: primaryImport[0],
+      after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, "xNn")} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, currentStoreHookInternal(appInitial))),
+      storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
+    };
+  }
   if (appPrimary.includes("ft=rw(tOn,{hostId:qe??`local`,threadId:n})??He?.title??null")) {
     return {
       before: primaryImport[0],

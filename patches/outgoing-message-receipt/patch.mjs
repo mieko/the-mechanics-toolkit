@@ -158,7 +158,8 @@ function inspectState() {
     ? conversationSource : `${conversationSource}\n${conversationTurnSource}`;
   const ownerApplied = ownerMarkers.every(marker => source.includes(marker));
   const conversationApplied = conversationMarkers.every(marker => combinedConversationSource.includes(marker)) &&
-    (conversationSource.includes("sourceTurnId:S") || conversationSource.includes("sourceTurnId:w"));
+    (conversationSource.includes("sourceTurnId:S") || conversationSource.includes("sourceTurnId:w") ||
+     conversationSource.includes("sourceTurnId:T"));
   const mainApplied = mainMarkers.every(marker => mainSource.includes(marker));
   const conversationCacheStart = conversationSource.indexOf("const MTKoutboundReceiptContract=");
   const conversationCacheEnd = conversationSource.indexOf(conversationHelperBoundary(conversationSource), conversationCacheStart);
@@ -280,7 +281,7 @@ function inspectPristineConversation(value, turnValue = conversationTurnSource) 
     throw new Error("Upstream changed: outgoing receipt import is unexpectedly present");
   }
   const dynamic = dynamicRendererProfile(value);
-  if (dynamic.variant === "split-8378") {
+  if (dynamic.variant.startsWith("split-")) {
     splitTurnProfile(turnValue);
   } else {
     assistantProfile(value);
@@ -316,7 +317,7 @@ function patchConversation(value, turnValue) {
     dynamic.patchedCallText,
     "outbound source turn context"
   );
-  if (dynamic.variant === "split-8378") {
+  if (dynamic.variant.startsWith("split-")) {
     const turn = splitTurnProfile(turnValue);
     patched = replaceOnce(
       patched,
@@ -330,15 +331,13 @@ function patchConversation(value, turnValue) {
       `import{${turn.specifiers},MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"${turn.relative}";`,
       "durable receipt component import"
     );
-    patchedTurn = replaceOnce(
-      patchedTurn,
-      turn.children,
-      turn.children.replace("children:[qt,", "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,"),
-      "durable outbound turn receipts"
-    );
-    const insertion = patched.indexOf("function hx(");
+    patchedTurn = replaceOnce(patchedTurn, turn.before, turn.after, "durable outbound turn receipts");
+    const insertion = patched.indexOf(dynamic.helperBoundary);
     if (insertion < 0) throw new Error("Upstream changed: split dynamic renderer owner is missing");
-    patched = patched.slice(0, insertion) + conversationHelpers(hostBus, "gS", "_x") + patched.slice(insertion);
+    patched = patched.slice(0, insertion) +
+      `const MTKOutboundReceiptReact=${dynamic.react};` +
+      conversationHelpers(hostBus, "MTKOutboundReceiptReact", dynamic.jsx) +
+      patched.slice(insertion);
     return {conversationSource: patched, conversationTurnSource: patchedTurn};
   }
   const assistant = assistantProfile(value);
@@ -391,6 +390,45 @@ function ownerImportProfile(value) {
 }
 
 function dynamicRendererProfile(value) {
+  if (value.includes("function gx(") && value.includes("Nh(o)?.render?.(o,l,i,c)")) {
+    const start = value.indexOf("function gx(");
+    const owner = functionAt(value, start);
+    const patchedFunction = replaceOnce(
+      owner.text,
+      "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=Nh(o)?.render?.(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4]",
+      "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s,sourceTurnId:h}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l||t[4]!==h?(u=Nh(o)?.render?.(o,l,i,c,{conversationId:n,turnId:h}),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=h,t[5]=u):u=t[5]",
+      "build-8576 split dynamic renderer context body"
+    );
+    const call = uniqueMatch(
+      value,
+      /\(e=\(0,\$\.jsx\)\(gx,\{agentActivityIcon:Re,conversationId:f,enableTimelineTargets:Te,item:n\}\),t\[338\]=Re,t\[339\]=f,t\[340\]=Te,t\[341\]=n,t\[342\]=e\)/g,
+      "build-8576 split conversation dynamic renderer call"
+    );
+    const parent = containingFunction(value, call.index);
+    if (!parent.text.startsWith("function ME(e){let t=(0,KE.c)(355),") || !parent.text.includes("turnId:T,")) {
+      throw new Error("Upstream changed: build-8576 source-turn owner is ambiguous");
+    }
+    const patchedParent = replaceOnce(
+      parent.text,
+      "function ME(e){let t=(0,KE.c)(355),",
+      "function ME(e){let t=(0,KE.c)(356),",
+      "build-8576 source-turn cache size"
+    );
+    const patchedCall = call[0]
+      .replace("t[341]!==n?", "t[341]!==n||t[355]!==T?")
+      .replace("enableTimelineTargets:Te,item:n}", "enableTimelineTargets:Te,item:n,sourceTurnId:T}")
+      .replace("t[341]=n,t[342]=e", "t[341]=n,t[355]=T,t[342]=e");
+    return {
+      variant: "split-8576",
+      functionText: owner.text,
+      patchedFunction,
+      callText: parent.text,
+      patchedCallText: replaceOnce(patchedParent, call[0], patchedCall, "build-8576 source-turn call"),
+      helperBoundary: "function gx(",
+      react: "t(x(),1)",
+      jsx: "$"
+    };
+  }
   if (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) {
     const start = value.indexOf("function hx(");
     const owner = functionAt(value, start);
@@ -410,7 +448,10 @@ function dynamicRendererProfile(value) {
       functionText: owner.text,
       patchedFunction,
       callText: call[0],
-      patchedCallText: call[0].replace("enableTimelineTargets:we,item:n}", "enableTimelineTargets:we,item:n,sourceTurnId:w}")
+      patchedCallText: call[0].replace("enableTimelineTargets:we,item:n}", "enableTimelineTargets:we,item:n,sourceTurnId:w}"),
+      helperBoundary: "function hx(",
+      react: "gS",
+      jsx: "_x"
     };
   }
   const start = value.indexOf("function Ub(");
@@ -445,11 +486,26 @@ function splitTurnProfile(value) {
     new RegExp(`import\\{(?<specifiers>[^}]+)\\}from"${escapeRegExp(relative)}";`, "g"),
     "split conversation renderer import"
   );
-  if (!value.includes("function _i(") || !value.includes("{conversationId:s") || !value.includes("turnId:d")) {
+  if (!value.includes("function _i(") || !value.includes("{conversationId:s")) {
     throw new Error("Upstream changed: split turn renderer ownership is missing");
   }
+  if (value.includes("function _i(e){let t=(0,Hi.c)(208),") && value.includes("turnId:f,")) {
+    const before = "t[203]!==Jt||t[204]!==Va||t[205]!==Ha||t[206]!==Ua?(Wa=(0,Q.jsxs)(Q.Fragment,{children:[Jt,Va,Ha,Ua]}),t[203]=Jt,t[204]=Va,t[205]=Ha,t[206]=Ua,t[207]=Wa):Wa=t[207]";
+    const after = "t[203]!==Jt||t[204]!==Va||t[205]!==Ha||t[206]!==Ua||t[208]!==s||t[209]!==f?(Wa=(0,Q.jsxs)(Q.Fragment,{children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:f}),Jt,Va,Ha,Ua]}),t[203]=Jt,t[204]=Va,t[205]=Ha,t[206]=Ua,t[208]=s,t[209]=f,t[207]=Wa):Wa=t[207]";
+    if (!value.includes(before)) throw new Error("Upstream changed: build-8576 split turn root children are missing");
+    return {
+      importText: imported[0], specifiers: imported.groups.specifiers, relative,
+      before: `function _i(e){let t=(0,Hi.c)(208),${value.split("function _i(e){let t=(0,Hi.c)(208),")[1].split(before)[0]}${before}`,
+      after: `function _i(e){let t=(0,Hi.c)(210),${value.split("function _i(e){let t=(0,Hi.c)(208),")[1].split(before)[0]}${after}`
+    };
+  }
+  if (!value.includes("turnId:d")) throw new Error("Upstream changed: split turn id is missing");
   const children = uniqueMatch(value, /children:\[qt,Va,Ha,Ua\]/g, "split turn root children")[0];
-  return {importText: imported[0], specifiers: imported.groups.specifiers, relative, children};
+  return {
+    importText: imported[0], specifiers: imported.groups.specifiers, relative,
+    before: children,
+    after: children.replace("children:[qt,", "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,")
+  };
 }
 
 function assistantProfile(value) {
@@ -464,15 +520,16 @@ function assistantProfile(value) {
 }
 
 function conversationHelperBoundary(value) {
-  if (value.includes("function Oy(")) return "function Oy(";
+  if (value.includes("function gx(")) return "function gx(";
   if (value.includes("function hx(")) return "function hx(";
+  if (value.includes("function Oy(")) return "function Oy(";
   throw new Error("Upstream changed: outgoing receipt helper boundary is missing");
 }
 
 function resolveHostBus(value) {
   const imported = uniqueMatch(value, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "conversation app-initial import");
   const appInitial = fs.readFileSync(path.resolve(path.dirname(conversationTarget), imported.groups.relative), "utf8");
-  const internal = appInitial.includes("function ALs(){") ? "H" : "U";
+  const internal = appInitial.includes("function ALs(){") || appInitial.includes("function zLs(){") ? "H" : "U";
   const exported = exportedAs(appInitial, internal);
   return uniqueMatch(
     imported.groups.specifiers,
@@ -807,6 +864,21 @@ function resolveTaskImports(ownerSource) {
   const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appInitial.includes("function zLs(){") && appInitial.includes("kW=Ny(Q,")) {
+    const additions = [
+      `${exportedAs(appInitial, "ub")} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, "Q")} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, "kW")} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, "PF")} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, "FF")} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
   if (appInitial.includes("function ALs(){") && appInitial.includes("kW=Py(Q,")) {
     const additions = [
       `${exportedAs(appInitial, "db")} as MTKoutboundStoreHook`,
@@ -958,7 +1030,9 @@ function resolvePresentationOwners(ownerSource) {
   }
   let tooltipRelative = appImport.groups.relative;
   let tooltipExport;
-  if (appInitial.includes(`function ${diffPreview.tooltip}(`)) {
+  const appExports = uniqueMatch(appInitial, /export\{(?<specifiers>[^}]+)\}/g, "module export list").groups.specifiers;
+  const localTooltipExports = [...appExports.matchAll(new RegExp(`(?:^|,)${escapeRegExp(diffPreview.tooltip)} as (?<export>${id})(?=,|$)`, "g"))];
+  if (localTooltipExports.length === 1) {
     tooltipExport = exportedAs(appInitial, diffPreview.tooltip);
   } else {
     const imports = [...appInitial.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>[^"]+)";/g)];
@@ -1069,8 +1143,9 @@ function uniqueConversationOwner() {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
     const combined = value.includes("function Ub(") && value.includes("function Oy(");
-    const split = value.includes("function hx(") &&
-      (value.includes("Mh(o)?.render?.(o,l,i,c)") || value.includes("function MTKOutboundTurnReceipts("));
+    const split = (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) ||
+      (value.includes("function gx(") && value.includes("Nh(o)?.render?.(o,l,i,c)")) ||
+      value.includes("function MTKOutboundTurnReceipts(");
     return (combined || split) && value.includes("toolActivityTurnKey") &&
       value.includes(`from"./${path.basename(target)}"`);
   });
@@ -1080,13 +1155,15 @@ function uniqueConversationOwner() {
 
 function uniqueConversationTurnOwner(owner) {
   const ownerSource = fs.readFileSync(owner, "utf8");
-  if (ownerSource.includes("function Oy(")) return owner;
+  if (ownerSource.includes("function Ub(") && ownerSource.includes("function Oy(")) return owner;
   const basename = path.basename(owner);
   const matches = fs.readdirSync(assets).filter(name => {
     if (!name.endsWith(".js") || name === basename) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
     return value.includes("function _i(") &&
-      (value.includes("children:[qt,Va,Ha,Ua]") || value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:d}")) &&
+      (value.includes("children:[qt,Va,Ha,Ua]") || value.includes("children:[Jt,Va,Ha,Ua]") ||
+       value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:d}") ||
+       value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:f}")) &&
       value.includes(`from"./${basename}"`);
   });
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} conversation turn owners`);

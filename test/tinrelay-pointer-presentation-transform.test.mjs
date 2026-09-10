@@ -74,12 +74,13 @@ try {
     "ordinary exec does not use the unrelated turnId prop that its caller leaves undefined");
   const assistantTurn = functionSource(rendererText, "Oy");
   const taskReceiptsAt = assistantTurn.indexOf("MTKOutboundTurnReceipts,{conversationId:");
-  const stockTurnBodyAt = assistantTurn.indexOf("Ze");
+  const childrenAt = assistantTurn.indexOf("children:[");
+  const stockTurnBodyAt = assistantTurn.indexOf("Ze", childrenAt);
   const outgoingTinrelayAt = assistantTurn.indexOf("MTKtinrelayOutgoingTurnPresentations,{conversationId:");
-  assert.ok(stockTurnBodyAt >= 0 && outgoingTinrelayAt > stockTurnBodyAt,
-    "durable Tinrelay replies render after the stock turn body that contains incoming transmissions");
-  if (taskReceiptsAt >= 0) assert.ok(taskReceiptsAt < stockTurnBodyAt,
-    "task receipts retain their established leading position");
+  assert.ok(stockTurnBodyAt >= 0 && outgoingTinrelayAt >= 0 && outgoingTinrelayAt < stockTurnBodyAt,
+    "durable Tinrelay replies are hoisted before the stock turn body");
+  if (taskReceiptsAt >= 0) assert.ok(taskReceiptsAt < outgoingTinrelayAt,
+    "task receipts and Tinrelay replies retain their established leading order");
   fs.writeFileSync(rendererTarget, rendererText.replace(durableSourceTurn, "sourceThreadId:d,sourceTurnId:S"));
   assert.equal(runOutgoingTransform("check").state, "legacy-source-turn-applied",
     "the undefined-source-turn implementation is detected explicitly");
@@ -174,8 +175,8 @@ function assertSplitTurnPresentationOrdering() {
   ].join("");
   const patched = api(renderer, turn, {splitTurn: true});
   assert.ok(patched.turnSource.includes(
-    "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,Va,(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:s,turnId:d}),Ha,Ua]"
-  ), "split turn renders Tinrelay replies after the stock event body");
+    "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:s,turnId:d}),qt,Va,Ha,Ua]"
+  ), "split turn hoists Tinrelay replies ahead of the stock event body");
 }
 
 function sourceBetween(value, startMarker, endMarker) {
