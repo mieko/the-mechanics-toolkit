@@ -188,11 +188,9 @@ const rendererHelpersEnd = rendererSource.indexOf("function ", outgoingViewStart
 assert.ok(outgoingViewStart > rendererStart && rendererHelpersEnd > outgoingViewStart,
   "localized Tinrelay presentation helpers");
 const rendererHelpers = rendererSource.slice(rendererStart, rendererHelpersEnd);
-const outgoingHostBus = uniqueMatch(
-  rendererHelpers,
-  /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g,
-  "outgoing renderer host bus"
-).groups.bus;
+const outgoingHostBus = unique([...new Set([...rendererHelpers.matchAll(
+  /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g
+)].map(match => match.groups.bus))], "outgoing renderer host bus");
 assert.equal(outgoingHostBus, incomingHostBus,
   "incoming and outgoing Tinrelay presentation share Codex's renderer host bridge");
 const scrollHelpersEnd = rendererHelpers.indexOf("function MTKtinrelayEnsureStyle(");

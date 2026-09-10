@@ -72,6 +72,14 @@ try {
     "ordinary exec decodes the actual turn ID from Codex's tool-activity key");
   assert.ok(!rendererText.includes("sourceThreadId:d,sourceTurnId:S"),
     "ordinary exec does not use the unrelated turnId prop that its caller leaves undefined");
+  const assistantTurn = functionSource(rendererText, "Oy");
+  const taskReceiptsAt = assistantTurn.indexOf("MTKOutboundTurnReceipts,{conversationId:");
+  const stockTurnBodyAt = assistantTurn.indexOf("Ze");
+  const outgoingTinrelayAt = assistantTurn.indexOf("MTKtinrelayOutgoingTurnPresentations,{conversationId:");
+  assert.ok(stockTurnBodyAt >= 0 && outgoingTinrelayAt > stockTurnBodyAt,
+    "durable Tinrelay replies render after the stock turn body that contains incoming transmissions");
+  if (taskReceiptsAt >= 0) assert.ok(taskReceiptsAt < stockTurnBodyAt,
+    "task receipts retain their established leading position");
   fs.writeFileSync(rendererTarget, rendererText.replace(durableSourceTurn, "sourceThreadId:d,sourceTurnId:S"));
   assert.equal(runOutgoingTransform("check").state, "legacy-source-turn-applied",
     "the undefined-source-turn implementation is detected explicitly");
@@ -97,6 +105,7 @@ try {
   assert.deepEqual(fs.readFileSync(mainTarget), mainOnce, "main process is byte-identical after second application");
   assert.deepEqual(fs.readFileSync(initialTarget), initialAfterRuntime, "Tinrelay leaves the composed host-bus owner untouched");
   assertMainUpgradePreservesAdjacentHelpers();
+  assertSplitTurnPresentationOrdering();
   process.stdout.write("unified Tinrelay presentation transform probe passed\n");
 
   function runToolkit(action, withConfig = false) {
@@ -144,6 +153,36 @@ function assertMainUpgradePreservesAdjacentHelpers() {
   assert.ok(upgraded.includes("anchor:r"), "upgraded lookup returns the main-process persistence result");
   assert.ok(!upgraded.includes("case`mtk-tinrelay-outgoing-anchor-remember`"),
     "upgraded lookup does not retain the unacknowledged second IPC hop");
+}
+
+function assertSplitTurnPresentationOrdering() {
+  const transform = fs.readFileSync(outgoingTransform, "utf8");
+  const patchPresentations = sourceBetween(transform, "function patchAssistantPresentations(", "function upgradeRendererTurnAnchors(");
+  const uniqueMatch = sourceBetween(transform, "function uniqueMatch(", "function containingFunction(");
+  const replaceOnce = sourceBetween(transform, "function replaceOnce(", "function escapeRegExp(");
+  const escapeRegExp = sourceBetween(transform, "function escapeRegExp(", "function count(");
+  const count = sourceBetween(transform, "function count(", "function countMatches(");
+  const api = Function("path", "renderer",
+    `${uniqueMatch};${replaceOnce};${escapeRegExp};${count};${patchPresentations};return patchAssistantPresentations`)(
+      path,
+      "/tmp/conversation-blocks-fixture.js"
+    );
+  const renderer = "MTKtinrelayReact=t(_e(),1);function Yb(){}export{x as x}";
+  const turn = [
+    'import{MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"./conversation-blocks-fixture.js";',
+    "function turn(){return(0,Q.jsxs)(Q.Fragment,{children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,Va,Ha,Ua]})}"
+  ].join("");
+  const patched = api(renderer, turn, {splitTurn: true});
+  assert.ok(patched.turnSource.includes(
+    "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,Va,(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:s,turnId:d}),Ha,Ua]"
+  ), "split turn renders Tinrelay replies after the stock event body");
+}
+
+function sourceBetween(value, startMarker, endMarker) {
+  const start = value.indexOf(startMarker);
+  const end = value.indexOf(endMarker, start + startMarker.length);
+  assert.ok(start >= 0 && end > start, `${startMarker} source boundary`);
+  return value.slice(start, end);
 }
 
 function functionSource(value, name) {

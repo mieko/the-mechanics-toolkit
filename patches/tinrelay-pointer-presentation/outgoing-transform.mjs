@@ -507,7 +507,14 @@ function rendererHelpers(hostBus, jsx = "Tb") {
       !current.includes("MTKtinrelayOutgoingAnchorRecord(t?.anchor)")) {
     throw new Error("Tinrelay acknowledged renderer helper construction failed");
   }
-  return jsxDialect(upgradeOutgoingPresentation(current), jsx);
+  const upgraded = jsxDialect(upgradeOutgoingPresentation(current), jsx);
+  const insertion = upgraded.indexOf("function MTKtinrelayOutgoingExec(");
+  if (insertion < 0) throw new Error("Tinrelay live-anchor renderer helper construction failed");
+  return upgraded.slice(0, insertion) + liveAnchorResultSubscription(hostBus) + upgraded.slice(insertion);
+}
+
+function liveAnchorResultSubscription(hostBus) {
+  return `${hostBus}.subscribe("mtk-tinrelay-outgoing-result",e=>{let t=MTKtinrelayOutgoingAnchorRecord(e?.anchor);t!=null&&MTKtinrelayOutgoingAnchorRemember(t)});`;
 }
 
 function upgradeOutgoingPresentation(value) {
@@ -647,14 +654,14 @@ function patchAssistantPresentations(value, turnValue, profile) {
     );
     const receipt = uniqueMatch(
       turnValue,
-      /(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),/g,
-      "turn renderer receipt call"
+      /(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<prelude>[$A-Z_a-z][$\w]*),(?<body>[$A-Z_a-z][$\w]*),/g,
+      "turn renderer receipt and body"
     );
     turnValue = replaceOnce(
       turnValue,
       receipt[0],
-      `${receipt.groups.call},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId}}),`,
-      "Tinrelay outgoing presentation after task receipts"
+      `${receipt.groups.call},${receipt.groups.prelude},${receipt.groups.body},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId}}),`,
+      "Tinrelay outgoing presentation after the stock turn body"
     );
     return {rendererSource: value, turnSource: turnValue};
   }
@@ -665,15 +672,15 @@ function patchAssistantPresentations(value, turnValue, profile) {
   if (start < 0) throw new Error("Upstream changed: assistant renderer owner is missing");
   const owner = functionAt(value, start);
   const context = sourceContextProfile(value, start);
-  const existing = [...owner.text.matchAll(/(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),/g)];
+  const existing = [...owner.text.matchAll(/(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<body>[$A-Z_a-z][$\w]*),/g)];
   if (existing.length === 1) {
     const match = existing[0];
-    value = replaceOnce(value, match[0], `${match.groups.call},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId}}),`, "Tinrelay assistant turn presentation after task receipts");
+    value = replaceOnce(value, match[0], `${match.groups.call},${match.groups.body},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId}}),`, "Tinrelay assistant turn presentation after the stock turn body");
     return {rendererSource: value, turnSource: turnValue};
   }
   if (existing.length > 1) throw new Error("Upstream changed: assistant task receipt seam is not unique");
   const children = uniqueMatch(owner.text, /children:\[(?<first>[$A-Z_a-z][$\w]*),/g, "assistant message children");
-  value = replaceOnce(value, children[0], `children:[(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId}}),${children.groups.first},`, "Tinrelay assistant turn presentation");
+  value = replaceOnce(value, children[0], `children:[${children.groups.first},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId}}),`, "Tinrelay assistant turn presentation after the stock turn body");
   return {rendererSource: value, turnSource: turnValue};
 }
 

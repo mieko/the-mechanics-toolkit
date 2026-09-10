@@ -32,8 +32,9 @@ assert.ok(rendererStart >= 0 && rendererEnd > rendererStart, "outgoing renderer 
 const helper = rendererSource.slice(rendererStart, rendererEnd);
 const jsxName = uniqueMatch(helper, /\(0,(?<jsx>[$A-Z_a-z][$\w]*)\.jsx\)\("div",\{"data-mtk-tinrelay-outgoing-turn":!0/g,
   "outgoing renderer JSX runtime").groups.jsx;
-const busName = uniqueMatch(helper, /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g,
-  "outgoing renderer host bus").groups.bus;
+const busName = unique([...new Set([...helper.matchAll(
+  /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g
+)].map(match => match.groups.bus))], "outgoing renderer host bus");
 const jsx = {
   jsx(type, props) { return {type, props}; },
   jsxs(type, props) { return {type, props}; }
@@ -86,6 +87,40 @@ const rendererApiFactory = () => Function(
     bus
   );
 const rendererApi = rendererApiFactory();
+
+const liveAnchorListeners = [...(subscriptions.get("mtk-tinrelay-outgoing-result") ?? [])];
+assert.equal(liveAnchorListeners.length, 1,
+  "a module-lived listener reconciles durable anchors after their source exec unmounts");
+const detachedTransmissionId = "10101010-1010-4010-8010-101010101010";
+const detachedEvent = {
+  contract: "tinrelay-outgoing-observer-v1",
+  kind: "transmission",
+  transmission_id: detachedTransmissionId,
+  sender_ship: localShip,
+  recipient_ship: "friendly-ship",
+  attention_label: "aster",
+  author_label: "mechanic",
+  body: "The source command has already left the activity tree."
+};
+liveAnchorListeners[0]({
+  type: "mtk-tinrelay-outgoing-result",
+  requestId: "detached-source-exec",
+  ok: true,
+  event: detachedEvent,
+  anchor: {
+    contract: "tinrelay-outgoing-anchor-v1",
+    sourceThreadId: "detached-source-task",
+    sourceTurnId: "detached-source-turn",
+    transmissionId: detachedTransmissionId,
+    recordedAtMs: Date.now(),
+    event: detachedEvent
+  }
+});
+const detachedTurn = renderWithHooks("detached-turn", rendererApi.turn,
+  {conversationId: "detached-source-task", turnId: "detached-source-turn"});
+assert.equal(detachedTurn.props.children[0].props.event, detachedEvent,
+  "the turn receives a persisted outgoing card even when its request-scoped listener is gone");
+dispatches.length = 0;
 
 const transmissionId = "11111111-1111-4111-8111-111111111111";
 const acceptance = {
