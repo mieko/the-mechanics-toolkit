@@ -173,7 +173,7 @@ function readConfig(file) {
   if (config == null || typeof config !== "object" || Array.isArray(config)) {
     throw new Error("Toolkit config must be a JSON object");
   }
-  const allowed = new Set(["enabledPatches", "signingIdentity", "workspaceRoot", "tinrelay"]);
+  const allowed = new Set(["codexBinary", "enabledPatches", "signingIdentity", "workspaceRoot", "tinrelay"]);
   const unknown = Object.keys(config).filter(key => !allowed.has(key));
   if (unknown.length > 0) throw new Error(`Unknown toolkit config keys: ${unknown.join(", ")}`);
   return config;
