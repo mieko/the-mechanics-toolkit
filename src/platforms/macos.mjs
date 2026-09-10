@@ -1,7 +1,9 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { inspectAppBundle } from "../app-bundle.mjs";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const toolkitIcon = path.resolve(directory, "../../assets/TheMechanicsToolkit.icns");
@@ -28,17 +30,17 @@ export function defaultTerminal() {
 export function confirmApplicationRestart({processRunner = spawnSync, iconFile = toolkitIcon} = {}) {
   const script = String.raw`
 on run arguments
-  set dialogMessage to "Codex restart is armed. Wait for the agent to finish its current response, then click Relaunch Codex. Codex may next warn that schedules will not run while it is closed; answer that native prompt too. If you are not ready, click Cancel and the running application will remain open."
+  set dialogMessage to "Codex restart is armed." & return & return & "Wait for all active agents to reach a safe stopping point, then click Relaunch Codex."
 try
   if (count of arguments) > 0 then
     set iconFile to POSIX file (item 1 of arguments) as alias
-    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Cancel", "Relaunch Codex"} default button "Relaunch Codex" cancel button "Cancel" with icon iconFile
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Don't Restart", "Relaunch Codex"} default button "Relaunch Codex" cancel button "Don't Restart" with icon iconFile
   else
-    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Cancel", "Relaunch Codex"} default button "Relaunch Codex" cancel button "Cancel" with icon note
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Don't Restart", "Relaunch Codex"} default button "Relaunch Codex" cancel button "Don't Restart" with icon note
   end if
   return button returned of answer
 on error number -128
-  return "Cancel"
+  return "Don't Restart"
 end try
 end run`;
   const arguments_ = fs.existsSync(iconFile) ? ["-", iconFile] : ["-"];
@@ -52,8 +54,39 @@ end run`;
   }
   const choice = result.stdout.trim();
   if (choice === "Relaunch Codex") return true;
-  if (choice === "Cancel") return false;
+  if (choice === "Don't Restart") return false;
   throw new Error(`macOS restart confirmation returned an unknown choice: ${choice || "<empty>"}`);
+}
+
+export function confirmRepairFallback({processRunner = spawnSync, iconFile = toolkitIcon} = {}) {
+  const script = String.raw`
+on run arguments
+  set dialogMessage to "Codex could not be repaired after three attempts." & return & return & "Restore the last known-working version, or open a terminal line to continue troubleshooting with the agent."
+try
+  if (count of arguments) > 0 then
+    set iconFile to POSIX file (item 1 of arguments) as alias
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Open Terminal Line with Agent", "Restore Known-Working"} default button "Restore Known-Working" cancel button "Open Terminal Line with Agent" with icon iconFile
+  else
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Open Terminal Line with Agent", "Restore Known-Working"} default button "Restore Known-Working" cancel button "Open Terminal Line with Agent" with icon stop
+  end if
+  return button returned of answer
+on error number -128
+  return "Open Terminal Line with Agent"
+end try
+end run`;
+  const arguments_ = fs.existsSync(iconFile) ? ["-", iconFile] : ["-"];
+  const result = processRunner("/usr/bin/osascript", arguments_, {
+    encoding: "utf8",
+    input: script
+  });
+  if (result.error != null) throw result.error;
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout).trim() || "macOS repair fallback confirmation failed");
+  }
+  const choice = result.stdout.trim();
+  if (choice === "Restore Known-Working") return "restore";
+  if (choice === "Open Terminal Line with Agent") return "interactive";
+  throw new Error(`macOS repair fallback returned an unknown choice: ${choice || "<empty>"}`);
 }
 
 export function diagnosticLocations(home) {
@@ -240,6 +273,91 @@ return "closed"
   child.once("error", () => {});
   child.unref();
   return {scheduled: true, tty: targetTty};
+}
+
+export function replaceApplicationWithVerifiedSource({
+  targetApp,
+  source: verifiedSource,
+  processRunner = spawnSync,
+  appInspector = inspectAppBundle,
+  token = crypto.randomUUID()
+}) {
+  const target = path.resolve(targetApp);
+  if (typeof verifiedSource?.app !== "string" || verifiedSource.app.trim() === "") {
+    throw new Error("verified source application path is required");
+  }
+  const source = path.resolve(verifiedSource.app);
+  if (source === target || containsPath(source, target) || containsPath(target, source)) {
+    throw new Error("known-good and live application paths must be separate");
+  }
+  const sourceInspection = appInspector(source);
+  requireVerifiedSourceMatch(sourceInspection, verifiedSource, "verified source");
+
+  const staging = `${target}.tmtk-restore-${token}`;
+  const displaced = `${target}.tmtk-failed-${token}`;
+  if (fs.existsSync(staging) || fs.existsSync(displaced)) {
+    throw new Error("known-good restore workspace already exists");
+  }
+
+  let targetDisplaced = false;
+  let replacementInstalled = false;
+  try {
+    const copied = processRunner("/usr/bin/ditto", [source, staging], {encoding: "utf8"});
+    if (copied.error != null) throw copied.error;
+    if (copied.status !== 0) {
+      throw new Error((copied.stderr || copied.stdout).trim() || "could not copy known-good application");
+    }
+    requireVerifiedSourceMatch(appInspector(staging), verifiedSource, "copied application");
+    if (fs.existsSync(target)) {
+      fs.renameSync(target, displaced);
+      targetDisplaced = true;
+    }
+    fs.renameSync(staging, target);
+    replacementInstalled = true;
+    requireVerifiedSourceMatch(appInspector(target), verifiedSource, "installed application");
+    if (targetDisplaced) fs.rmSync(displaced, {recursive: true, force: true});
+    return {
+      app: target,
+      version: verifiedSource.version,
+      build: verifiedSource.build,
+      archiveSha256: verifiedSource.archiveSha256
+    };
+  } catch (error) {
+    try {
+      if (targetDisplaced) {
+        if (fs.existsSync(target)) fs.renameSync(target, staging);
+        fs.renameSync(displaced, target);
+      } else if (replacementInstalled && fs.existsSync(target)) {
+        fs.rmSync(target, {recursive: true, force: true});
+      }
+    } catch (rollbackError) {
+      throw new Error(`${error.message}; restoring the failed application also failed (${rollbackError.message})`);
+    } finally {
+      if (fs.existsSync(staging)) fs.rmSync(staging, {recursive: true, force: true});
+    }
+    throw error;
+  }
+}
+
+function requireVerifiedSourceMatch(inspection, expected, label) {
+  if (inspection.signature?.state !== "valid" || inspection.asarIntegrity?.state !== "valid") {
+    throw new Error(`${label} failed signature or ASAR-integrity verification`);
+  }
+  const actual = {
+    version: inspection.version,
+    build: inspection.build,
+    archiveSha256: inspection.archive?.sha256
+  };
+  for (const key of Object.keys(actual)) {
+    if (typeof expected?.[key] !== "string" || actual[key] !== expected[key]) {
+      throw new Error(`${label} no longer matches the app verified when the restart was armed`);
+    }
+  }
+}
+
+function containsPath(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
 function shellQuote(value) {

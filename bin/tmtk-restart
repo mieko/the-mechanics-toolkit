@@ -4,13 +4,19 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const {application, prompt} = parseArguments(process.argv.slice(2));
+const {application, candidate, prompt} = parseArguments(process.argv.slice(2));
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const supervisor = path.join(directory, "safe-start-supervisor.mjs");
 const rescueFile = path.join(os.homedir(), ".codex", "RESCUE-AGENT.json");
-const supervisorArguments = [supervisor, "launch", application, rescueFile];
-if (prompt != null) supervisorArguments.push(prompt);
+const supervisorArguments = [
+  supervisor,
+  "launch",
+  application,
+  rescueFile,
+  prompt ?? "",
+  candidate ?? ""
+];
 const result = spawnSync(process.execPath, supervisorArguments, {
   stdio: "inherit",
   env: process.env
@@ -25,6 +31,7 @@ function fail(message, code) {
 
 function parseArguments(values) {
   const positional = [];
+  let candidate = null;
   let prompt = null;
   let options = true;
   for (let index = 0; index < values.length; index += 1) {
@@ -35,6 +42,10 @@ function parseArguments(values) {
       if (prompt != null || index + 1 >= values.length) usage();
       prompt = values[index += 1];
       if (prompt.trim() === "") usage();
+    } else if (options && value === "--candidate") {
+      if (candidate != null || index + 1 >= values.length) usage();
+      candidate = values[index += 1];
+      if (candidate.trim() === "") usage();
     } else if (options && value.startsWith("-")) {
       usage();
     } else {
@@ -42,9 +53,9 @@ function parseArguments(values) {
     }
   }
   if (positional.length !== 1) usage();
-  return {application: positional[0], prompt};
+  return {application: positional[0], candidate, prompt};
 }
 
 function usage() {
-  fail("usage: tmtk-restart [--prompt TEXT] [--] /Applications/ChatGPT.app", 2);
+  fail("usage: tmtk-restart [--candidate STAGED_APP] [--prompt TEXT] [--] /Applications/ChatGPT.app", 2);
 }

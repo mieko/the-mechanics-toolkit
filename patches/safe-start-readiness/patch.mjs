@@ -36,14 +36,20 @@ function inspectState(mainValue, rendererValue) {
 }
 
 function verifyStockContracts(mainValue, rendererValue) {
+  const rendererReady = [
+    "H.dispatchMessage(`ready`,{persistedStateResponsePriority:G7?`critical`:void 0})",
+    "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})"
+  ];
   const contracts = [
     [mainValue, "Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"],
     [mainValue, "requestDevRelaunch:P=Aie}=e"],
-    [mainValue, "if(!N(t))return;"],
-    [rendererValue, "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})"]
+    [mainValue, "if(!N(t))return;"]
   ];
   for (const [value, contract] of contracts) {
     if (count(value, contract) !== 1) throw new Error(`Upstream changed: safe-start contract is not unique: ${contract}`);
+  }
+  if (!rendererReady.some(contract => count(rendererValue, contract) === 1)) {
+    throw new Error("Upstream changed: safe-start renderer readiness contract is not recognized");
   }
 }
 

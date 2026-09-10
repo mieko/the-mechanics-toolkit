@@ -22,6 +22,14 @@ export function confirmApplicationRestart({
   return implementation(platform).confirmApplicationRestart({processRunner, iconFile});
 }
 
+export function confirmRepairFallback({
+  platform = process.platform,
+  processRunner = undefined,
+  iconFile = undefined
+} = {}) {
+  return implementation(platform).confirmRepairFallback({processRunner, iconFile});
+}
+
 export function diagnosticLocations(home, platform = process.platform) {
   return implementation(platform).diagnosticLocations(home);
 }
@@ -73,6 +81,24 @@ export function closeOwnedRescueTerminal({
     environment,
     processRunner,
     processLauncher
+  });
+}
+
+export function replaceApplicationWithVerifiedSource({
+  targetApp,
+  source,
+  processRunner = undefined,
+  appInspector = undefined,
+  token = undefined
+}, {
+  platform = process.platform
+} = {}) {
+  return implementation(platform).replaceApplicationWithVerifiedSource({
+    targetApp,
+    source,
+    processRunner,
+    appInspector,
+    token
   });
 }
 

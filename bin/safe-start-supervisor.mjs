@@ -10,14 +10,22 @@ import {
   confirmApplicationRestart,
   launchApplication,
   openRescueTerminal,
+  replaceApplicationWithVerifiedSource,
   requestApplicationQuit,
   runningApplicationPids
 } from "../src/restart-platform.mjs";
-import { loadRescueFile, rescueConfiguration, rescuePrompt, waitForReadiness } from "../src/safe-start.mjs";
+import {
+  loadRescueFile,
+  pruneSupersededKnownGoodApps,
+  rescueConfiguration,
+  rescuePrompt,
+  verifiedApplicationSource,
+  waitForReadiness
+} from "../src/safe-start.mjs";
 
-const [mode, argument, auxiliaryArgument, promptArgument] = process.argv.slice(2);
+const [mode, argument, auxiliaryArgument, promptArgument, candidateArgument] = process.argv.slice(2);
 if (mode === "launch") {
-  launch(argument, auxiliaryArgument, promptArgument);
+  launch(argument, auxiliaryArgument, promptArgument, candidateArgument);
 } else if (mode === "supervise") {
   process.exitCode = await supervise(argument, {
     confirmRestart: true,
@@ -30,10 +38,10 @@ if (mode === "launch") {
     rescuePid: requiredPid(auxiliaryArgument)
   }) ? 0 : 1;
 } else {
-  fail("usage: safe-start-supervisor.mjs launch APPLICATION_ROOT RESCUE_JSON [PROMPT] | supervise STATE_FILE | retry STATE_FILE RESCUE_PID", 2);
+  fail("usage: safe-start-supervisor.mjs launch APPLICATION_ROOT RESCUE_JSON [PROMPT] [CANDIDATE] | supervise STATE_FILE | retry STATE_FILE RESCUE_PID", 2);
 }
 
-function launch(applicationRoot, rescueFilePath, invocationPrompt) {
+function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath) {
   const userHome = os.homedir();
   let configuration;
   try {
@@ -52,6 +60,25 @@ function launch(applicationRoot, rescueFilePath, invocationPrompt) {
   const token = `${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}`;
   const incidentDirectory = path.join(rescueRoot, token);
   fs.mkdirSync(incidentDirectory, {mode: 0o700});
+  try {
+    if (typeof candidatePath === "string" && candidatePath.trim() !== "") {
+      const candidate = verifiedApplicationSource(candidatePath, configuration.app, {
+        platform: configuration.platform
+      });
+      const backupApp = path.join(incidentDirectory, "known-good.app");
+      const current = verifiedApplicationSource(configuration.app, backupApp, {
+        platform: configuration.platform
+      });
+      const knownGood = replaceApplicationWithVerifiedSource({
+        targetApp: backupApp,
+        source: current
+      }, {platform: configuration.platform});
+      configuration = {...configuration, candidate, knownGood};
+    }
+  } catch (error) {
+    fs.rmSync(incidentDirectory, {recursive: true, force: true});
+    fail(`tmtk-restart: could not prepare candidate adoption: ${error.message}`, 2);
+  }
   const stateFile = path.join(incidentDirectory, "state.json");
   const latestFile = path.join(rescueRoot, "latest.json");
   const state = {
@@ -119,6 +146,7 @@ async function supervise(stateFile, {
       try {
         confirmed = confirmApplicationRestart({platform: configuration.platform});
       } catch (error) {
+        discardUnusedKnownGood(configuration, state);
         process.stderr.write(`TMTK restart confirmation failed: ${error.message}\n`);
         save({
           phase: "restart-confirmation-failed",
@@ -128,21 +156,54 @@ async function supervise(stateFile, {
         return false;
       }
       if (!confirmed) {
+        discardUnusedKnownGood(configuration, state);
         save({phase: "cancelled", cancelledAt: new Date().toISOString()});
         return true;
       }
     }
+    if (configuration.candidate != null && state.candidateInstalled !== true &&
+        state.candidateAdoptionDisabled !== true) {
+      try {
+        const removed = pruneSupersededKnownGoodApps(
+          path.dirname(state.incidentDirectory),
+          state.incidentDirectory
+        );
+        save({supersededKnownGoodAppsRemoved: removed});
+      } catch (error) {
+        discardUnusedKnownGood(configuration, state);
+        const failure = `could not prune superseded known-working applications: ${error.message}`;
+        process.stderr.write(`TMTK restart stopped: ${failure}.\n`);
+        save({phase: "rollback-retention-failed", failedAt: new Date().toISOString(), failure});
+        return false;
+      }
+    }
     save({phase: "quitting-existing-app"});
     if (!requestApplicationQuit(configuration.executable)) {
+      discardUnusedKnownGood(configuration, state);
       save({phase: "cancelled", cancelledAt: new Date().toISOString(), cancellation: "codex-quit-dialog"});
       return true;
     }
     const stopped = await waitUntil(() => !runningApplicationPids(configuration.executable).length, 30_000);
     if (!stopped) {
+      discardUnusedKnownGood(configuration, state);
       const failure = "existing Codex process did not quit after its shutdown dialog completed";
       process.stderr.write(`TMTK restart stopped: ${failure}.\n`);
       save({phase: "quit-not-completed", failedAt: new Date().toISOString(), failure});
       return false;
+    }
+
+    if (configuration.candidate != null && state.candidateInstalled !== true &&
+        state.candidateAdoptionDisabled !== true) {
+      save({phase: "installing-candidate"});
+      const installed = replaceApplicationWithVerifiedSource({
+        targetApp: configuration.app,
+        source: configuration.candidate
+      }, {platform: configuration.platform});
+      save({
+        phase: "candidate-installed",
+        candidateInstalled: true,
+        installedCandidate: installed
+      });
     }
 
     try { fs.rmSync(state.marker, {force: true}); } catch {}
@@ -154,10 +215,14 @@ async function supervise(stateFile, {
       platform: configuration.platform
     });
     save({phase: "waiting-for-renderer", pid: child.pid, launchedAt: new Date().toISOString()});
+    const restoredFallback = state.knownGoodRestoreAttempted === true &&
+      state.candidateAdoptionDisabled === true;
     const result = await waitForReadiness({
       child,
       marker: state.marker,
-      timeoutMs: configuration.timeoutSeconds * 1_000
+      timeoutMs: restoredFallback
+        ? Math.min(configuration.timeoutSeconds, 10) * 1_000
+        : configuration.timeoutSeconds * 1_000
     });
     if (result.kind === "ready") {
       // `open -W` is only our LaunchServices-aware lifetime proxy. Once the
@@ -171,6 +236,18 @@ async function supervise(stateFile, {
     }
     if (result.kind === "launch-failed") {
       return rescue(`Codex could not be launched (${result.error.message})`, state, save, {openTerminal: openTerminalOnFailure});
+    }
+    if (restoredFallback) {
+      // The app captured before adoption may predate TMTK's renderer marker.
+      // It was already running successfully when captured, so after a clean
+      // restore an alive LaunchServices child is the honest fallback boundary.
+      child.kill();
+      save({
+        phase: "known-good-restored-running",
+        knownGoodRunningAt: new Date().toISOString(),
+        rendererReadinessObserved: false
+      });
+      return true;
     }
     let timeoutReason = `Codex remained alive without renderer readiness for ${configuration.timeoutSeconds} seconds`;
     try {
@@ -191,6 +268,15 @@ async function supervise(stateFile, {
   } catch (error) {
     return rescue(`safe-start supervisor failed: ${error.message}`, state, save, {openTerminal: openTerminalOnFailure});
   }
+}
+
+function discardUnusedKnownGood(configuration, state) {
+  if (state.candidateInstalled === true || typeof configuration.knownGood?.app !== "string") return;
+  const backup = path.resolve(configuration.knownGood.app);
+  const incident = path.resolve(state.incidentDirectory);
+  const relative = path.relative(incident, backup);
+  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return;
+  fs.rmSync(backup, {recursive: true, force: true});
 }
 
 function rescue(reason, currentState, save, {openTerminal}) {

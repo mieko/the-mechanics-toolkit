@@ -11,10 +11,12 @@ import {
   applicationLayout,
   closeOwnedRescueTerminal,
   confirmApplicationRestart,
+  confirmRepairFallback,
   defaultTerminal,
   diagnosticLocations,
   launchApplication,
   openRescueTerminal,
+  replaceApplicationWithVerifiedSource,
   requestApplicationQuit,
   rescueStopHookOverride,
   resolveApplication,
@@ -28,6 +30,7 @@ import {
   launchStatus,
   loadRescueFile,
   lookupThread,
+  pruneSupersededKnownGoodApps,
   recordRescueStopReceipt,
   resumeModelArguments,
   waitForApplicationQuiescence,
@@ -35,6 +38,7 @@ import {
   waitForRepairTurnCompletion,
   rescuePrompt,
   rescueConfiguration,
+  verifiedApplicationSource,
   waitForReadiness
 } from "../src/safe-start.mjs";
 
@@ -60,7 +64,9 @@ try {
   assert.equal(dialogCalls[0].command, "/usr/bin/osascript");
   assert.equal(dialogCalls[0].arguments_[0], "-");
   assert.equal(path.basename(dialogCalls[0].arguments_[1]), "TheMechanicsToolkit.icns");
-  assert.match(dialogCalls[0].options.input, /buttons \{"Cancel", "Relaunch Codex"\}/);
+  assert.match(dialogCalls[0].options.input, /Codex restart is armed\." & return & return & "Wait for all active agents/);
+  assert.doesNotMatch(dialogCalls[0].options.input, /schedules will not run/);
+  assert.match(dialogCalls[0].options.input, /buttons \{"Don't Restart", "Relaunch Codex"\}/);
   assert.match(dialogCalls[0].options.input, /with icon iconFile/);
   const fallbackDialogCalls = [];
   assert.equal(confirmApplicationRestart({
@@ -68,14 +74,25 @@ try {
     iconFile: path.join(scratch, "missing.icns"),
     processRunner(command, arguments_, options) {
       fallbackDialogCalls.push({command, arguments_, options});
-      return {status: 0, stdout: "Cancel\n", stderr: "", error: null};
+      return {status: 0, stdout: "Don't Restart\n", stderr: "", error: null};
     }
   }), false);
   assert.deepEqual(fallbackDialogCalls[0].arguments_, ["-"]);
   assert.match(fallbackDialogCalls[0].options.input, /with icon note/);
   assert.equal(confirmApplicationRestart({platform: "darwin", processRunner() {
-    return {status: 0, stdout: "Cancel\n", stderr: "", error: null};
+    return {status: 0, stdout: "Don't Restart\n", stderr: "", error: null};
   }}), false);
+  const fallbackChoiceCalls = [];
+  assert.equal(confirmRepairFallback({platform: "darwin", processRunner(command, arguments_, options) {
+    fallbackChoiceCalls.push({command, arguments_, options});
+    return {status: 0, stdout: "Restore Known-Working\n", stderr: "", error: null};
+  }}), "restore");
+  assert.match(fallbackChoiceCalls[0].options.input, /Codex could not be repaired after three attempts/);
+  assert.match(fallbackChoiceCalls[0].options.input,
+    /buttons \{"Open Terminal Line with Agent", "Restore Known-Working"\}/);
+  assert.equal(confirmRepairFallback({platform: "darwin", processRunner() {
+    return {status: 0, stdout: "Open Terminal Line with Agent\n", stderr: "", error: null};
+  }}), "interactive");
   assert.throws(() => confirmApplicationRestart({platform: "darwin", processRunner() {
     return {status: 1, stdout: "", stderr: "dialog failed", error: null};
   }}), /dialog failed/);
@@ -132,6 +149,28 @@ try {
   });
   assert.equal(prompted.prompt, "CLI prompt", "--prompt outranks the fallback JSON prompt");
 
+  const verifiedSource = verifiedApplicationSource(app, path.join(scratch, "elsewhere/ChatGPT.app"), {
+    platform: "darwin",
+    appInspector: inspectedApp => ({
+      app: inspectedApp,
+      version: "26.903.71938",
+      build: "8576",
+      archive: {sha256: "a".repeat(64)},
+      asarIntegrity: {state: "valid"},
+      signature: {state: "valid"}
+    })
+  });
+  assert.deepEqual(verifiedSource, {
+    app,
+    version: "26.903.71938",
+    build: "8576",
+    archiveSha256: "a".repeat(64)
+  });
+  assert.throws(() => verifiedApplicationSource(app, app, {platform: "darwin"}), /must be separate/);
+  assert.throws(() => verifiedApplicationSource(app, path.join(app, "nested/ChatGPT.app"), {
+    platform: "darwin"
+  }), /must be separate/);
+
   const fallback = rescueConfiguration({}, app, {
     threadLookup: () => null,
     rescueFile: {taskId, cwd: fallbackCwd, model, reasoningEffort},
@@ -180,6 +219,99 @@ try {
   ]);
   assert.deepEqual(launchCalls[0].options, {detached: true, stdio: "ignore"});
   assert.equal(launchChild.unrefCalled, true);
+  const knownGoodApp = path.join(scratch, "hidden/known-good.app");
+  const replacementTarget = path.join(scratch, "Applications/Replacement.app");
+  fs.mkdirSync(knownGoodApp, {recursive: true});
+  fs.mkdirSync(replacementTarget, {recursive: true});
+  fs.writeFileSync(path.join(knownGoodApp, "payload"), "known-good");
+  fs.writeFileSync(path.join(replacementTarget, "payload"), "failed");
+  const sourceReceipt = {
+    app: knownGoodApp,
+    version: "26.903.61454",
+    build: "8378",
+    archiveSha256: "b".repeat(64)
+  };
+  const fakeInspector = inspectedApp => ({
+    app: inspectedApp,
+    version: sourceReceipt.version,
+    build: sourceReceipt.build,
+    archive: {sha256: sourceReceipt.archiveSha256},
+    asarIntegrity: {state: "valid"},
+    signature: {state: "valid"}
+  });
+  const restored = replaceApplicationWithVerifiedSource({
+    targetApp: replacementTarget,
+    source: sourceReceipt,
+    token: "successful-copy",
+    appInspector: fakeInspector,
+    processRunner(command, arguments_) {
+      assert.equal(command, "/usr/bin/ditto");
+      fs.cpSync(arguments_[0], arguments_[1], {recursive: true});
+      return {status: 0, stdout: "", stderr: "", error: null};
+    }
+  }, {platform: "darwin"});
+  assert.equal(fs.readFileSync(path.join(replacementTarget, "payload"), "utf8"), "known-good");
+  assert.equal(fs.readFileSync(path.join(knownGoodApp, "payload"), "utf8"), "known-good",
+    "replacement preserves its verified source");
+  assert.equal(restored.archiveSha256, sourceReceipt.archiveSha256);
+
+  const retentionRoot = path.join(scratch, "retention");
+  const retainedIncident = path.join(retentionRoot, "current");
+  const oldIncidentA = path.join(retentionRoot, "old-a");
+  const oldIncidentB = path.join(retentionRoot, "old-b");
+  for (const incident of [retainedIncident, oldIncidentA, oldIncidentB]) {
+    fs.mkdirSync(path.join(incident, "known-good.app"), {recursive: true});
+    fs.writeFileSync(path.join(incident, "known-good.app/payload"), path.basename(incident));
+    fs.writeFileSync(path.join(incident, "state.json"), "{}\n");
+  }
+  fs.writeFileSync(path.join(oldIncidentB, "not-an-app"), "preserve");
+  assert.deepEqual(pruneSupersededKnownGoodApps(retentionRoot, retainedIncident), [
+    path.join(oldIncidentA, "known-good.app"),
+    path.join(oldIncidentB, "known-good.app")
+  ]);
+  assert.equal(fs.existsSync(path.join(retainedIncident, "known-good.app/payload")), true,
+    "the newest known-working rollback remains available");
+  assert.equal(fs.existsSync(path.join(oldIncidentA, "known-good.app")), false,
+    "an older full application rollback is removed");
+  assert.equal(fs.existsSync(path.join(oldIncidentA, "state.json")), true,
+    "old incident metadata remains available");
+  assert.equal(fs.readFileSync(path.join(oldIncidentB, "not-an-app"), "utf8"), "preserve",
+    "retention removes only the exact toolkit-owned application payload");
+  assert.throws(() => pruneSupersededKnownGoodApps(retentionRoot, scratch),
+    /immediate child of the rescue root/);
+
+  const rollbackTarget = path.join(scratch, "Applications/Rollback.app");
+  fs.mkdirSync(rollbackTarget);
+  fs.writeFileSync(path.join(rollbackTarget, "payload"), "original");
+  assert.throws(() => replaceApplicationWithVerifiedSource({
+    targetApp: rollbackTarget,
+    source: sourceReceipt,
+    token: "failed-final-inspection",
+    appInspector: inspectedApp => inspectedApp === rollbackTarget
+      ? {...fakeInspector(inspectedApp), signature: {state: "invalid"}}
+      : fakeInspector(inspectedApp),
+    processRunner(command, arguments_) {
+      fs.cpSync(arguments_[0], arguments_[1], {recursive: true});
+      return {status: 0, stdout: "", stderr: "", error: null};
+    }
+  }, {platform: "darwin"}), /failed signature or ASAR-integrity verification/);
+  assert.equal(fs.readFileSync(path.join(rollbackTarget, "payload"), "utf8"), "original",
+    "a failed final verification restores the displaced application");
+  const failedNewTarget = path.join(scratch, "hidden/failed-new.app");
+  assert.throws(() => replaceApplicationWithVerifiedSource({
+    targetApp: failedNewTarget,
+    source: sourceReceipt,
+    token: "failed-new-target-inspection",
+    appInspector: inspectedApp => inspectedApp === failedNewTarget
+      ? {...fakeInspector(inspectedApp), asarIntegrity: {state: "invalid"}}
+      : fakeInspector(inspectedApp),
+    processRunner(command, arguments_) {
+      fs.cpSync(arguments_[0], arguments_[1], {recursive: true});
+      return {status: 0, stdout: "", stderr: "", error: null};
+    }
+  }, {platform: "darwin"}), /failed signature or ASAR-integrity verification/);
+  assert.equal(fs.existsSync(failedNewTarget), false,
+    "a failed first installation leaves no unverified destination behind");
   const hookOverride = rescueStopHookOverride({
     nodeExecutable: "/path/with ' quote/node",
     hookScript: "/toolkit/rescue-turn-stop.mjs",
@@ -398,6 +530,10 @@ try {
   fs.writeFileSync(marker, "123\n");
   assert.equal(launchStatus({phase: "ready", marker}).launched, true);
   assert.equal(launchStatus({phase: "waiting-for-renderer", marker}).launched, false);
+  const restoredStatus = launchStatus({phase: "known-good-restored-running", marker: "/missing"});
+  assert.equal(restoredStatus.launched, true);
+  assert.equal(restoredStatus.rendererReady, false);
+  assert.equal(restoredStatus.restoredKnownGood, true);
   assert.equal(launchStatus(null).launched, false);
 
   assert.throws(() => runningApplicationPids("/some/Codex", {platform: "linux"}),
@@ -576,7 +712,7 @@ try {
   });
   assert.equal(exhausted.status, 0, exhausted.stderr || exhausted.stdout);
   assert.match(exhausted.stdout, /All non-interactive attempts failed\./);
-  assert.match(exhausted.stdout, /Interactive escape line starting now\./);
+  assert.match(exhausted.stdout, /Opening a terminal line with the agent\./);
   const failedInvocations = fs.readFileSync(failedResult, "utf8").trim().split("\n").map(JSON.parse);
   assert.equal(failedInvocations.length, 1, "three used attempts fall back to one interactive resume");
   assert.deepEqual(failedInvocations[0].args.slice(0, 7), [

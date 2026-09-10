@@ -16,6 +16,8 @@ import {
 } from "../src/safe-start.mjs";
 import {
   closeOwnedRescueTerminal,
+  confirmRepairFallback,
+  replaceApplicationWithVerifiedSource,
   rescueStopHookOverride
 } from "../src/restart-platform.mjs";
 
@@ -78,46 +80,57 @@ for (let attempt = firstAttempt; attempt <= maximumAttempts; attempt += 1) {
   }
   await requireCodexStateQuiescence(configuration);
 
-  const closureRequired = process.env.TMTK_RESCUE_TERMINAL_OWNED === "1" &&
-    configuration.terminalApp === "Terminal";
-  const closureMarker = path.join(state.incidentDirectory, `repair-attempt-${attempt}-terminal-closed`);
-  fs.rmSync(closureMarker, {force: true});
-  saveRescueState({
-    phase: "return-handoff-armed",
-    rescueTerminalClosureRequired: closureRequired,
-    rescueTerminalClosureMarker: closureRequired ? closureMarker : null
-  });
-  const handoff = launchReturnSupervisor();
-  if (closureRequired) {
-    const close = closeOwnedRescueTerminal({
-      terminalApp: configuration.terminalApp,
-      applicationOwned: state.rescueTerminalApplicationOwned === true,
-      completionFile: closureMarker,
-      environment: process.env
-    }, {platform: configuration.platform});
-    if (!close.scheduled) {
-      handoff.kill();
-      saveRescueState({
-        phase: "return-handoff-blocked",
-        failedAt: new Date().toISOString(),
-        failure: `could not schedule rescue Terminal closure (${close.reason})`
-      });
-      fail(`TMTK could not close its rescue Terminal (${close.reason}); Desktop remains closed.`, 1);
-    }
-  }
-  banner([
+  returnToDesktop(state, [
     `Repair attempt ${attempt} finished.`,
     "Closing rescue before returning to Desktop…"
   ]);
-  process.exit(0);
 }
 
-const state = rescueState();
+let state = rescueState();
 configuration = state.configuration;
 await requireApplicationQuiescence(configuration);
+if (configuration.knownGood != null && state.knownGoodRestoreAttempted !== true) {
+  let fallback = "interactive";
+  try {
+    fallback = confirmRepairFallback({platform: configuration.platform});
+  } catch (error) {
+    saveRescueState({
+      phase: "repair-fallback-confirmation-failed",
+      repairFallbackConfirmationFailure: error.message
+    });
+    process.stderr.write(`TMTK could not show the recovery choice (${error.message}).\n`);
+  }
+  if (fallback === "restore") {
+    try {
+      saveRescueState({phase: "restoring-known-good", knownGoodRestoreAttempted: true});
+      const restored = replaceApplicationWithVerifiedSource({
+        targetApp: configuration.app,
+        source: configuration.knownGood
+      }, {platform: configuration.platform});
+      state = saveRescueState({
+        phase: "known-good-restored",
+        knownGoodRestoreAttempted: true,
+        candidateInstalled: false,
+        candidateAdoptionDisabled: true,
+        restoredKnownGood: restored
+      });
+      returnToDesktop(state, [
+        "Known-working Codex restored.",
+        "Closing rescue before returning to Desktop…"
+      ]);
+    } catch (error) {
+      state = saveRescueState({
+        phase: "known-good-restore-failed",
+        knownGoodRestoreAttempted: true,
+        knownGoodRestoreFailure: error.message
+      });
+      process.stderr.write(`TMTK could not restore the known-working application (${error.message}).\n`);
+    }
+  }
+}
 banner([
   "All non-interactive attempts failed.",
-  "Interactive escape line starting now."
+  "Opening a terminal line with the agent."
 ]);
 const interactive = spawnSync(configuration.cli, [
   "--dangerously-bypass-approvals-and-sandbox",
@@ -194,6 +207,38 @@ function launchReturnSupervisor() {
   child.once("error", () => {});
   child.unref();
   return child;
+}
+
+function returnToDesktop(state, lines) {
+  const closureRequired = process.env.TMTK_RESCUE_TERMINAL_OWNED === "1" &&
+    configuration.terminalApp === "Terminal";
+  const closureMarker = path.join(state.incidentDirectory, `return-${crypto.randomUUID()}-terminal-closed`);
+  fs.rmSync(closureMarker, {force: true});
+  saveRescueState({
+    phase: "return-handoff-armed",
+    rescueTerminalClosureRequired: closureRequired,
+    rescueTerminalClosureMarker: closureRequired ? closureMarker : null
+  });
+  const handoff = launchReturnSupervisor();
+  if (closureRequired) {
+    const close = closeOwnedRescueTerminal({
+      terminalApp: configuration.terminalApp,
+      applicationOwned: state.rescueTerminalApplicationOwned === true,
+      completionFile: closureMarker,
+      environment: process.env
+    }, {platform: configuration.platform});
+    if (!close.scheduled) {
+      handoff.kill();
+      saveRescueState({
+        phase: "return-handoff-blocked",
+        failedAt: new Date().toISOString(),
+        failure: `could not schedule rescue Terminal closure (${close.reason})`
+      });
+      fail(`TMTK could not close its rescue Terminal (${close.reason}); Desktop remains closed.`, 1);
+    }
+  }
+  banner(lines);
+  process.exit(0);
 }
 
 function banner(lines) {
