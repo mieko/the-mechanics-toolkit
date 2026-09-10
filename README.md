@@ -1,5 +1,9 @@
 # The Mechanic's Toolkit
 
+<p align="center">
+  <img src="assets/the-mechanics-toolkit-icon.svg" width="168" alt="The Mechanic's Toolkit: a precision extraction rig opening a lit path through a dark machine room">
+</p>
+
 **This is a Codex Agent-authored repository containing unofficial patches for Codex Desktop and
 the open-source Codex App Server/Core whose compiled executable it bundles.**
 
@@ -21,11 +25,20 @@ Most user-specific behavior here is configured through private JSON files that h
 valid save. The expected interface is conversational: tell your Codex agent what you want changed,
 and let it inspect and edit the appropriate configuration rather than hand-editing unfamiliar JSON.
 
+The [`qualification/`](qualification/) runbooks are for toolkit maintainers and agents actively
+porting or validating TMTK with explicit authority to replace the installed application. Some of
+those procedures deliberately install a broken Codex build to prove recovery. They are not normal
+installation instructions. If an exact qualified build already exists, an adopting agent should
+consume its evidence, stage the chosen patchset, and run only the ordinary healthy-launch and
+feature checks—not recreate the maintainer's destructive failure fixtures.
+
 ## Contents
 
 - [Two patch layers](#two-patch-layers)
 - [Codex Desktop package patches](#codex-desktop-package-patches)
 - [Codex App Server and Core source patches](#codex-app-server-and-core-source-patches)
+- [Desktop platform compatibility](docs/platform-compatibility.md)
+- [Maintainer qualification](qualification/)
 - [See the patches](#see-the-patches)
   - [Tinrelay presentation](#tinrelay-presentation)
   - [Task visual palette](#task-visual-palette)
@@ -71,9 +84,10 @@ and live acceptance remain separate actions.
 ## Codex Desktop package patches
 
 The desktop package fleet is currently qualified against **Codex Desktop `26.903.61454` (`8378`)**.
-Each patch README owns its exact compatibility evidence and remaining live-acceptance boundary. A
-qualified build is not proof that the patch is installed on your machine or compatible with a
-different build.
+The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
+and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
+evidence. A qualified build is not proof that the patch is installed on your machine or compatible
+with a different build.
 
 | Patch | What changes for the person using Codex |
 | --- | --- |
@@ -201,7 +215,9 @@ observable handoff. A healthy Codex renderer writes a one-use marker. If the exa
 exits first—or stays alive but never becomes ready—the supervisor records bounded local diagnostics
 and opens the invoking Codex task in a terminal. It recovers the task's stored project directory
 from Codex's local catalog rather than trusting `PWD`, and it gives a freshly signed build time to
-wait for a person at a macOS Keychain prompt.
+wait for a person at a macOS Keychain prompt. On macOS, the detached supervisor first blocks behind
+an explicit **Relaunch Codex** / **Cancel** dialog so the invoking agent can finish its response and
+the person—not a race—chooses when the application closes.
 
 ### Native app-tools peer authorization
 
@@ -257,7 +273,8 @@ A useful first prompt is:
 > recommend only the ones that fit how I use Codex. Check for an offered official update first and
 > target the newest available build already qualified by the toolkit, or tell me if the newest build
 > needs a port. Do not modify or restart the application until you have explained compatibility,
-> verification, recovery, and the interruption I should expect.
+> verification, recovery, and the interruption I should expect. Do not reproduce maintainer-only
+> broken-app qualification on my machine merely to install an already-qualified patchset.
 
 Your agent should batch the chosen patches, prove them together in a staged candidate, and aim for
 one replacement and restart.
@@ -278,13 +295,14 @@ of evidence and working machinery.
 Treat every patch as source to inspect and port. First decide whether the repair belongs to the
 desktop package or the open-source Codex App Server/Core; follow both lanes only when a source
 repair must be compiled and packaged into Codex Desktop. Before touching the installed application,
-follow
-the build-selection procedure in [`docs/update-workflow.md`](docs/update-workflow.md): identify any
+read the measured [desktop platform compatibility](docs/platform-compatibility.md) boundary, then
+follow the build-selection procedure in [`docs/update-workflow.md`](docs/update-workflow.md): identify any
 offered official update, compare its exact version and build with current qualification and the
 repository's qualification history, then choose the newest available exact match or explicitly own
 the port to the desired newer build. When the offered update is an exact qualified match, acquire
 its pristine vendor bundle—directly from Codex's official Sparkle feed when useful—and patch it;
-do not patch or port the older installed build.
+do not patch or port the older installed build. Do not run maintainer failure-path qualification
+merely to adopt an already-qualified patchset.
 Start the patch work with
 [`docs/usage.md`](docs/usage.md), the selected patch READMEs, and
 [`docs/staging.md`](docs/staging.md). Inspect the exact installed or offered vendor bundle, run each
