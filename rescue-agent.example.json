@@ -1,7 +1,8 @@
 {
   "taskId": "01900000-0000-7000-8000-000000000001",
   "cwd": "/absolute/project/directory",
-  "title": "Recovery task",
+  "model": "gpt-5.6-sol",
+  "reasoningEffort": "high",
   "terminalApp": "Terminal",
   "readyTimeoutSeconds": 300
 }

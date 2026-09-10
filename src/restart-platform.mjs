@@ -14,20 +14,66 @@ export function defaultTerminal(platform = process.platform) {
   return implementation(platform).defaultTerminal();
 }
 
+export function confirmApplicationRestart({
+  platform = process.platform,
+  processRunner = undefined,
+  iconFile = undefined
+} = {}) {
+  return implementation(platform).confirmApplicationRestart({processRunner, iconFile});
+}
+
 export function diagnosticLocations(home, platform = process.platform) {
   return implementation(platform).diagnosticLocations(home);
 }
 
-export function requestApplicationQuit(executable, {platform = process.platform} = {}) {
-  return implementation(platform).requestApplicationQuit(executable);
+export function launchApplication({
+  app,
+  marker,
+  appLog,
+  platform = process.platform,
+  processLauncher = undefined
+}) {
+  return implementation(platform).launchApplication({app, marker, appLog, processLauncher});
 }
 
-export function runningApplicationPids(executable, {platform = process.platform} = {}) {
-  return implementation(platform).runningApplicationPids(executable);
+export function requestApplicationQuit(executable, {
+  platform = process.platform,
+  processTable = null,
+  processRunner = undefined
+} = {}) {
+  return implementation(platform).requestApplicationQuit(executable, {processTable, processRunner});
 }
 
-export function openRescueTerminal({terminalApp, commandFile}, {platform = process.platform} = {}) {
-  return implementation(platform).openRescueTerminal({terminalApp, commandFile});
+export function runningApplicationPids(executable, {platform = process.platform, processTable = null} = {}) {
+  return implementation(platform).runningApplicationPids(executable, {processTable});
+}
+
+export function openRescueTerminal({terminalApp, commandFile, processRunner = undefined}, {platform = process.platform} = {}) {
+  return implementation(platform).openRescueTerminal({terminalApp, commandFile, processRunner});
+}
+
+export function rescueStopHookOverride(options, {platform = process.platform} = {}) {
+  return implementation(platform).rescueStopHookOverride(options);
+}
+
+export function closeOwnedRescueTerminal({
+  terminalApp,
+  applicationOwned = false,
+  completionFile = null,
+  environment = process.env,
+  processRunner = undefined,
+  processLauncher = undefined
+}, {
+  platform = process.platform
+} = {}) {
+  return implementation(platform).closeOwnedRescueTerminal({
+    terminalApp,
+    applicationOwned,
+    completionFile,
+    environment,
+    processRunner,
+    processLauncher
+  });
 }
 
 function implementation(platform) {

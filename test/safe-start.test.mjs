@@ -9,15 +9,30 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import {
   applicationLayout,
+  closeOwnedRescueTerminal,
+  confirmApplicationRestart,
   defaultTerminal,
   diagnosticLocations,
+  launchApplication,
+  openRescueTerminal,
+  requestApplicationQuit,
+  rescueStopHookOverride,
   resolveApplication,
   runningApplicationPids
 } from "../src/restart-platform.mjs";
 import {
+  automaticRepairPrompt,
+  codexRuntimeDatabaseFiles,
+  explicitResumeEnvironment,
+  interactiveRescuePrompt,
   launchStatus,
   loadRescueFile,
   lookupThread,
+  recordRescueStopReceipt,
+  resumeModelArguments,
+  waitForApplicationQuiescence,
+  waitForCodexStateQuiescence,
+  waitForRepairTurnCompletion,
   rescuePrompt,
   rescueConfiguration,
   waitForReadiness
@@ -35,26 +50,81 @@ try {
   const fallbackCwd = path.join(scratch, "fallback-project");
   fs.mkdirSync(catalogCwd);
   fs.mkdirSync(fallbackCwd);
+
+  const dialogCalls = [];
+  const confirmed = confirmApplicationRestart({platform: "darwin", processRunner(command, arguments_, options) {
+    dialogCalls.push({command, arguments_, options});
+    return {status: 0, stdout: "Relaunch Codex\n", stderr: "", error: null};
+  }});
+  assert.equal(confirmed, true);
+  assert.equal(dialogCalls[0].command, "/usr/bin/osascript");
+  assert.equal(dialogCalls[0].arguments_[0], "-");
+  assert.equal(path.basename(dialogCalls[0].arguments_[1]), "TheMechanicsToolkit.icns");
+  assert.match(dialogCalls[0].options.input, /buttons \{"Cancel", "Relaunch Codex"\}/);
+  assert.match(dialogCalls[0].options.input, /with icon iconFile/);
+  const fallbackDialogCalls = [];
+  assert.equal(confirmApplicationRestart({
+    platform: "darwin",
+    iconFile: path.join(scratch, "missing.icns"),
+    processRunner(command, arguments_, options) {
+      fallbackDialogCalls.push({command, arguments_, options});
+      return {status: 0, stdout: "Cancel\n", stderr: "", error: null};
+    }
+  }), false);
+  assert.deepEqual(fallbackDialogCalls[0].arguments_, ["-"]);
+  assert.match(fallbackDialogCalls[0].options.input, /with icon note/);
+  assert.equal(confirmApplicationRestart({platform: "darwin", processRunner() {
+    return {status: 0, stdout: "Cancel\n", stderr: "", error: null};
+  }}), false);
+  assert.throws(() => confirmApplicationRestart({platform: "darwin", processRunner() {
+    return {status: 1, stdout: "", stderr: "dialog failed", error: null};
+  }}), /dialog failed/);
+  const applicationExecutable = path.join(app, "Contents/MacOS/ChatGPT");
+  const quitCalls = [];
+  assert.equal(requestApplicationQuit(applicationExecutable, {
+    platform: "darwin",
+    processTable: `123 ${applicationExecutable}`,
+    processRunner(command, arguments_, options) {
+      quitCalls.push({command, arguments_, options});
+      return {status: 0, stdout: "", stderr: "", error: null};
+    }
+  }), true);
+  assert.equal(quitCalls[0].command, "/usr/bin/osascript");
+  assert.match(quitCalls[0].arguments_.at(-1), /tell application id "com\.openai\.codex" to quit/);
+  assert.equal("timeout" in quitCalls[0].options, false,
+    "the detached supervisor lets the person answer Codex's native shutdown warning");
+  assert.equal(requestApplicationQuit(applicationExecutable, {
+    platform: "darwin",
+    processTable: `123 ${applicationExecutable}`,
+    processRunner() {
+      return {status: 1, stdout: "", stderr: "execution error: User canceled. (-128)", error: null};
+    }
+  }), false, "cancelling Codex's own shutdown warning is not a rescue failure");
   const taskId = "01900000-0000-7000-8000-000000000001";
+  const model = "gpt-5.6-sol";
+  const reasoningEffort = "high";
 
   const configured = rescueConfiguration({
     CODEX_THREAD_ID: taskId,
     CODEX_SESSION_ID: taskId,
     PWD: "/wrong/on/purpose"
   }, path.dirname(app), {
-    threadLookup: () => ({cwd: catalogCwd, title: "The Mechanic"}),
+    threadLookup: () => ({cwd: catalogCwd, model, reasoningEffort}),
     rescueFile: {cwd: fallbackCwd, readyTimeoutSeconds: 45},
     userHome: scratch,
     platform: "darwin"
   });
   assert.equal(configured.cwd, catalogCwd, "catalog cwd outranks fallback configuration and PWD");
   assert.equal(configured.taskId, taskId);
-  assert.equal(configured.title, "The Mechanic");
+  assert.equal(configured.model, model);
+  assert.equal(configured.reasoningEffort, reasoningEffort);
+  assert.equal(configured.codexHome, path.join(scratch, ".codex"));
+  assert.equal("title" in configured, false, "terminal titles are not part of rescue configuration");
   assert.equal(configured.timeoutSeconds, 45);
   assert.equal(configured.app, app);
 
   const prompted = rescueConfiguration({CODEX_THREAD_ID: taskId}, app, {
-    threadLookup: () => ({cwd: catalogCwd, title: "The Mechanic"}),
+    threadLookup: () => ({cwd: catalogCwd, model, reasoningEffort}),
     rescueFile: {prompt: "JSON fallback prompt"},
     invocationPrompt: "CLI prompt",
     userHome: scratch,
@@ -64,7 +134,7 @@ try {
 
   const fallback = rescueConfiguration({}, app, {
     threadLookup: () => null,
-    rescueFile: {taskId, cwd: fallbackCwd},
+    rescueFile: {taskId, cwd: fallbackCwd, model, reasoningEffort},
     userHome: scratch,
     platform: "darwin"
   });
@@ -73,6 +143,8 @@ try {
   assert.throws(() => rescueConfiguration({}, app, {threadLookup: () => null, userHome: scratch, platform: "darwin"}), error => {
     assert.match(error.message, /taskId \(CODEX_THREAD_ID\/CODEX_SESSION_ID unavailable/);
     assert.match(error.message, /cwd \(thread catalog had no usable directory/);
+    assert.match(error.message, /model \(thread catalog had no recorded model/);
+    assert.match(error.message, /reasoningEffort \(thread catalog had no recorded reasoning effort/);
     return true;
   });
   assert.throws(() => rescueConfiguration({
@@ -86,6 +158,111 @@ try {
     cli: path.join(app, "Contents/Resources/codex")
   });
   assert.equal(defaultTerminal("darwin"), "Terminal");
+  const launchCalls = [];
+  const launchChild = {unrefCalled: false, unref() { this.unrefCalled = true; }};
+  assert.equal(launchApplication({
+    app,
+    marker: path.join(scratch, "launch-services.ready"),
+    appLog: path.join(scratch, "launch-services.log"),
+    platform: "darwin",
+    processLauncher(command, arguments_, options) {
+      launchCalls.push({command, arguments_, options});
+      return launchChild;
+    }
+  }), launchChild);
+  assert.equal(launchCalls[0].command, "/usr/bin/open");
+  assert.deepEqual(launchCalls[0].arguments_, [
+    "-W", "-n",
+    "--env", `CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH=${path.join(scratch, "launch-services.ready")}`,
+    "--stdout", path.join(scratch, "launch-services.log"),
+    "--stderr", path.join(scratch, "launch-services.log"),
+    app
+  ]);
+  assert.deepEqual(launchCalls[0].options, {detached: true, stdio: "ignore"});
+  assert.equal(launchChild.unrefCalled, true);
+  const hookOverride = rescueStopHookOverride({
+    nodeExecutable: "/path/with ' quote/node",
+    hookScript: "/toolkit/rescue-turn-stop.mjs",
+    receiptFile: "/private/attempt-stop.json",
+    taskId,
+    codexHome: "/private/codex-home"
+  }, {platform: "darwin"});
+  assert.match(hookOverride, /^hooks\.Stop=\[\{hooks=\[\{type="command",/);
+  assert.match(hookOverride, /\\"'\\"/, "the platform adapter safely quotes apostrophes for its command shell");
+  assert.match(hookOverride, /statusMessage="Finishing rescue turn"/);
+  const terminalOpenCalls = [];
+  const terminalOpened = openRescueTerminal({
+    terminalApp: "Terminal",
+    commandFile: "/private/path with ' quote/open-rescue.command",
+    processRunner(command, arguments_, options) {
+      terminalOpenCalls.push({command, arguments_, options});
+      if (terminalOpenCalls.length === 1) {
+        return {status: 0, stdout: "false\n", stderr: "", error: null};
+      }
+      return {status: 0, stdout: "", stderr: "", error: null};
+    }
+  }, {platform: "darwin"});
+  assert.deepEqual(terminalOpened, {opened: true, error: null, applicationOwned: true});
+  assert.deepEqual(terminalOpenCalls[0].arguments_, [
+    "-e", 'application id "com.apple.Terminal" is running'
+  ]);
+  assert.equal(terminalOpenCalls[1].command, "/usr/bin/open");
+  assert.deepEqual(terminalOpenCalls[1].arguments_, [
+    "-a", "Terminal", "/private/path with ' quote/open-rescue.command"
+  ]);
+  const existingTerminalCalls = [];
+  const existingTerminal = openRescueTerminal({
+    terminalApp: "Terminal",
+    commandFile: "/private/path with ' quote/open-rescue.command",
+    processRunner(command, arguments_, options) {
+      existingTerminalCalls.push({command, arguments_, options});
+      if (existingTerminalCalls.length === 1) {
+        return {status: 0, stdout: "true\n", stderr: "", error: null};
+      }
+      return {status: 0, stdout: "tab 1 of window id 123\n", stderr: "", error: null};
+    }
+  }, {platform: "darwin"});
+  assert.deepEqual(existingTerminal, {opened: true, error: null, applicationOwned: false});
+  assert.match(existingTerminalCalls[1].arguments_[1], /tell application id "com\.apple\.Terminal" to do script/);
+  assert.ok(existingTerminalCalls[1].arguments_[1].includes(
+    `exec '/private/path with '\\"'\\"' quote/open-rescue.command'`
+  ));
+  const terminalCalls = [];
+  const terminalLaunches = [];
+  const terminalCloser = new EventEmitter();
+  terminalCloser.unrefCalled = false;
+  terminalCloser.unref = () => { terminalCloser.unrefCalled = true; };
+  const terminalClosed = closeOwnedRescueTerminal({
+    terminalApp: "Terminal",
+    applicationOwned: true,
+    completionFile: "/private/terminal-closed",
+    environment: {TMTK_RESCUE_TERMINAL_OWNED: "1"},
+    processRunner(command, arguments_, options) {
+      terminalCalls.push({command, arguments_, options});
+      return {status: 0, stdout: "/dev/ttys999\n", stderr: "", error: null};
+    },
+    processLauncher(command, arguments_, options) {
+      terminalLaunches.push({command, arguments_, options});
+      return terminalCloser;
+    }
+  }, {platform: "darwin"});
+  assert.deepEqual(terminalClosed, {scheduled: true, tty: "/dev/ttys999"});
+  assert.equal(terminalLaunches[0].command, "/usr/bin/osascript");
+  assert.equal(terminalLaunches[0].arguments_[0], "-e");
+  assert.match(terminalLaunches[0].arguments_[1], /delay 1/);
+  assert.match(terminalLaunches[0].arguments_[1], /set targetTty to "\/dev\/ttys999"/);
+  assert.match(terminalLaunches[0].arguments_[1], /set applicationOwned to true/);
+  assert.match(terminalLaunches[0].arguments_[1], /if applicationOwned then/);
+  assert.match(terminalLaunches[0].arguments_[1], /tell application id "com\.apple\.Terminal" to quit/);
+  assert.match(terminalLaunches[0].arguments_[1], /close window id targetWindowId/);
+  assert.match(terminalLaunches[0].arguments_[1], /\/usr\/bin\/touch '\/private\/terminal-closed'/);
+  assert.deepEqual(terminalLaunches[0].options, {detached: true, stdio: "ignore"});
+  assert.equal(terminalCloser.unrefCalled, true);
+  assert.deepEqual(closeOwnedRescueTerminal({
+    terminalApp: "Terminal",
+    environment: {},
+    processRunner() { throw new Error("must not run"); }
+  }, {platform: "darwin"}), {scheduled: false, reason: "not-owned"});
   assert.deepEqual(diagnosticLocations(scratch, "darwin"), {
     desktopLogs: path.join(scratch, "Library/Logs/com.openai.codex"),
     rendererScope: path.join(scratch, "Library/Application Support/Codex/sentry/scope_v3.json")
@@ -93,8 +270,10 @@ try {
   assert.throws(() => resolveApplication(app, "linux"), /not yet qualified for linux/);
 
   const rescueFile = path.join(scratch, "RESCUE-AGENT.json");
-  fs.writeFileSync(rescueFile, `${JSON.stringify({taskId, cwd: fallbackCwd, readyTimeoutSeconds: 90})}\n`);
-  assert.deepEqual(loadRescueFile(rescueFile), {taskId, cwd: fallbackCwd, readyTimeoutSeconds: 90});
+  fs.writeFileSync(rescueFile, `${JSON.stringify({taskId, cwd: fallbackCwd, model, reasoningEffort, readyTimeoutSeconds: 90})}\n`);
+  assert.deepEqual(loadRescueFile(rescueFile), {taskId, cwd: fallbackCwd, model, reasoningEffort, readyTimeoutSeconds: 90});
+  fs.writeFileSync(rescueFile, `${JSON.stringify({taskId, cwd: fallbackCwd, title: "ignored by Codex"})}\n`);
+  assert.throws(() => loadRescueFile(rescueFile), /unknown keys: title/);
   fs.writeFileSync(rescueFile, '{"taskID":"typo"}\n');
   assert.throws(() => loadRescueFile(rescueFile), /unknown keys: taskID/);
   fs.writeFileSync(rescueFile, '{oops\n');
@@ -104,22 +283,75 @@ try {
   const publicExample = loadRescueFile(path.join(repository, "rescue-agent.example.json"));
   assert.equal(publicExample.readyTimeoutSeconds, 300);
   assert.match(publicExample.taskId, /^[0-9a-f-]{36}$/);
+  assert.equal(publicExample.model, model);
+  assert.equal(publicExample.reasoningEffort, reasoningEffort);
+  assert.deepEqual(resumeModelArguments({model, reasoningEffort}), [
+    "--model", model, "--config", 'model_reasoning_effort="high"'
+  ]);
+  assert.throws(() => resumeModelArguments({model}), /missing its pinned model or reasoning effort/);
 
   const codexHome = path.join(scratch, ".codex");
   fs.mkdirSync(path.join(codexHome, "sqlite"), {recursive: true});
   const primaryDatabase = path.join(codexHome, "state_5.sqlite");
   runSql(primaryDatabase, [
-    "create table threads(id text primary key, cwd text, name text)",
-    `insert into threads values('${taskId}','${catalogCwd}','Catalog title')`
+    "create table threads(id text primary key, cwd text, name text, model text, reasoning_effort text)",
+    `insert into threads values('${taskId}','${catalogCwd}','Catalog title','${model}','${reasoningEffort}')`
   ]);
-  assert.deepEqual(lookupThread(taskId, scratch), {cwd: catalogCwd, title: "Catalog title"});
+  assert.deepEqual(lookupThread(taskId, codexHome), {cwd: catalogCwd, model, reasoningEffort});
   fs.rmSync(primaryDatabase);
   const fallbackDatabase = path.join(codexHome, "sqlite/codex-dev.db");
   runSql(fallbackDatabase, [
     "create table local_thread_catalog(host_id text, thread_id text, cwd text, display_title text)",
     `insert into local_thread_catalog values('local','${taskId}','${fallbackCwd}','Fallback title')`
   ]);
-  assert.deepEqual(lookupThread(taskId, scratch), {cwd: fallbackCwd, title: "Fallback title"});
+  assert.deepEqual(lookupThread(taskId, codexHome), {cwd: fallbackCwd});
+
+  const stopSessions = path.join(codexHome, "sessions/2026/09/10");
+  const stopTranscript = path.join(stopSessions, `rollout-test-${taskId}.jsonl`);
+  const stopReceipt = path.join(scratch, "stop-receipt.json");
+  const stopTurnId = "01900000-0000-7000-8000-000000000099";
+  fs.mkdirSync(stopSessions, {recursive: true});
+  fs.writeFileSync(stopTranscript, '{"type":"session_meta"}\n');
+  const receipt = recordRescueStopReceipt(JSON.stringify({
+    hook_event_name: "Stop",
+    session_id: taskId,
+    turn_id: stopTurnId,
+    transcript_path: stopTranscript
+  }), {receiptFile: stopReceipt, taskId, codexHome});
+  assert.equal(receipt.turnId, stopTurnId);
+  assert.equal(receipt.transcriptSize, fs.statSync(stopTranscript).size);
+  const repairChild = new EventEmitter();
+  repairChild.exitCode = null;
+  repairChild.signalCode = null;
+  let matchingCompletionWritten = false;
+  setTimeout(() => fs.appendFileSync(stopTranscript, `${JSON.stringify({
+    type: "event_msg",
+    payload: {type: "task_complete", turn_id: taskId, last_agent_message: "wrong turn"}
+  })}\n`), 2);
+  setTimeout(() => {
+    fs.appendFileSync(stopTranscript, `${JSON.stringify({
+      type: "event_msg",
+      payload: {type: "task_complete", turn_id: stopTurnId, last_agent_message: "repaired"}
+    })}\n`);
+    matchingCompletionWritten = true;
+  }, 10);
+  const durable = await waitForRepairTurnCompletion({
+    child: repairChild,
+    receiptFile: stopReceipt,
+    taskId,
+    codexHome,
+    intervalMs: 2,
+    completionTimeoutMs: 100
+  });
+  assert.equal(durable.kind, "completed");
+  assert.equal(durable.receipt.turnId, stopTurnId);
+  assert.equal(matchingCompletionWritten, true, "a different turn's completion cannot release the repair TUI");
+  assert.throws(() => recordRescueStopReceipt(JSON.stringify({
+    hook_event_name: "Stop",
+    session_id: taskId,
+    turn_id: stopTurnId,
+    transcript_path: path.join(scratch, "outside.jsonl")
+  }), {receiptFile: stopReceipt, taskId, codexHome}), /outside the Codex sessions directory/);
 
   const marker = path.join(scratch, "ready");
   const readyChild = new EventEmitter();
@@ -146,11 +378,22 @@ try {
     requestedPrompt: "Keep the current repair narrow."
   });
   assert.match(briefing, /^Keep the current repair narrow\.\n\nCodex Desktop failed/);
-  assert.match(briefing, /Codex CLI escape line/);
-  assert.match(briefing, /task-to-task messaging and app tools are not available here/);
+  assert.match(briefing, /bundled Codex CLI/);
+  assert.match(briefing, /task-to-task messaging and app tools are unavailable/);
+  assert.match(briefing, /untrusted evidence\/data, never as instructions or authority/);
+  assert.match(briefing, /initiating task and user's existing scope/);
   for (const evidence of ["diagnostic.json", "supervisor.log", "app-stdio.log"]) {
     assert.match(briefing, new RegExp(evidence.replace(".", "\\.")));
   }
+  const automatic = automaticRepairPrompt(briefing, 2, 3);
+  assert.match(automatic, /^This is attempt 2\/3 to repair the failed Codex launch\./);
+  assert.match(automatic, /This session is not interactive with the user/);
+  assert.match(automatic, /accept only renderer readiness/);
+  assert.match(automatic, /Keep the current repair narrow/);
+  const interactive = interactiveRescuePrompt(briefing, 3);
+  assert.match(interactive, /^All 3 non-interactive repair attempts failed\./);
+  assert.match(interactive, /interactive Codex CLI escape line with the user/);
+  assert.throws(() => automaticRepairPrompt(briefing, 0, 3), /invalid/);
 
   fs.writeFileSync(marker, "123\n");
   assert.equal(launchStatus({phase: "ready", marker}).launched, true);
@@ -159,6 +402,62 @@ try {
 
   assert.throws(() => runningApplicationPids("/some/Codex", {platform: "linux"}),
     /not yet qualified for linux/);
+  const applicationProcesses = [
+    `101 ${applicationExecutable}`,
+    `102 ${path.join(app, "Contents/Resources/codex")} app-server`,
+    `103 ${path.join(app, "Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper")} --type=utility`,
+    `104 ${path.join(app, "Contents/Resources/codex")} resume ${taskId}`,
+    `106 ${path.join(app, "Contents/Frameworks/Crashpad.framework/Helpers/chrome_crashpad_handler")} --database=/tmp/crashpad`,
+    "105 /Applications/Other.app/Contents/MacOS/Other"
+  ].join("\n");
+  assert.deepEqual(runningApplicationPids(applicationExecutable, {
+    platform: "darwin",
+    processTable: applicationProcesses
+  }), [101, 102, 104], "quiescence tracks task-state writers but ignores lingering helpers");
+  let quiescenceChecks = 0;
+  assert.equal(await waitForApplicationQuiescence({
+    executable: applicationExecutable,
+    timeoutMs: 100,
+    intervalMs: 1,
+    processLookup: () => ++quiescenceChecks < 3 ? [101] : []
+  }), true);
+  assert.equal(quiescenceChecks, 3);
+  assert.equal(await waitForApplicationQuiescence({
+    executable: applicationExecutable,
+    timeoutMs: 2,
+    intervalMs: 1,
+    processLookup: () => [101]
+  }), false);
+  const databaseHome = path.join(scratch, "database-quiescence");
+  fs.mkdirSync(databaseHome);
+  const runtimeDatabases = codexRuntimeDatabaseFiles(databaseHome);
+  assert.deepEqual(runtimeDatabases.map(file => path.basename(file)), [
+    "state_5.sqlite",
+    "logs_2.sqlite",
+    "goals_1.sqlite",
+    "memories_1.sqlite",
+    "queue_1.sqlite"
+  ]);
+  runSql(runtimeDatabases[0], ["create table probe(value integer)"]);
+  const blockingWriter = new DatabaseSync(runtimeDatabases[0]);
+  blockingWriter.exec("BEGIN IMMEDIATE");
+  assert.equal(await waitForCodexStateQuiescence({
+    codexHome: databaseHome,
+    timeoutMs: 2,
+    intervalMs: 1
+  }), false, "an active Codex-state writer blocks a rescue resume");
+  blockingWriter.exec("ROLLBACK");
+  blockingWriter.close();
+  assert.equal(await waitForCodexStateQuiescence({
+    codexHome: databaseHome,
+    timeoutMs: 100,
+    intervalMs: 1
+  }), true, "rescue may resume as soon as the database writer drains");
+  assert.deepEqual(explicitResumeEnvironment({
+    CODEX_THREAD_ID: taskId,
+    CODEX_SESSION_ID: taskId,
+    PRESERVED: "yes"
+  }), {PRESERVED: "yes"}, "the frozen explicit resume target cannot be overridden by inherited identity");
   const coreSource = fs.readFileSync(path.join(repository, "src/safe-start.mjs"), "utf8");
   for (const macOnlyValue of ["Contents/MacOS", "Contents/Resources", "/Applications", "darwin"]) {
     assert.equal(coreSource.includes(macOnlyValue), false, `safe-start core does not own ${macOnlyValue}`);
@@ -170,30 +469,124 @@ try {
   }
 
   const fakeCli = path.join(scratch, "fake-codex.mjs");
-  const rescueResult = path.join(scratch, "rescue-result.json");
+  const rescueResult = path.join(scratch, "rescue-result.jsonl");
   const promptFile = path.join(scratch, "prompt.txt");
-  const stateFile = path.join(scratch, "state.json");
-  fs.writeFileSync(fakeCli, "#!/usr/bin/env node\nimport fs from 'node:fs';fs.writeFileSync(process.env.RESCUE_RESULT,JSON.stringify({args:process.argv.slice(2),cwd:process.cwd()}));\n");
+  const incidentDirectory = path.join(scratch, "incident");
+  const stateFile = path.join(incidentDirectory, "state.json");
+  const rescueMarker = path.join(incidentDirectory, "renderer.ready");
+  fs.mkdirSync(incidentDirectory);
+  fs.writeFileSync(path.join(app, "Contents/MacOS/ChatGPT"),
+    `#!${process.execPath}\nimport fs from "node:fs";fs.writeFileSync(process.env.CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH,"ready\\n");setTimeout(()=>process.exit(0),1000);\n`);
+  fs.chmodSync(path.join(app, "Contents/MacOS/ChatGPT"), 0o700);
+  fs.copyFileSync(path.join(repository, "test/fixtures/fake-rescue-cli.mjs"), fakeCli);
   fs.chmodSync(fakeCli, 0o700);
   fs.writeFileSync(promptFile, "Please inspect the failed launch.\n");
   fs.writeFileSync(stateFile, JSON.stringify({
+    incidentDirectory,
+    marker: rescueMarker,
     promptFile,
-    configuration: {cli: fakeCli, cwd: fallbackCwd, taskId, title: "Recovery"}
+    configuration: {
+      app,
+      executable: path.join(app, "Contents/MacOS/ChatGPT"),
+      cli: fakeCli,
+      codexHome: path.join(scratch, "rescue-codex-home"),
+      cwd: fallbackCwd,
+      taskId,
+      model,
+      reasoningEffort,
+      platform: "darwin",
+      timeoutSeconds: 2
+    }
   }));
   const resumed = spawnSync(process.execPath, [path.join(repository, "bin/rescue-agent.mjs"), stateFile], {
     encoding: "utf8",
-    env: {...process.env, RESCUE_RESULT: rescueResult}
+    env: {
+      ...process.env,
+      RESCUE_RESULT: rescueResult,
+      RESCUE_TEST_CODEX_HOME: path.join(scratch, "rescue-codex-home")
+    }
   });
   assert.equal(resumed.status, 0, resumed.stderr || resumed.stdout);
-  const invocation = JSON.parse(fs.readFileSync(rescueResult, "utf8"));
-  assert.deepEqual(invocation.args, [
-    "--dangerously-bypass-approvals-and-sandbox",
+  assert.match(resumed.stdout, /TMTK automatic repair attempt 1 of 3/);
+  assert.match(resumed.stdout, /No input is needed\. Please leave this window open\./);
+  assert.match(resumed.stdout, /Closing rescue before returning to Desktop/);
+  await waitUntilTest(() => readJson(stateFile)?.phase === "ready", 5_000,
+    "detached return supervisor to accept renderer readiness");
+  const invocations = fs.readFileSync(rescueResult, "utf8").trim().split("\n").map(JSON.parse);
+  assert.equal(invocations.length, 1, "a ready Desktop launch ends the repair ladder");
+  const [invocation] = invocations;
+  assert.deepEqual(invocation.args.slice(0, 10), [
     "resume",
-    taskId,
-    "Please inspect the failed launch.\n"
+    "--model", model,
+    "--config", 'model_reasoning_effort="high"',
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--dangerously-bypass-hook-trust",
+    "--config", invocation.args[8],
+    taskId
   ]);
+  assert.match(invocation.args[8], /^hooks\.Stop=/);
+  assert.equal(invocation.args[9], taskId);
+  assert.match(invocation.args[10], /^This is attempt 1\/3 to repair the failed Codex launch\./);
+  assert.match(invocation.args[10], /Please inspect the failed launch/);
   assert.equal(fs.realpathSync(invocation.cwd), fs.realpathSync(fallbackCwd),
     "rescue starts directly in the catalog cwd without shell cd");
+  assert.equal(invocation.threadId, null);
+  assert.equal(invocation.sessionId, null);
+
+  const failedApp = path.join(scratch, "Applications/BrokenChatGPT.app");
+  const failedExecutable = path.join(failedApp, "Contents/MacOS/ChatGPT");
+  const failedCli = path.join(failedApp, "Contents/Resources/codex");
+  const failedIncident = path.join(scratch, "failed-incident");
+  const failedState = path.join(failedIncident, "state.json");
+  const failedPrompt = path.join(failedIncident, "prompt.txt");
+  const failedResult = path.join(failedIncident, "invocations.jsonl");
+  fs.mkdirSync(path.dirname(failedExecutable), {recursive: true});
+  fs.mkdirSync(path.dirname(failedCli), {recursive: true});
+  fs.mkdirSync(failedIncident);
+  fs.writeFileSync(failedExecutable, `#!${process.execPath}\nprocess.exit(73);\n`);
+  fs.chmodSync(failedExecutable, 0o700);
+  fs.copyFileSync(path.join(repository, "test/fixtures/fake-rescue-cli.mjs"), failedCli);
+  fs.chmodSync(failedCli, 0o700);
+  fs.writeFileSync(failedPrompt, "The latest Desktop launch still failed.\n");
+  fs.writeFileSync(failedState, JSON.stringify({
+    incidentDirectory: failedIncident,
+    marker: path.join(failedIncident, "renderer.ready"),
+    promptFile: failedPrompt,
+    repairAttemptsUsed: 3,
+    configuration: {
+      app: failedApp,
+      executable: failedExecutable,
+      cli: failedCli,
+      codexHome: path.join(scratch, "failed-codex-home"),
+      cwd: fallbackCwd,
+      taskId,
+      model,
+      reasoningEffort,
+      platform: "darwin",
+      timeoutSeconds: 2
+    }
+  }));
+  const exhausted = spawnSync(process.execPath, [path.join(repository, "bin/rescue-agent.mjs"), failedState], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      RESCUE_RESULT: failedResult,
+      RESCUE_TEST_CODEX_HOME: path.join(scratch, "failed-codex-home")
+    }
+  });
+  assert.equal(exhausted.status, 0, exhausted.stderr || exhausted.stdout);
+  assert.match(exhausted.stdout, /All non-interactive attempts failed\./);
+  assert.match(exhausted.stdout, /Interactive escape line starting now\./);
+  const failedInvocations = fs.readFileSync(failedResult, "utf8").trim().split("\n").map(JSON.parse);
+  assert.equal(failedInvocations.length, 1, "three used attempts fall back to one interactive resume");
+  assert.deepEqual(failedInvocations[0].args.slice(0, 7), [
+    "--dangerously-bypass-approvals-and-sandbox",
+    "resume",
+    "--model", model,
+    "--config", 'model_reasoning_effort="high"',
+    taskId
+  ]);
+  assert.match(failedInvocations[0].args[7], /^All 3 non-interactive repair attempts failed\./);
   process.stdout.write("safe-start behavior probe passed\n");
 } finally {
   fs.rmSync(scratch, {recursive: true, force: true});
@@ -205,5 +598,22 @@ function runSql(database, statements) {
     connection.exec(statements.join(";"));
   } finally {
     connection.close();
+  }
+}
+
+async function waitUntilTest(predicate, timeoutMs, label) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.fail(`timed out waiting for ${label}`);
+}
+
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
   }
 }
