@@ -7,7 +7,10 @@ installs, replaces, launches, or rolls back an application.
 ## Requirements
 
 The current patch-staging workflow targets macOS and requires Node.js 24 LTS or a newer supported
-release. Install the pinned local Electron ASAR dependency and run the repository checks:
+release. The generated-code and packaging boundaries measured on Windows and Linux are recorded in
+[`platform-compatibility.md`](platform-compatibility.md); transform recognition alone is not package
+or live qualification. Install the pinned local Electron ASAR dependency and run the repository
+checks:
 
 ```sh
 npm install
@@ -58,6 +61,13 @@ the Codex task that should own recovery:
 tmtk-restart /Applications/ChatGPT.app
 ```
 
+The command arms a detached supervisor and returns immediately. On macOS, a blocking dialog offers
+**Relaunch Codex** and **Cancel**. The invoking agent should finish its response without polling or
+waiting; the person clicks **Relaunch Codex** after reading it. **Cancel** leaves the running
+application untouched. Codex may then present its own schedules warning; the supervisor waits for
+the person's answer, and cancelling that native quit also leaves the app open without starting
+rescue.
+
 Use `--prompt TEXT` to prepend incident-specific context. The generated rescue message still states
 that Desktop failed, that the resumed task is in Codex CLI without native task-to-task messaging,
 and where its diagnostic, supervisor, and application-output logs live.
@@ -72,7 +82,9 @@ and `did-codex-launch`.
 
 Copy [`toolkit.example.json`](../toolkit.example.json) to the ignored `toolkit.local.json`, or use
 another private path. `enabledPatches` selects the staged fleet; the catalog applies it in
-dependency-safe order regardless of array order.
+dependency-safe order regardless of array order. Any selection containing an ASAR patch must also
+include `renderer-patch-registry`, which publishes the installed patch inventory and optional
+cross-patch capabilities after the other transforms run.
 
 Configuration-backed patches use these values:
 

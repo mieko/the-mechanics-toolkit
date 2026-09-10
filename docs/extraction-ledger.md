@@ -1,13 +1,16 @@
 # Extraction ledger
 
 This repository is the canonical source for the portable patches recorded below. The ledger says
-what crossed the extraction boundary; it is not a promise to publish every historical experiment.
+what crossed the extraction boundary and is the sole fleet-wide record of current-build static and
+live qualification. Patch READMEs retain patch-specific behavioral evidence without duplicating
+this fast-changing build receipt. This ledger is not a promise to publish every historical
+experiment.
 
 | Area | Public state | Next boundary |
 | --- | --- | --- |
 | ASAR raw-header integrity | Extracted, fixture-tested, and used by staging | Qualify a disposable supported-build candidate |
 | Read-only app inspection | Extracted and fixture-tested | Record exact accepted builds |
-| Safe restart and rescue | Extracted; task-catalog lookup, exit/timeout behavior, diagnostics, build-8378 full-fleet stage green, and live task/cwd/title resolution green | Live-accept healthy readiness and forced failure rescue on build 8378 |
+| Safe restart and rescue | Extracted; task-catalog lookup, exit/timeout behavior, diagnostics, build-8378 full-fleet stage green, live healthy readiness accepted, and real blank-renderer bundled-CLI rescue with strict no-overlap handoff green | Live-accept a living React recovery-page failure through bundled-CLI rescue on build 8378 |
 | Terminal toggle | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
 | Staging, repacking, signing | Extracted; synthetic, build-8109, and build-8378 stages green | Requalify a disposable candidate from the next inspected pristine build |
 | Native app-tools peer authorization | Extracted; three main-process profiles red/green; build-8378 static stage and build-8109 native messaging green | Live-accept on build 8378 |
