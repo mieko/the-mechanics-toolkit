@@ -25,7 +25,7 @@ experiment.
 | Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8576 full-fleet stage and build-8109 live acceptance green | Live-accept mismatch alarm and recovery on build 8576 |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
 | Task attention policy | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
-| Tinrelay presentation | Extracted as one patch; build-8576 full-fleet launch plus shared renderer-host-bus and outgoing-order regression probes green; incoming/outgoing build-8109 surfaces live-accepted | Live restart-plus-pagination check on build 8576 |
+| Tinrelay presentation | Extracted as one patch; build-8576 full-fleet launch, outgoing causal order, and restart reconstruction live-accepted; shared renderer-host-bus and outgoing-order regression probes green; incoming/outgoing build-8109 surfaces live-accepted | Live later-pagination reconstruction check on build 8576 |
 | Sidebar action collapse | Extracted; build-8576 static stage and build-8109 live use green | Live-accept on build 8576 |
 | Patch registry | Extracted; per-realm API and build-8576 full-fleet composition green | Exercise current live capability consumers on build 8576 |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
@@ -41,7 +41,9 @@ second application, preserved the native package tree and executable helper, and
 code signature and ASAR seal. The rebuilt full fleet was installed and reached the healthy Codex
 task surface. Current regression probes cover renderer-store capture, shared Tinrelay host-bus
 ownership, and outgoing-radio hoist order; each patch's remaining live behavior is still an
-independent acceptance boundary where the table says so.
+independent acceptance boundary where the table says so. Build-8576 live acceptance also proved
+that current and previously persisted outgoing Tinrelay presentations remain after the user request
+that caused them across restart.
 
 The predecessor qualification remains useful evidence: the installed build `8109` launched
 successfully, and the configured palette, sidebar, terminal, retained reasoning, native task

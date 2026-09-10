@@ -3,9 +3,9 @@
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer and main-process families
 - **Patch-specific evidence:** Build `8576` full-fleet stage and launch green, including causal probes
-  for the shared renderer host bus and outgoing hoist order; build `8109` live incoming/outgoing
-  presentation green. Build `8576` restart-plus-pagination reconstruction remains pending live
-  acceptance, 2026-09-10
+  for the shared renderer host bus and outgoing hoist order; outgoing causal order and restart
+  reconstruction live-accepted. Build `8109` live incoming/outgoing presentation green. Build `8576`
+  later-pagination reconstruction remains pending live acceptance, 2026-09-10
 
 ## Why it exists
 
@@ -59,8 +59,9 @@ are deduplicated by transmission ID and the first valid event wins. When the obs
 Codex durably attaches the validated presentation to the source task and assistant turn. The card can
 therefore be rebuilt after restart and later pagination even when Codex no longer returns the
 original command activity. Accepted sends also remain standalone persistent conversation units while
-that activity is mounted, so they stay hoisted beside the stock collapsed activity summary. These
-records are presentation continuity, not delivery evidence or a Tinrelay sent archive.
+that activity is mounted. The card remains after the user message that caused the send and before
+the assistant activity and response, rather than jumping above its cause when hoisted. These records
+are presentation continuity, not delivery evidence or a Tinrelay sent archive.
 
 ## Configuration
 

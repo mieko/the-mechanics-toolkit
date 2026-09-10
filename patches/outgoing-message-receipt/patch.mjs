@@ -490,13 +490,13 @@ function splitTurnProfile(value) {
     throw new Error("Upstream changed: split turn renderer ownership is missing");
   }
   if (value.includes("function _i(e){let t=(0,Hi.c)(208),") && value.includes("turnId:f,")) {
-    const before = "t[203]!==Jt||t[204]!==Va||t[205]!==Ha||t[206]!==Ua?(Wa=(0,Q.jsxs)(Q.Fragment,{children:[Jt,Va,Ha,Ua]}),t[203]=Jt,t[204]=Va,t[205]=Ha,t[206]=Ua,t[207]=Wa):Wa=t[207]";
-    const after = "t[203]!==Jt||t[204]!==Va||t[205]!==Ha||t[206]!==Ua||t[208]!==s||t[209]!==f?(Wa=(0,Q.jsxs)(Q.Fragment,{children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:f}),Jt,Va,Ha,Ua]}),t[203]=Jt,t[204]=Va,t[205]=Ha,t[206]=Ua,t[208]=s,t[209]=f,t[207]=Wa):Wa=t[207]";
-    if (!value.includes(before)) throw new Error("Upstream changed: build-8576 split turn root children are missing");
+    const before = "let Ra=Fa.length,za={";
+    const after = '$(`mtk-outbound-turn-receipts`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:f}),{canOwnLatestTurnFollowContent:!1});let Ra=Fa.length,za={';
+    if (count(value, before) !== 1) throw new Error("Upstream changed: build-8576 pre-activity turn boundary is missing");
     return {
       importText: imported[0], specifiers: imported.groups.specifiers, relative,
-      before: `function _i(e){let t=(0,Hi.c)(208),${value.split("function _i(e){let t=(0,Hi.c)(208),")[1].split(before)[0]}${before}`,
-      after: `function _i(e){let t=(0,Hi.c)(210),${value.split("function _i(e){let t=(0,Hi.c)(208),")[1].split(before)[0]}${after}`
+      before,
+      after
     };
   }
   if (!value.includes("turnId:d")) throw new Error("Upstream changed: split turn id is missing");

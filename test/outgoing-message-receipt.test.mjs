@@ -256,10 +256,21 @@ const presentationOwners = fs.readdirSync(assets).filter(name => {
 assert.equal(presentationOwners.length, 1, "unique durable receipt presentation owner");
 const presentation = fs.readFileSync(path.join(assets, presentationOwners[0]), "utf8");
 const receiptPresentation = presentation.indexOf("MTKOutboundTurnReceipts,{conversationId:");
-assert.ok(receiptPresentation >= 0, "durable receipts lead the assistant turn presentation");
-assert.match(presentation,
-  /children:\[\(0,[A-Za-z_$][\w$]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:[A-Za-z_$][\w$]*,turnId:[A-Za-z_$][\w$]*\}\),/,
-  "durable receipts remain ahead of the stock assistant content when another presentation composes between them");
+assert.ok(receiptPresentation >= 0, "durable receipts are present in the source turn presentation");
+if (presentation.includes('$(`mtk-outbound-turn-receipts`')) {
+  const userPresentation = presentation.indexOf('$(`user-item-');
+  const taskPresentation = presentation.indexOf('$(`mtk-outbound-turn-receipts`');
+  const tinrelayPresentation = presentation.indexOf('$(`mtk-tinrelay-outgoing-turn`');
+  const activityBoundary = presentation.indexOf("let Ra=Fa.length");
+  assert.ok(userPresentation >= 0 && taskPresentation > userPresentation && taskPresentation < activityBoundary,
+    "durable receipts follow the initiating user request and precede activity");
+  if (tinrelayPresentation >= 0) assert.ok(tinrelayPresentation > taskPresentation && tinrelayPresentation < activityBoundary,
+    "Tinrelay sends follow task receipts at the same post-user boundary");
+} else {
+  assert.match(presentation,
+    /children:\[\(0,[A-Za-z_$][\w$]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:[A-Za-z_$][\w$]*,turnId:[A-Za-z_$][\w$]*\}\),/,
+    "combined-build receipts remain ahead of the stock assistant content");
+}
 const conversationCacheStart = conversation.indexOf("const MTKoutboundReceiptContract=");
 const receiptFunctionStart = conversation.indexOf("function MTKOutboundTurnReceipts(", conversationCacheStart);
 const conversationCacheEnd = conversation.indexOf("function ", receiptFunctionStart + "function ".length);

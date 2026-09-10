@@ -60,6 +60,7 @@ try {
   assert.deepEqual(fs.readFileSync(formatterTarget), Buffer.from(formatterFixture()), "message formatter owner stays untouched");
   assert.deepEqual(fs.readFileSync(consumerTarget), Buffer.from(consumerFixture()), "message formatter consumer stays untouched");
   assert.deepEqual(fs.readFileSync(styleTarget), Buffer.from(styleFixture()), "stylesheet stays untouched");
+  assertBuild8576SplitPresentationOrdering();
 
   const registry = spawnSync(process.execPath, [toolkit, "patch", "renderer-patch-registry", "apply", extracted], { encoding: "utf8" });
   assert.equal(registry.status, 0, registry.stderr || registry.stdout);
@@ -75,6 +76,42 @@ try {
   }
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
+}
+
+function assertBuild8576SplitPresentationOrdering() {
+  const transform = fs.readFileSync(path.join(repository, "patches/outgoing-message-receipt/patch.mjs"), "utf8");
+  const splitProfile = sourceBetween(transform, "function splitTurnProfile(", "function assistantProfile(");
+  const uniqueMatch = sourceBetween(transform, "function uniqueMatch(", "function escapeRegExp(");
+  const escapeRegExp = sourceBetween(transform, "function escapeRegExp(", "function count(");
+  const count = sourceBetween(transform, "function count(", "function syntaxCheck(");
+  const conversationTarget = "/tmp/conversation-blocks-fixture.js";
+  const profile = Function("conversationTarget", "path", `${escapeRegExp};${uniqueMatch};${count};${splitProfile};return splitTurnProfile`)(conversationTarget, path);
+  const root = [
+    'import{x as x}from"./conversation-blocks-fixture.js";',
+    "function _i(e){let t=(0,Hi.c)(208),{conversationId:s,turnId:f,hostId:c}=e,Fa=[],$=(e,t,n)=>Fa.push({key:e,node:t,options:n});",
+    '$(`user-item`,USER,{canOwnLatestTurnFollowContent:!1});',
+    '$(`model-rerouted`,MODEL);',
+    "let Ra=Fa.length,za={};",
+    "let Wa;return t[203]!==Jt||t[204]!==Va||t[205]!==Ha||t[206]!==Ua?(Wa=(0,Q.jsxs)(Q.Fragment,{children:[Jt,Va,Ha,Ua]}),t[203]=Jt,t[204]=Va,t[205]=Ha,t[206]=Ua,t[207]=Wa):Wa=t[207]}"
+  ].join("");
+  const match = profile(root);
+  const patched = root.replace(match.importText,
+    `import{${match.specifiers},MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"${match.relative}";`)
+    .replace(match.before, match.after);
+  const userAt = patched.indexOf('$(`user-item`');
+  const receiptAt = patched.indexOf('$(`mtk-outbound-turn-receipts`');
+  const activityAt = patched.indexOf("let Ra=Fa.length");
+  assert.ok(userAt >= 0 && receiptAt > userAt && receiptAt < activityAt,
+    "build 8576 durable task receipts render after the initiating user request and before activity");
+  assert.ok(!patched.includes("children:[(0,Q.jsx)(MTKOutboundTurnReceipts"),
+    "build 8576 receipts are not mounted ahead of the entire stock turn list");
+}
+
+function sourceBetween(value, startMarker, endMarker) {
+  const start = value.indexOf(startMarker);
+  const end = value.indexOf(endMarker, start + startMarker.length);
+  assert.ok(start >= 0 && end > start, `${startMarker} source boundary`);
+  return value.slice(start, end);
 }
 
 function initialFixture() {

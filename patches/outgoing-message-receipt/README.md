@@ -2,8 +2,9 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer family
-- **Patch-specific evidence:** Build `8109` live mounted behavior and disposable acknowledged
-  persistence/restart probes green; live restart reconstruction pending, 2026-09-07
+- **Patch-specific evidence:** Build `8576` full-fleet staging and current-family causal-order probe
+  green; build `8109` live mounted behavior and disposable acknowledged persistence/restart probes
+  green. Build `8576` task-message restart reconstruction remains pending, 2026-09-10
 
 ## Why it exists
 
@@ -17,6 +18,9 @@ through Codex's stock interactive hover and user-message formatter. Clicking the
 Codex's stock task route. When the task palette publishes a compatible registry capability, only
 the recipient label borrows a contrast-safe light- or dark-theme form of its color; otherwise the
 receipt remains neutral.
+
+The receipt stays in the causal order of the turn: after the user message that requested the send,
+and before the assistant activity and response that followed it.
 
 After the send tool reports success, a bounded private presentation cache records the call ID,
 source task and turn, destination, and message text. The assistant-turn renderer reattaches that

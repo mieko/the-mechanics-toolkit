@@ -171,12 +171,23 @@ function assertSplitTurnPresentationOrdering() {
   const renderer = "MTKtinrelayReact=t(_e(),1);function Yb(){}export{x as x}";
   const turn = [
     'import{MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"./conversation-blocks-fixture.js";',
-    "function turn(){return(0,Q.jsxs)(Q.Fragment,{children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,Va,Ha,Ua]})}"
+    "function turn(){let Fa=[],$=(e,t,n)=>Fa.push({key:e,node:t,options:n});",
+    '$(`user-item`,USER,{canOwnLatestTurnFollowContent:!1});',
+    '$(`mtk-outbound-turn-receipts`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),{canOwnLatestTurnFollowContent:!1});',
+    "let Ra=Fa.length,za={}}"
   ].join("");
   const patched = api(renderer, turn, {splitTurn: true});
-  assert.ok(patched.turnSource.includes(
-    "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:s,turnId:d}),qt,Va,Ha,Ua]"
-  ), "split turn hoists Tinrelay replies ahead of the stock event body");
+  const userAt = patched.turnSource.indexOf('$(`user-item`');
+  const taskAt = patched.turnSource.indexOf('$(`mtk-outbound-turn-receipts`');
+  const tinrelayAt = patched.turnSource.indexOf('$(`mtk-tinrelay-outgoing-turn`');
+  const activityAt = patched.turnSource.indexOf("let Ra=Fa.length");
+  assert.ok(userAt >= 0 && taskAt > userAt && tinrelayAt > taskAt && tinrelayAt < activityAt,
+    "split turn hoists task and Tinrelay sends after the initiating user request and before activity");
+  const syntax = spawnSync(process.execPath, ["--input-type=module", "--check"], {
+    encoding: "utf8",
+    input: patched.turnSource
+  });
+  assert.equal(syntax.status, 0, syntax.stderr || syntax.stdout);
 }
 
 function sourceBetween(value, startMarker, endMarker) {

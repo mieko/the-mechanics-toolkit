@@ -652,6 +652,20 @@ function patchAssistantPresentations(value, turnValue, profile) {
       `import{${imported.groups.specifiers},MTKtinrelayOutgoingTurnPresentations as MTKtinrelayOutgoingTurnPresentations}from"${relative}";`,
       "Tinrelay outgoing turn presentation import"
     );
+    const stagedReceipts = [...turnValue.matchAll(
+      /(?<call>\$\(`mtk-outbound-turn-receipts`,\(0,(?<jsx>[$A-Z_a-z][$\w]*)\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\),\{canOwnLatestTurnFollowContent:!1\}\));(?<boundary>let [$A-Z_a-z][$\w]*=[$A-Z_a-z][$\w]*\.length,[$A-Z_a-z][$\w]*=\{)/g
+    )];
+    if (stagedReceipts.length > 1) throw new Error("Upstream changed: post-user outbound receipt boundary is ambiguous");
+    if (stagedReceipts.length === 1) {
+      const stagedReceipt = stagedReceipts[0];
+      turnValue = replaceOnce(
+        turnValue,
+        stagedReceipt[0],
+        `${stagedReceipt.groups.call};$(\`mtk-tinrelay-outgoing-turn\`,(0,${stagedReceipt.groups.jsx}.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${stagedReceipt.groups.conversationId},turnId:${stagedReceipt.groups.turnId}}),{canOwnLatestTurnFollowContent:!1});${stagedReceipt.groups.boundary}`,
+        "Tinrelay outgoing presentation after the user request and before activity"
+      );
+      return {rendererSource: value, turnSource: turnValue};
+    }
     const receipt = uniqueMatch(
       turnValue,
       /(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<prelude>[$A-Z_a-z][$\w]*),(?<body>[$A-Z_a-z][$\w]*),/g,
