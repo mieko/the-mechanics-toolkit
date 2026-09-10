@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const {application, prompt} = parseArguments(process.argv.slice(2));
+
+const directory = path.dirname(fileURLToPath(import.meta.url));
+const supervisor = path.join(directory, "safe-start-supervisor.mjs");
+const rescueFile = path.join(os.homedir(), ".codex", "RESCUE-AGENT.json");
+const supervisorArguments = [supervisor, "launch", application, rescueFile];
+if (prompt != null) supervisorArguments.push(prompt);
+const result = spawnSync(process.execPath, supervisorArguments, {
+  stdio: "inherit",
+  env: process.env
+});
+if (result.error != null) fail(`tmtk-restart: ${result.error.message}`, 1);
+process.exit(result.status ?? 1);
+
+function fail(message, code) {
+  process.stderr.write(`${message}\n`);
+  process.exit(code);
+}
+
+function parseArguments(values) {
+  const positional = [];
+  let prompt = null;
+  let options = true;
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    if (options && value === "--") {
+      options = false;
+    } else if (options && value === "--prompt") {
+      if (prompt != null || index + 1 >= values.length) usage();
+      prompt = values[index += 1];
+      if (prompt.trim() === "") usage();
+    } else if (options && value.startsWith("-")) {
+      usage();
+    } else {
+      positional.push(value);
+    }
+  }
+  if (positional.length !== 1) usage();
+  return {application: positional[0], prompt};
+}
+
+function usage() {
+  fail("usage: tmtk-restart [--prompt TEXT] [--] /Applications/ChatGPT.app", 2);
+}
