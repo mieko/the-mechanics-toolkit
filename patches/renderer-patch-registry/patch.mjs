@@ -11,7 +11,9 @@ if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
 }
 
 const assets = path.join(root, "webview/assets");
+const build = path.join(root, ".vite/build");
 const appInitial = uniqueAsset(/^app-initial-.*\.js$/);
+const mainProcess = uniqueMainAsset(/^main-.*\.js$/);
 let state = inspectState();
 if (command === "apply" && state === "needs-apply") {
   applyRegistry();
@@ -30,11 +32,22 @@ process.stdout.write(`${JSON.stringify({
 
 function activePackages() {
   const appSource = fs.readFileSync(appInitial, "utf8");
+  const mainSource = fs.readFileSync(mainProcess, "utf8");
   const packages = [];
   addIf(packages, appSource.includes("function MTKusePaletteBootstrap("), {
     name: "taskVisualPalette",
     file: appInitial,
     call: `MTKpatchRegistry?.register("taskVisualPalette",{version:1,resolveTaskColor(e){try{let t=MTKmatchPalette(MTKsidebarPalette,e?.title,e?.taskId);return t?.color??null}catch{return null}}});`
+  });
+  addIf(packages, appSource.includes("function MTKinstallRuntimeJsonReload("), {
+    name: "runtimeJsonReload",
+    file: appInitial,
+    call: `MTKpatchRegistry?.register("runtimeJsonReload",{version:1,files:["task-attention-policy.json","task-visual-palette.json"]});`
+  });
+  addIf(packages, appSource.includes("function MTKreasoningShouldStayOpen("), {
+    name: "reasoningRetention",
+    file: appInitial,
+    call: `MTKpatchRegistry?.register("reasoningRetention",{version:1,policy:"exact-task-opt-in"});`
   });
   addIf(packages, appSource.includes("function MTKsidebarActionDisclosure(") ||
     appSource.includes("function MTKsidebarActionDisclosure7345(") ||
@@ -47,7 +60,8 @@ function activePackages() {
   addIf(packages, appSource.includes("function MTKattentionIgnoredThread(") ||
     appSource.includes("function MTKattentionIgnoredThread7345(") ||
     appSource.includes("function MTKattentionIgnoredThread7746(") ||
-    appSource.includes("function MTKattentionIgnoredThread7942("), {
+    appSource.includes("function MTKattentionIgnoredThread7942(") ||
+    appSource.includes("function MTKattentionIgnoredThread8378("), {
     name: "taskAttentionPolicy",
     file: appInitial,
     call: `MTKpatchRegistry?.register("taskAttentionPolicy",{version:1});`
@@ -57,17 +71,30 @@ function activePackages() {
     file: appInitial,
     call: `MTKpatchRegistry?.register("terminalToggle",{version:1});`
   });
+  addIf(packages, mainSource.includes("function MTKnativeAppToolsPeerAuthorizer("), {
+    name: "nativeAppToolsPeerAuthorization",
+    file: appInitial,
+    call: `MTKpatchRegistry?.register("nativeAppToolsPeerAuthorization",{version:1,policy:"immediate-codex-node-peer"});`
+  });
+  addIf(packages, mainSource.includes('s.type===`ready`&&P();'), {
+    name: "safeStartReadiness",
+    file: appInitial,
+    call: `MTKpatchRegistry?.register("safeStartReadiness",{version:1,signal:"trusted-renderer-ready"});`
+  });
 
   for (const file of assetFiles()) {
     if (file === appInitial) continue;
     const source = fs.readFileSync(file, "utf8");
     addIf(packages, source.includes("function MTKsidebarActionDisclosure7746(") ||
-      source.includes("function MTKsidebarActionDisclosure7942("), {
+      source.includes("function MTKsidebarActionDisclosure7942(") ||
+      source.includes("function MTKsidebarActionDisclosure8378("), {
       name: "sidebarActionCollapse",
       file,
-      anchor: source.includes("function MTKsidebarActionDisclosure7942(")
-        ? "function MTKsidebarActionDisclosure7942("
-        : "function MTKsidebarActionDisclosure7746(",
+      anchor: source.includes("function MTKsidebarActionDisclosure8378(")
+        ? "function MTKsidebarActionDisclosure8378("
+        : source.includes("function MTKsidebarActionDisclosure7942(")
+          ? "function MTKsidebarActionDisclosure7942("
+          : "function MTKsidebarActionDisclosure7746(",
       call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("sidebarActionCollapse",{version:1});`
     });
     addIf(packages, source.includes("function MTKinstallModelIdentityGuard(") &&
@@ -198,6 +225,15 @@ function uniqueAsset(pattern) {
   const matches = assetFiles().filter(file => pattern.test(path.basename(file)));
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} assets matching ${pattern}`);
   return matches[0];
+}
+
+function uniqueMainAsset(pattern) {
+  if (!fs.existsSync(build) || !fs.statSync(build).isDirectory()) {
+    throw new Error(`Missing extracted main-process directory: ${build}`);
+  }
+  const matches = fs.readdirSync(build).filter(name => pattern.test(name));
+  if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} main-process assets matching ${pattern}`);
+  return path.join(build, matches[0]);
 }
 
 function replaceOnce(value, before, after, label) {

@@ -30,8 +30,11 @@ one bounded repair in an explicit target, and fail closed when the structure cha
   Portable configuration belongs in a documented local file whose example contains fictional data.
 - Treat patches as `active`, `dormant`, or `retired`. Continued applicability is not proof that a
   patch remains useful.
-- Keep the patch registry small and renderer-local. It is discovery and optional capability access,
-  not an event bus, dependency graph, package manager, or cross-process protocol.
+- Keep the patch registry small and renderer-local. Every staged ASAR fleet must include it, and
+  every recognized ASAR patch publishes a versioned presence descriptor so a future renderer patch
+  can choose a compatible path from installed facts rather than DOM probing. It may also expose a
+  small optional capability when that removes real duplication. It is not an event bus, dependency
+  graph, package manager, or cross-process protocol.
 - Give each patch one directory under `patches/` with its transform and a `README.md` that states
   purpose, current state, owned seam, compatibility evidence, verification, and non-goals. The root
   README is the fleet-wide instrument panel; patch READMEs are the maintenance logs.

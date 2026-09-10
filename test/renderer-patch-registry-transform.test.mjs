@@ -14,18 +14,27 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-registr
 try {
   const extracted = path.join(scratch, "extracted");
   const assets = path.join(extracted, "webview/assets");
+  const build = path.join(extracted, ".vite/build");
   fs.mkdirSync(assets, { recursive: true });
+  fs.mkdirSync(build, { recursive: true });
   const appTarget = path.join(assets, "app-initial-fixture.js");
   const lazyTarget = path.join(assets, "conversation-blocks-fixture.js");
+  const mainTarget = path.join(build, "main-fixture.js");
   fs.writeFileSync(appTarget, appFixture());
   fs.writeFileSync(lazyTarget, lazyFixture());
+  fs.writeFileSync(mainTarget, mainFixture());
 
   assert.equal(runToolkit("check").state, "needs-apply");
   const applied = runToolkit("apply");
   assert.equal(applied.state, "applied");
   assert.deepEqual(applied.packages, [
     "crossTaskAttribution",
+    "modelIdentityGuard",
+    "nativeAppToolsPeerAuthorization",
     "outgoingMessageReceipt",
+    "reasoningRetention",
+    "runtimeJsonReload",
+    "safeStartReadiness",
     "sidebarActionCollapse",
     "taskAttentionPolicy",
     "taskVisualPalette",
@@ -49,8 +58,11 @@ try {
 
   const bare = path.join(scratch, "bare");
   const bareAssets = path.join(bare, "webview/assets");
+  const bareBuild = path.join(bare, ".vite/build");
   fs.mkdirSync(bareAssets, { recursive: true });
+  fs.mkdirSync(bareBuild, { recursive: true });
   fs.writeFileSync(path.join(bareAssets, "app-initial-fixture.js"), "export const fixture=true;");
+  fs.writeFileSync(path.join(bareBuild, "main-fixture.js"), "export const fixture=true;");
   const bareApply = spawnSync(process.execPath, [toolkit, "patch", "renderer-patch-registry", "apply", bare], { encoding: "utf8" });
   assert.equal(bareApply.status, 0, bareApply.stderr || bareApply.stdout);
   assert.deepEqual(JSON.parse(bareApply.stdout).packages, [], "registry does not require a behavior patch");
@@ -72,8 +84,9 @@ function appFixture() {
     "let MTKsidebarPalette={rules:[]};",
     "function MTKmatchPalette(e,t,n){return e?.rules.find(e=>e.pattern?.test?.(t)||e.pattern?.test?.(n))??null}",
     "function MTKusePaletteBootstrap(){}",
-    "function MTKsidebarActionDisclosure7942(){}",
-    "function MTKattentionIgnoredThread7942(){}",
+    "function MTKinstallRuntimeJsonReload(){}",
+    "function MTKreasoningShouldStayOpen(){}",
+    "function MTKattentionIgnoredThread8378(){}",
     "const terminal={descriptionIntlId:`codex.commandDescription.toggleTerminal`,requiredAccess:`codexLocal`,shortcutScope:`app`,commandMenuGroupKey:`panels`};",
     "export const fixture=true;"
   ].join("");
@@ -82,6 +95,10 @@ function appFixture() {
 function lazyFixture() {
   return [
     "function MTKshortTaskTitle(e){return e?.split(` — `)[0]??null}",
+    "function MTKsidebarActionDisclosure8378(){}",
+    "function MTKinstallModelIdentityGuard(){}",
+    "const MTKmodelGuardStyleId=`fixture`;",
+    'const modelGuard={"data-mtk-model-guard-mismatch":true};',
     "function MTKsender(){}",
     "function MTKoutboundArguments(){}",
     "function MTKwaitTargets(){}",
@@ -93,6 +110,14 @@ function lazyFixture() {
     'const tinrelay={"data-mtk-tinrelay-pointer":true};',
     "const delegated={messageBubbleStyle:MTKdelegatedBubbleStyle};",
     "var MTKdelegatedBubbleStyle={};",
+    "export const fixture=true;"
+  ].join("");
+}
+
+function mainFixture() {
+  return [
+    "function MTKnativeAppToolsPeerAuthorizer(){}",
+    "function readiness(s){const N=()=>true,P=()=>{};if(!N(s))return;s.type===`ready`&&P();}",
     "export const fixture=true;"
   ].join("");
 }

@@ -10,6 +10,10 @@ const assets = path.join(root, "webview/assets");
 const files = fs.readdirSync(assets).filter(name => name.endsWith(".js")).map(name => path.join(assets, name));
 const appInitial = unique(files.filter(file => /^app-initial-.*\.js$/.test(path.basename(file))), "app-initial asset");
 const appSource = fs.readFileSync(appInitial, "utf8");
+const mainFiles = fs.readdirSync(path.join(root, ".vite/build"))
+  .filter(name => /^main-.*\.js$/.test(name))
+  .map(name => path.join(root, ".vite/build", name));
+const mainSource = fs.readFileSync(unique(mainFiles, "main-process asset"), "utf8");
 const bootstrapStart = appSource.indexOf('const MTKpatchRegistryKey="__MTK_PATCH_REGISTRY__"');
 const bootstrapEnd = appSource.indexOf("})();", bootstrapStart) + 5;
 assert.ok(bootstrapStart >= 0 && bootstrapEnd > bootstrapStart, "registry bootstrap seam");
@@ -47,22 +51,26 @@ const names = [...appCalls, ...lazyCalls].map(call => call.name).sort();
 const allSources = files.map(file => fs.readFileSync(file, "utf8"));
 const expectedNames = [
   ["crossTaskAttribution", source => source.includes("function MTKsender(")],
+  ["runtimeJsonReload", source => source.includes("function MTKinstallRuntimeJsonReload(")],
+  ["reasoningRetention", source => source.includes("function MTKreasoningShouldStayOpen(")],
   ["outgoingMessageReceipt", source => source.includes("function MTKOutboundMessageReceipt(")],
   ["modelIdentityGuard", source => source.includes("function MTKinstallModelIdentityGuard(") &&
     source.includes("data-mtk-model-guard-mismatch")],
   ["sidebarActionCollapse", source => source.includes("function MTKsidebarActionDisclosure(") ||
     source.includes("function MTKsidebarActionDisclosure7345(") || source.includes("function MTKsidebarActionDisclosure7746(") ||
-    source.includes("function MTKsidebarActionDisclosure7942(")],
+    source.includes("function MTKsidebarActionDisclosure7942(") || source.includes("function MTKsidebarActionDisclosure8378(")],
   ["taskAttentionPolicy", source => source.includes("function MTKattentionIgnoredThread(") ||
     source.includes("function MTKattentionIgnoredThread7345(") || source.includes("function MTKattentionIgnoredThread7746(") ||
-    source.includes("function MTKattentionIgnoredThread7942(")],
+    source.includes("function MTKattentionIgnoredThread7942(") || source.includes("function MTKattentionIgnoredThread8378(")],
   ["taskVisualPalette", source => source.includes("function MTKusePaletteBootstrap(")],
   ["tinrelayPointerPresentation", source => source.includes("function MTKtinrelayPointerFromMessage(") &&
     source.includes("data-mtk-tinrelay-pointer")],
   ["terminalToggle", source => source.includes('requiredAccess:`codexLocal`,shortcutScope:`app`,commandMenuGroupKey:`panels`')],
   ["waitThreadRoster", source => source.includes("function MTKrenderWaitThreads(") &&
-    source.includes("data-mtk-wait-thread-roster")]
-].filter(([, active]) => allSources.some(active)).map(([name]) => name).sort();
+    source.includes("data-mtk-wait-thread-roster")],
+  ["nativeAppToolsPeerAuthorization", source => source.includes("function MTKnativeAppToolsPeerAuthorizer(")],
+  ["safeStartReadiness", source => source.includes("s.type===`ready`&&P();")]
+].filter(([, active]) => [...allSources, mainSource].some(active)).map(([name]) => name).sort();
 assert.deepEqual(names, expectedNames);
 assert.equal(new Set(names).size, names.length, "one owner registers each active package");
 

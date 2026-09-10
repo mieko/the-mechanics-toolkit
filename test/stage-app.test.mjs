@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { inspectAppBundle } from "../src/app-bundle.mjs";
 import { asarHeaderSha256 } from "../src/asar-integrity.mjs";
+import { patchDefinitions } from "../src/patch-catalog.mjs";
 
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const toolkit = path.join(repository, "bin/toolkit.mjs");
@@ -15,12 +16,15 @@ const terminalProbe = path.join(repository, "test/terminal-toggle.test.mjs");
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-stage-test-"));
 
 try {
+  const asarPatches = patchDefinitions.filter(definition => definition.scope === "asar");
+  assert.equal(asarPatches.at(-1)?.name, "renderer-patch-registry",
+    "renderer registry runs after every ASAR behavior transform");
   const source = path.join(scratch, "Source ChatGPT.app");
   const destination = path.join(scratch, "Staged ChatGPT.app");
   const config = path.join(scratch, "toolkit.json");
   makeSourceApp(source, terminalFixture());
   fs.writeFileSync(config, JSON.stringify({
-    enabledPatches: ["terminal-toggle", "macos-menu-title"],
+    enabledPatches: ["terminal-toggle", "macos-menu-title", "renderer-patch-registry"],
     signingIdentity: "-"
   }));
   const sourceBefore = inspectAppBundle(source);
@@ -28,9 +32,10 @@ try {
   for (const [label, enabledPatches, expected] of [
     ["unknown patch", ["imaginary-patch"], /Unknown enabled patches/],
     ["duplicate patch", ["terminal-toggle", "terminal-toggle"], /contains duplicates/],
-    ["missing palette dependency", ["task-visual-palette"], /requires: cross-task-attribution/],
-    ["missing reasoning dependency", ["reasoning-retention"], /requires: task-visual-palette/],
-    ["missing model guard dependency", ["model-identity-guard"], /requires: task-visual-palette/]
+    ["missing renderer registry", ["terminal-toggle"], /must include renderer-patch-registry/],
+    ["missing palette dependency", ["task-visual-palette", "renderer-patch-registry"], /requires: cross-task-attribution/],
+    ["missing reasoning dependency", ["reasoning-retention", "renderer-patch-registry"], /requires: task-visual-palette/],
+    ["missing model guard dependency", ["model-identity-guard", "renderer-patch-registry"], /requires: task-visual-palette/]
   ]) {
     const rejectedConfig = path.join(scratch, `${label}.json`);
     fs.writeFileSync(rejectedConfig, JSON.stringify({enabledPatches}));
@@ -62,7 +67,7 @@ try {
 
   const result = runToolkit(["stage", source, destination, "--config", config]);
   assert.equal(result.state, "staged-static-proof-green");
-  assert.deepEqual(result.patches, ["macos-menu-title", "terminal-toggle"]);
+  assert.deepEqual(result.patches, ["macos-menu-title", "terminal-toggle", "renderer-patch-registry"]);
   assert.deepEqual(result.changedTargets, ["Contents/Info.plist", "webview/assets/app-initial-fixture.js"]);
   assert.equal(result.secondApplyByteIdentical, true);
   assert.equal(result.probesPassedAfterRepack, true);
@@ -166,12 +171,15 @@ function makeSourceApp(app, rendererSource) {
   const resources = path.join(contents, "Resources");
   const sourceTree = path.join(scratch, `source-tree-${path.basename(app)}`);
   const assets = path.join(sourceTree, "webview/assets");
+  const build = path.join(sourceTree, ".vite/build");
   const helper = path.join(sourceTree, "node_modules/node-pty/build/Release/spawn-helper");
   fs.mkdirSync(assets, {recursive: true});
+  fs.mkdirSync(build, {recursive: true});
   fs.mkdirSync(path.dirname(helper), {recursive: true});
   fs.mkdirSync(path.join(contents, "MacOS"), {recursive: true});
   fs.mkdirSync(resources, {recursive: true});
   fs.writeFileSync(path.join(assets, "app-initial-fixture.js"), rendererSource);
+  fs.writeFileSync(path.join(build, "main-fixture.js"), "export const fixture=true;\n");
   fs.writeFileSync(helper, "fixture helper\n", {mode: 0o755});
   const unpackedFixtures = [helper];
   for (const packageName of ["@worklouder/device-kit-oai", "better-sqlite3", "objc-js"]) {

@@ -99,14 +99,14 @@ const definitions = [
     requires: ["task-attention-policy", "task-visual-palette"]
   },
   {
-    name: "renderer-patch-registry",
-    script: "patches/renderer-patch-registry/patch.mjs",
-    probe: "test/renderer-patch-registry.test.mjs"
-  },
-  {
     name: "safe-start-readiness",
     script: "patches/safe-start-readiness/patch.mjs",
     probe: "test/safe-start-readiness.test.mjs"
+  },
+  {
+    name: "renderer-patch-registry",
+    script: "patches/renderer-patch-registry/patch.mjs",
+    probe: "test/renderer-patch-registry.test.mjs"
   }
 ];
 
