@@ -3,7 +3,10 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { inspectAppBundle } from "../src/app-bundle.mjs";
+import { diagnoseApp } from "../src/diagnose-app.mjs";
 import { patchDefinition } from "../src/patch-catalog.mjs";
+import { sourcePatchDefinition, sourcePatchDefinitions } from "../src/source-patch-catalog.mjs";
+import { applySourcePatch, sourcePatchState } from "../src/source-patch.mjs";
 import { stageApp } from "../src/stage-app.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -11,6 +14,8 @@ const [command, ...args] = process.argv.slice(2);
 
 if (command === "inspect" && args.length === 1) {
   print(inspectAppBundle(args[0]));
+} else if (command === "diagnose" && args.length === 1) {
+  print(diagnoseApp({app: args[0]}));
 } else if (command === "stage" && args.length === 4 && args[2] === "--config") {
   print(stageApp({sourceApp: args[0], destinationApp: args[1], configPath: args[3], repositoryRoot: root}));
 } else if (command === "patch" && (args.length === 3 || args.length === 5)) {
@@ -25,12 +30,27 @@ if (command === "inspect" && args.length === 1) {
   const result = spawnSync(process.execPath, [patch, action, patchRoot, ...patchArgs], { encoding: "utf8" });
   if (result.status !== 0) fail((result.stderr || result.stdout).trim());
   process.stdout.write(result.stdout);
+} else if (command === "source-patch" && args.length === 1 && args[0] === "list") {
+  print(sourcePatchDefinitions.map(({name, upstream, tag, commit, desktop}) => ({
+    name, upstream, tag, commit, desktop
+  })));
+} else if (command === "source-patch" && args.length === 3) {
+  const [patchName, action, checkoutRoot] = args;
+  const definition = sourcePatchDefinition(patchName);
+  if (!definition) fail(`Unknown source patch: ${patchName}`);
+  if (!new Set(["check", "apply"]).has(action)) fail(`Unknown source-patch action: ${action}`);
+  print(action === "apply"
+    ? applySourcePatch({definition, checkoutRoot, repositoryRoot: root})
+    : sourcePatchState({definition, checkoutRoot, repositoryRoot: root}));
 } else {
   fail(
     "usage:\n" +
       "  mechanics-toolkit inspect CHATGPT_APP\n" +
+      "  mechanics-toolkit diagnose CHATGPT_APP\n" +
       "  mechanics-toolkit stage SOURCE_CHATGPT_APP STAGED_CHATGPT_APP --config TOOLKIT_CONFIG\n" +
-      "  mechanics-toolkit patch PATCH_NAME check|apply PATCH_ROOT [--config TOOLKIT_CONFIG]"
+      "  mechanics-toolkit patch PATCH_NAME check|apply PATCH_ROOT [--config TOOLKIT_CONFIG]\n" +
+      "  mechanics-toolkit source-patch list\n" +
+      "  mechanics-toolkit source-patch PATCH_NAME check|apply CODEX_CHECKOUT"
   );
 }
 

@@ -11,11 +11,18 @@ showing that new selection in the composer. For a continuity-bearing agent, noti
 after several turns is too late. This patch compares the live selector state with an independent,
 exact-task pin and fails loudly before another message can be entered.
 
+This is based on observed failures: Codex has changed the selected model or effort without the user
+doing so, most often around application restarts. The guard independently states what the task was
+supposed to use so the truthful-but-wrong live selector cannot silently redefine the expectation.
+
 On mismatch, the existing model selector flashes red and displays `BAD MODEL`, its tooltip names
 the expected and current model/effort pair, and the composer editor is disabled. The disabled
 editor visibly names the expected pair and tells the operator to restore it. The selector stays
 usable; matching the pin immediately returns the editor and any existing draft to normal.
-The alert and recovery text retain deliberate warning contrast in both Codex themes.
+If the pinned model was removed or renamed, hold `⌘` and click either the locked composer message or
+`BAD MODEL` on macOS; hold Control and click either surface on Windows or Linux. That disables the
+lockout for this task until the application exits without rewriting its JSON pin. The alert and
+recovery text retain deliberate warning contrast in both Codex themes.
 
 ![The model identity guard locking the composer after a pinned task is switched away from its expected model](model-identity-guard-demo.webp)
 
@@ -71,9 +78,10 @@ and application replacement remain separate operations.
 ownership, syntax, idempotence, upgrade from the first guard revision, and the focused behavioral
 probe. The behavioral probe verifies exact model-and-effort comparison, visible expected/current
 diagnostics, the in-editor recovery instruction, draft-preserving editor lock, submit suppression,
-selector availability, recovery after the live pair matches, and stock behavior for an unpinned
-task. It also checks the light-theme recovery treatment rather than assuming the dark warning color
-will remain readable on a pale composer.
+selector availability, platform-native session override from both clickable surfaces, recovery
+after the live pair matches, and stock behavior for an unpinned task. It also checks the light-theme
+recovery treatment rather than assuming the dark warning color will remain readable on a pale
+composer.
 
 ## Non-goals
 

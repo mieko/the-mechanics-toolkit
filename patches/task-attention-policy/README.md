@@ -11,6 +11,9 @@ they finish. Their output should remain available and their failures should rema
 routine completion does not always deserve a sidebar unread marker, Dock badge, or native
 notification.
 
+The most useful everyday case is straightforward: mute completion notifications from a selected
+task while leaving that task and its results available.
+
 This patch lets an operator identify those tasks with anchored regular expressions. A match mutes
 only completion attention; it does not hide, archive, pause, cancel, mark read, or alter the task.
 Running state, output, errors, approvals, input requests, and ordinary destination-task alerts stay

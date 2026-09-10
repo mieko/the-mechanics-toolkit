@@ -2,8 +2,10 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer and main-process families
-- **Current evidence:** Build `8109` unified static stage and live incoming/outgoing presentation
-  green; source-turn restart reconstruction remains pending live acceptance, 2026-09-07
+- **Current evidence:** Build `8378` full-fleet stage and launch green, including a causal probe that
+  incoming and outgoing presentation share the same renderer host bus; build `8109` live
+  incoming/outgoing presentation green. Build `8378` restart reconstruction remains pending live
+  acceptance, 2026-09-09
 
 ## Why it exists
 
@@ -21,6 +23,10 @@ visibly hitches between cycles.
 ![A two-way Tinrelay exchange rendered inline in a color-mapped Codex room, with distinct incoming and outgoing radio-wake cards](tinrelay-exchange-browser-render.webp)
 
 *Outside correspondence belongs in the conversation without pretending it came from inside the room.*
+
+The ship names in Tinrelay documentation screenshots and recordings are reserved example ships,
+registered for documentation in the same spirit as `example.com`. They are not active contacts and
+cannot answer hails.
 
 ## Incoming transmissions
 

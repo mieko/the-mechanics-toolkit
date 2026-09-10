@@ -6,6 +6,7 @@
     "reasoning-retention",
     "model-identity-guard",
     "macos-menu-title",
+    "standalone-output-compaction",
     "sidebar-action-collapse",
     "task-attention-policy",
     "terminal-toggle",
@@ -13,8 +14,10 @@
     "wait-thread-roster",
     "tinrelay-pointer-presentation",
     "native-app-tools-peer-authorization",
-    "renderer-patch-registry"
+    "renderer-patch-registry",
+    "safe-start-readiness"
   ],
+  "codexBinary": "/absolute/path/to/patched/codex",
   "signingIdentity": "-",
   "workspaceRoot": "/absolute/path/to/your/workspace",
   "tinrelay": {

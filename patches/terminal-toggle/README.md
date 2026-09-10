@@ -11,6 +11,9 @@ terminal panel. The shipped shortcut boundary did not let that command fire whil
 or terminal editable owned focus. In practice, the terminal shortcut could open the panel from some
 places but could not reliably behave like a toggle from the two places where it mattered.
 
+This repairs a recently introduced Codex regression. It is expected to be retired rather than
+carried indefinitely once the stock shortcut works from those focused editors again.
+
 This patch makes the configured terminal shortcut do both halves of its job:
 
 - from the chat composer, open the terminal;

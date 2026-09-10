@@ -1,12 +1,13 @@
 # Using the toolkit
 
-The toolkit inspects and transforms an explicitly supplied Codex Desktop application or extracted
-ASAR tree. It does not install, replace, launch, or roll back an application.
+The toolkit has two explicit targets: an open-source Codex checkout for App Server/Core source
+patches, and a Codex Desktop application or extracted ASAR tree for package patches. Neither lane
+installs, replaces, launches, or rolls back an application.
 
 ## Requirements
 
-The current workflow targets macOS and requires Node.js 22.12 or newer. Install the pinned local
-Electron ASAR dependency and run the repository checks:
+The current patch-staging workflow targets macOS and requires Node.js 24 LTS or a newer supported
+release. Install the pinned local Electron ASAR dependency and run the repository checks:
 
 ```sh
 npm install
@@ -33,6 +34,40 @@ node bin/toolkit.mjs inspect /path/to/ChatGPT.app
 Inspection reports bundle identity, version and build, complete ASAR SHA-256, Electron's raw-header
 integrity value, and code-signature validity.
 
+## Diagnose a failed launch or renderer
+
+On macOS, collect a bounded local report from the newest Codex desktop log and the renderer error
+breadcrumbs Codex already preserves:
+
+```sh
+node bin/toolkit.mjs diagnose /Applications/ChatGPT.app
+```
+
+The report includes the same bundle integrity inspection, the newest startup/error lines from
+Codex's rotating file log, and recent renderer exception stacks when available. It reads at most the
+last 2 MiB of one desktop log and only error-level Sentry breadcrumbs. It does not upload anything,
+copy conversation bodies, or enable additional telemetry. Home-directory paths are shortened to
+`~`; review the output before sharing it outside the machine.
+
+## Restart with automatic rescue
+
+After a candidate has been adopted with the required authority, use the safe-start supervisor from
+the Codex task that should own recovery:
+
+```sh
+tmtk-restart /Applications/ChatGPT.app
+```
+
+Use `--prompt TEXT` to prepend incident-specific context. The generated rescue message still states
+that Desktop failed, that the resumed task is in Codex CLI without native task-to-task messaging,
+and where its diagnostic, supervisor, and application-output logs live.
+
+It recovers the invoking task's stored project directory from Codex's local task catalog, ignores
+the subprocess `PWD`, and opens the same task in a terminal if the application exits before healthy
+renderer readiness or stays unready through the configured grace period. See
+[safe restart and rescue](safe-start.md) for lifecycle, fallback configuration, private diagnostics,
+and `did-codex-launch`.
+
 ## Local configuration
 
 Copy [`toolkit.example.json`](../toolkit.example.json) to the ignored `toolkit.local.json`, or use
@@ -46,6 +81,8 @@ Configuration-backed patches use these values:
   permissions macOS tracks that way, but some application items add their own exact-hash or
   partition policy. Keep the certificate and private key local—only the identity name belongs in the
   ignored configuration. See [stable local signing](local-signing.md) for the trust boundary;
+- `codexBinary` names a separately built App Server/Core executable when a source repair must be
+  integrated into the staged desktop package;
 - `workspaceRoot` locates `.codex/task-visual-palette.json` and
   `.codex/task-attention-policy.json`;
 - reasoning retention consumes exact task opt-ins from the visual palette;
@@ -72,6 +109,23 @@ partial, or changed ownership fails closed; the patch's own README gives its exa
 probe, and configuration needs.
 
 Applying a patch to an extracted directory does not repack it or touch an application bundle.
+
+## Check or apply a Codex source patch
+
+Source patches target an exact checkout of [OpenAI Codex](https://github.com/openai/codex), not a
+desktop bundle:
+
+```sh
+node bin/toolkit.mjs source-patch list
+node bin/toolkit.mjs source-patch PATCH-NAME check /path/to/codex
+node bin/toolkit.mjs source-patch PATCH-NAME apply /path/to/codex
+```
+
+The check verifies the exact upstream commit and every touched file's qualified before or after
+hash. Apply changes only that checkout. The selected source-patch README gives the focused tests
+and build command; the agent should inspect and port it when the offered Codex revision differs.
+The toolkit deliberately does not clone upstream, invoke a build farm, or decide that test output
+is acceptable.
 
 ## Make ordinary Tinrelay sends visible
 
@@ -105,6 +159,12 @@ order, runs syntax and behavioral probes, proves byte-identical second applicati
 source's exact native payload and executable modes, repacks the ASAR, updates Electron's integrity
 seal, signs the candidate with the configured identity (ad-hoc by default), and repeats verification
 after packing.
+
+When a selected repair includes a rebuilt App Server/Core, set `codexBinary` to the absolute path
+of the verified build. The `standalone-output-compaction` desktop integration requires the vendor
+and replacement executables to report the same `codex-cli` version, copies the replacement into the
+candidate at `Contents/Resources/codex`, and verifies its SHA-256 before the full bundle is signed.
+No compiled binary is stored in this repository.
 
 A green result is a statically verified candidate, not permission to adopt it and not evidence of
 live behavior. The candidate name is a staging convention, not a second installed application;

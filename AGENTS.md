@@ -1,17 +1,19 @@
 # The Mechanic's Toolkit agent guidance
 
 This repository is a source-only, inspectable toolkit for narrowly patching local Codex Desktop
-installations. Its owner is The Mechanic. Its one-sentence contract is: **recognize an exact known
-Codex Desktop structure, make one bounded repair in a staged copy, and fail closed when the
-structure changes.**
+installations and exact revisions of the open-source Codex App Server/Core. Its owner is The
+Mechanic. Its one-sentence contract is: **recognize an exact known source or package structure, make
+one bounded repair in an explicit target, and fail closed when the structure changes.**
 
 ## Boundaries
 
 - Never redistribute ChatGPT/Codex application bundles, extracted ASAR contents, credentials,
   profiles, task databases, or other vendor or user data.
 - Read-only inspection is the default. A check must not rewrite the target.
-- Patch commands may modify only an explicitly supplied extracted ASAR directory. Application
-  staging and installation require separate commands and must remain separate authority seams.
+- Desktop patch commands may modify only an explicitly supplied extracted ASAR directory or staged
+  application. Source-patch commands may modify only an explicitly supplied Codex Git checkout at
+  the exact qualified revision. Building, application staging, installation, and launch remain
+  separate authority seams.
 - The staging command must refuse a destination inside `/Applications`, must never launch it, and
   must remove a newly created partial destination on failure. A future installation command must
   require an explicit operator action and preserve a recoverable external copy.
@@ -33,6 +35,9 @@ structure changes.**
 - Give each patch one directory under `patches/` with its transform and a `README.md` that states
   purpose, current state, owned seam, compatibility evidence, verification, and non-goals. The root
   README is the fleet-wide instrument panel; patch READMEs are the maintenance logs.
+- Give each App Server/Core repair one directory under `source-patches/` with its exact diff and a
+  `README.md` that states the upstream tag/commit, behavior, tests, build command, integration seam,
+  and non-goals. Do not fold Rust source application into the desktop staging transform.
 - Do not commit, publish, tag, or create a remote unless the operator explicitly asks.
 
 ## Verification
@@ -40,6 +45,8 @@ structure changes.**
 - Start with the narrowest unit or fixture test, then check syntax for every executable module.
 - For a supported installed build, verify against a disposable extracted ASAR tree before claiming
   compatibility.
+- For a source patch, verify exact before/after target hashes, apply it to a disposable checkout of
+  the qualified commit, and run its focused upstream tests before claiming compatibility.
 - A staged application is acceptable only after complete patch checks, changed-module syntax,
   focused causal probes, lazy-initializer activation, ASAR header integrity, code-signature
   verification, and byte-identical second application.

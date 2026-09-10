@@ -7,36 +7,43 @@ what crossed the extraction boundary; it is not a promise to publish every histo
 | --- | --- | --- |
 | ASAR raw-header integrity | Extracted, fixture-tested, and used by staging | Qualify a disposable supported-build candidate |
 | Read-only app inspection | Extracted and fixture-tested | Record exact accepted builds |
-| Terminal toggle | Extracted; fixture red/green and installed build 8109 green | Requalify after the next Codex update |
-| Staging, repacking, signing | Extracted; synthetic and build-8109 stages green | Requalify a disposable candidate from the next inspected pristine build |
-| Native app-tools peer authorization | Extracted; two main-process profiles red/green; build-8109 native messaging green | Requalify after the next Codex update |
-| Cross-task attribution | Extracted; current renderer-family fixture and build-8109 live use green | Requalify after the next Codex update |
-| Outgoing send receipt | Extracted; build-8109 live mounted behavior and disposable acknowledged persistence/restart probes green | Live-accept restart reconstruction, then requalify after the next Codex update |
-| Wait-thread roster | Extracted; build-8109 names, spacing, links, colors, and multi-target behavior live-accepted | Requalify after the next Codex update |
-| Runtime JSON reload | Extracted; renderer/main fixture and build-8109 live save green | Requalify after the next Codex update |
-| Task palette | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
-| Reasoning retention | Extracted; exact-task fixture and build-8109 live use green | Requalify after the next Codex update |
-| Model identity guard | Extracted; exact-task model/effort policy, locked-composer behavior, and pristine build-8109 full-fleet stage green | Live-accept mismatch alarm and recovery, then requalify after the next Codex update |
+| Safe restart and rescue | Extracted; task-catalog lookup, exit/timeout behavior, diagnostics, build-8378 full-fleet stage green, and live task/cwd/title resolution green | Live-accept healthy readiness and forced failure rescue on build 8378 |
+| Terminal toggle | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Staging, repacking, signing | Extracted; synthetic, build-8109, and build-8378 stages green | Requalify a disposable candidate from the next inspected pristine build |
+| Native app-tools peer authorization | Extracted; three main-process profiles red/green; build-8378 static stage and build-8109 native messaging green | Live-accept on build 8378 |
+| Standalone-output compaction source | Exact Codex 0.153.4 source diff, before/after hashes, focused compaction tests green, and native arm64 release binary built | Live-accept a task-message-triggered compaction boundary |
+| Patched Codex binary integration | Same-version check, staged-copy hash verification, build-8378 full-fleet static stage, and app launch green | Live-accept the source repair above |
+| Cross-task attribution | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Outgoing send receipt | Extracted; build-8378 static stage and build-8109 live mounted persistence/restart behavior green | Live-accept restart reconstruction on build 8378 |
+| Wait-thread roster | Extracted; build-8378 static stage and build-8109 names, links, colors, and multi-target behavior live-accepted | Live-accept on build 8378 |
+| Runtime JSON reload | Extracted; build-8378 static stage and build-8109 live save green | Live-accept on build 8378 |
+| Task palette | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Reasoning retention | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8378 full-fleet stage and build-8109 live acceptance green | Live-accept mismatch alarm and recovery on build 8378 |
 | macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
-| Task attention policy | Extracted; config-backed fixture and build-8109 live use green | Requalify after the next Codex update |
-| Tinrelay presentation | Extracted as one patch; incoming/outgoing build-8109 surfaces live-accepted; persistence-gated source-turn pagination is statically green | Live restart-plus-pagination check, then requalify after the next Codex or Tinrelay observer-contract change |
-| Sidebar action collapse | Extracted; fixture and build-8109 live use green | Requalify after the next Codex update |
-| Patch registry | Extracted; per-realm API, current marker fixture, and build-8109 composition green | Requalify after the next Codex update |
+| Task attention policy | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Tinrelay presentation | Extracted as one patch; build-8378 full-fleet launch and shared renderer-host-bus regression probe green; incoming/outgoing build-8109 surfaces live-accepted | Live restart-plus-pagination check on build 8378 |
+| Sidebar action collapse | Extracted; build-8378 static stage and build-8109 live use green | Live-accept on build 8378 |
+| Patch registry | Extracted; per-realm API and build-8378 full-fleet composition green | Live-accept on build 8378 |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
 | Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
 | Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
 
 ## Current build qualification
 
-Codex Desktop `26.901.51231` (build `8109`) was inspected and staged from a pristine vendor update
-on 2026-09-08. The complete selected fleet, including the model identity guard, applied without broadening a matcher, passed every
-focused probe before and after repacking, remained byte-identical on a second application,
-preserved the native package tree and executable helper, and produced a valid code signature and
-ASAR seal.
+Codex Desktop `26.903.61454` (build `8378`) was inspected and staged from a pristine vendor update
+on 2026-09-09. The complete selected desktop-package fleet—including the separately built Codex
+0.153.4 binary—passed every focused probe before and after repacking,
+remained byte-identical on a second application, preserved the native package tree and executable
+helper, and produced a valid code signature and ASAR seal. The first installed candidate exposed a
+Tinrelay composition defect: incoming and outgoing presentation had resolved different aliases for
+the same renderer host bus. A causal equality probe now covers that seam. The rebuilt full fleet
+was installed and reached the healthy Codex task surface; each patch's own live behavior remains an
+independent acceptance boundary where the table says so.
 
-The resulting installed application launched successfully; the configured palette, sidebar,
-terminal, retained reasoning, native task messaging, and incoming and outgoing Tinrelay
-presentation were exercised in live use.
+The predecessor qualification remains useful evidence: the installed build `8109` launched
+successfully, and the configured palette, sidebar, terminal, retained reasoning, native task
+messaging, and incoming and outgoing Tinrelay presentation were exercised in live use.
 
 ## Extraction rule
 

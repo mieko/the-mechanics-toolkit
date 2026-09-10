@@ -37,6 +37,13 @@ const definitions = [
     scope: "app"
   },
   {
+    name: "standalone-output-compaction",
+    script: "patches/standalone-output-compaction/patch.mjs",
+    probe: "test/standalone-output-compaction.test.mjs",
+    scope: "app",
+    config: true
+  },
+  {
     name: "sidebar-action-collapse",
     script: "patches/sidebar-action-collapse/patch.mjs",
     probe: "test/sidebar-action-collapse.test.mjs"
@@ -95,6 +102,11 @@ const definitions = [
     name: "renderer-patch-registry",
     script: "patches/renderer-patch-registry/patch.mjs",
     probe: "test/renderer-patch-registry.test.mjs"
+  },
+  {
+    name: "safe-start-readiness",
+    script: "patches/safe-start-readiness/patch.mjs",
+    probe: "test/safe-start-readiness.test.mjs"
   }
 ];
 

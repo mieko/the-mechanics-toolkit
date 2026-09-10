@@ -8,12 +8,19 @@ does not install, replace, launch, publish, or deploy it.
 - a valid `com.openai.codex` source bundle whose code signature and Electron ASAR-header seal pass;
 - a nonexistent destination outside `/Applications`, under an existing directory;
 - an ignored toolkit config with a nonempty, duplicate-free `enabledPatches` list;
+- when a source repair is selected, an absolute `codexBinary` path to the separately built and
+  verified same-version executable;
 - dependencies installed with `npm install`, including the pinned repository-local Electron ASAR
   tool, plus the macOS system tools `codesign`, `ditto`, and `PlistBuddy`.
 
 Configuration-backed patches read their ordinary sections from the same file. The palette requires
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array
 order, so the renderer registry always sees the completed selected surface.
+
+The staging command does not apply Rust source patches or build Codex. Follow the selected entry in
+[`source-patches/`](../source-patches/) first. Its compiled result becomes a package input only
+through the explicit `codexBinary` configuration; the integration transform places it at
+`Contents/Resources/codex` before the candidate is signed.
 
 For an offered update, prefer the untouched application from the official vendor installer as the
 source. The running installed application may remain open throughout staging. A staged candidate
