@@ -26,9 +26,12 @@ const localShip = JSON.parse(uniqueMatch(
 ).groups.ship);
 
 const rendererStart = rendererSource.indexOf("function MTKtinrelayOutgoingAcceptance(");
-const rendererEnd = rendererSource.indexOf("function Cb(", rendererStart);
+const outgoingViewStart = rendererSource.indexOf("function MTKtinrelayOutgoingView(", rendererStart);
+const rendererEnd = rendererSource.indexOf("function ", outgoingViewStart + "function ".length);
 assert.ok(rendererStart >= 0 && rendererEnd > rendererStart, "outgoing renderer helpers are localized");
 const helper = rendererSource.slice(rendererStart, rendererEnd);
+const jsxName = uniqueMatch(helper, /\(0,(?<jsx>[$A-Z_a-z][$\w]*)\.jsx\)\("div",\{"data-mtk-tinrelay-outgoing-turn":!0/g,
+  "outgoing renderer JSX runtime").groups.jsx;
 const busName = uniqueMatch(helper, /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g,
   "outgoing renderer host bus").groups.bus;
 const jsx = {
@@ -69,7 +72,7 @@ const bus = {
   dispatchMessage(type, value) { dispatches.push({type, value}); }
 };
 const rendererApiFactory = () => Function(
-    "Tb", "MTKtinrelayReact", "MTKtinrelayLocalShip", "MTKtinrelayAddress",
+    jsxName, "MTKtinrelayReact", "MTKtinrelayLocalShip", "MTKtinrelayAddress",
     "MTKtinrelayScrollSnapshot", "MTKtinrelayScheduleScroll", "MTKtinrelayMessageView", busName,
     `${helper};return {acceptance:MTKtinrelayOutgoingAcceptance,matches:MTKtinrelayOutgoingMatches,exec:MTKtinrelayOutgoingExec,turn:MTKtinrelayOutgoingTurnPresentations,view:MTKtinrelayOutgoingView}`
   )(
@@ -217,12 +220,22 @@ assert.equal((activitySource.match(/MTKtinrelayOutgoingAcceptance\(e,MTKtinrelay
 assert.equal((rendererSource.match(/\(MTKtinrelayOutgoingExec,\{Component:/g) ?? []).length, 1,
   "one exec renderer owns the outgoing card");
 
-const collapseStart = rendererSource.indexOf("function GE(");
-const collapseEnd = rendererSource.indexOf("var JE=", collapseStart);
+const collapseMarker = rendererSource.indexOf("i.type===`exec`&&MTKtinrelayOutgoingAcceptance(i,MTKtinrelayLocalShip)!=null||");
+const collapseStart = rendererSource.lastIndexOf("function ", collapseMarker);
+const collapseEndMarker = rendererSource.indexOf("}function ", collapseMarker);
+const collapseEnd = collapseEndMarker < 0 ? -1 : collapseEndMarker + 1;
 assert.ok(collapseStart >= 0 && collapseEnd > collapseStart, "collapsed activity classifier is localized");
+const collapseSource = rendererSource.slice(collapseStart, collapseEnd);
+const collapseFunction = collapseSource.match(/^function (?<name>[$A-Z_a-z][$\w]*)\(/)?.groups.name;
+const collapseAggregateStart = rendererSource.lastIndexOf("function ", collapseStart - 1);
+const collapseAggregateSource = rendererSource.slice(collapseAggregateStart, collapseEnd);
+const collapseAggregate = collapseAggregateSource.match(/^function (?<name>[$A-Z_a-z][$\w]*)\(/)?.groups.name;
+const dynamicPredicate = collapseSource.match(/i\.type===`dynamic-tool-call`&&(?<name>[$A-Z_a-z][$\w]*)\(i\)/)?.groups.name;
+const mcpPredicate = collapseSource.match(/i\.type===`mcp-tool-call`&&(?<name>[$A-Z_a-z][$\w]*)\(\{item:i,mcpServerStatuses:n\}\)/)?.groups.name;
+assert.ok(collapseFunction && collapseAggregate && dynamicPredicate && mcpPredicate, "collapsed activity classifier dependencies");
 const collapseApi = Function(
-  "Zm", "Kl", "MTKtinrelayOutgoingAcceptance", "MTKtinrelayLocalShip",
-  `${rendererSource.slice(collapseStart, collapseEnd)};return GE`
+  dynamicPredicate, mcpPredicate, "MTKtinrelayOutgoingAcceptance", "MTKtinrelayLocalShip",
+  `${collapseAggregateSource};return ${collapseAggregate}`
 )(
   () => false,
   () => null,
@@ -241,7 +254,8 @@ for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "markdown", "ev
 
 const mainStart = mainSource.indexOf("const MTKtinrelayOutgoingContract=");
 const mainEnd = [mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart),
-  mainSource.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart)].find(index => index >= 0);
+  mainSource.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart),
+  mainSource.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)].find(index => index >= 0);
 assert.ok(mainStart >= 0 && mainEnd > mainStart, "outgoing main helpers are localized");
 const localRequire = await import("node:module").then(({createRequire}) => createRequire(import.meta.url));
 const mainApiFactory = () => Function("require", `${mainSource.slice(mainStart, mainEnd)};return {event:MTKtinrelayOutgoingEvent,remember:MTKtinrelayRememberOutgoing,read:MTKtinrelayReadOutgoing,lookup:MTKtinrelayOutgoingLookup,anchorRemember:MTKtinrelayOutgoingAnchorRemember,anchorsList:MTKtinrelayOutgoingAnchorsList,start:MTKtinrelayStartOutgoingObserver}`)(localRequire);

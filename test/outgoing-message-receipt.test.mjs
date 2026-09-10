@@ -237,7 +237,7 @@ assert.ok(!helper.includes("\"details\"") && !helper.includes("\"pre\""), "no pa
 
 const conversationOwners = fs.readdirSync(assets).filter(name => {
   const source = name.endsWith(".js") ? fs.readFileSync(path.join(assets, name), "utf8") : "";
-  return source.includes("function MTKOutboundTurnReceipts(") && source.includes("sourceTurnId:S");
+  return source.includes("function MTKOutboundTurnReceipts(");
 });
 assert.equal(conversationOwners.length, 1, "unique durable turn-receipt owner");
 const conversation = fs.readFileSync(path.join(assets, conversationOwners[0]), "utf8");
@@ -249,12 +249,20 @@ for (const contract of [
   "MTKoutboundReceiptLimit=256",
   "MTKoutboundReceipt as MTKoutboundReceipt"
 ]) assert.ok(conversation.includes(contract), contract);
-const receiptPresentation = conversation.indexOf("children:[(0,Yy.jsx)(MTKOutboundTurnReceipts,{conversationId:p,turnId:o}),");
+const presentationOwners = fs.readdirSync(assets).filter(name => {
+  const source = name.endsWith(".js") ? fs.readFileSync(path.join(assets, name), "utf8") : "";
+  return source.includes("MTKOutboundTurnReceipts,{conversationId:");
+});
+assert.equal(presentationOwners.length, 1, "unique durable receipt presentation owner");
+const presentation = fs.readFileSync(path.join(assets, presentationOwners[0]), "utf8");
+const receiptPresentation = presentation.indexOf("MTKOutboundTurnReceipts,{conversationId:");
 assert.ok(receiptPresentation >= 0, "durable receipts lead the assistant turn presentation");
-assert.ok(conversation.indexOf(",Ze,", receiptPresentation) > receiptPresentation,
+assert.match(presentation,
+  /children:\[\(0,[A-Za-z_$][\w$]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:[A-Za-z_$][\w$]*,turnId:[A-Za-z_$][\w$]*\}\),/,
   "durable receipts remain ahead of the stock assistant content when another presentation composes between them");
 const conversationCacheStart = conversation.indexOf("const MTKoutboundReceiptContract=");
-const conversationCacheEnd = conversation.indexOf("function Oy(", conversationCacheStart);
+const receiptFunctionStart = conversation.indexOf("function MTKOutboundTurnReceipts(", conversationCacheStart);
+const conversationCacheEnd = conversation.indexOf("function ", receiptFunctionStart + "function ".length);
 const conversationHelper = conversation.slice(conversationCacheStart, conversationCacheEnd);
 assert.ok(conversationHelper.includes("length-MTKoutboundReceiptLimit"),
   "renderer bounds acknowledged receipts per source task");
@@ -284,7 +292,7 @@ const mainOwners = fs.readdirSync(mainDirectory).filter(name => {
 assert.equal(mainOwners.length, 1, "unique durable receipt cache owner");
 const main = fs.readFileSync(path.join(mainDirectory, mainOwners[0]), "utf8");
 const mainStart = main.indexOf('const MTKoutboundReceiptContract=');
-const mainEnds = [main.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart)].filter(index => index > mainStart);
+const mainEnds = [main.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)].filter(index => index > mainStart);
 assert.equal(mainEnds.length, 1, "localized durable receipt main helper");
 const mainHelper = main.slice(mainStart, mainEnds[0]);
 const mainHandlerStart = main.indexOf("case`mtk-outbound-receipt-remember`:");

@@ -47,6 +47,9 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
   if (titleInternal === "tOn") {
     assert.ok(titleOwner.includes("tOn=vp(qv,") && titleOwner.includes("localTitle:r"),
       "current title atom retains its stock task-title selector owner");
+  } else if (titleOwner.includes(`${titleInternal}=iS(`)) {
+    assert.ok(titleOwner.includes("hasConversation") && titleOwner.includes("localTitle:r") &&
+      titleOwner.includes("summaryTitle"), "split title atom retains its stock task-title selector owner");
   } else {
     assert.ok(["SOn", "EI"].includes(titleInternal), "title atom retains its stock ESM export owner");
   }
@@ -63,7 +66,11 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
   const appInitial = fs.readFileSync(path.resolve(path.dirname(ownerPath), initialImport.relative), "utf8");
   const storeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.store));
   const scopeInternal = exportedInternal(appInitial, importedExport(initialImport.specifiers, metadata.scope));
-  assert.ok(["pb", "hb", "Db"].includes(storeInternal), "metadata uses the stock renderer store hook");
+  if (!["pb", "hb", "Db"].includes(storeInternal)) {
+    const storeFunction = functionSource(appInitial, storeInternal);
+    assert.ok(storeFunction.includes(".useContext") && storeFunction.includes(".useRef") &&
+      storeFunction.includes("get queryClient"), "metadata uses the stock renderer store hook");
+  }
   assert.equal(scopeInternal, "Q", "metadata uses the stock renderer store scope");
   metadataKind = "stock-renderer-store-title-atom";
   metadataContracts = ["MTKstore.get(MTKtitleAtom,{hostId:"];

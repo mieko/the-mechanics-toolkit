@@ -45,9 +45,9 @@ function inspectState() {
     'const MTKruntimeJsonFiles=new Set(["task-attention-policy.json","task-visual-palette.json"])',
     "function MTKruntimeJsonRegister(",
     "function MTKinstallRuntimeJsonReload(",
-    'U.subscribe("mtk-runtime-json-changed"',
-    'U.dispatchMessage("mtk-runtime-json-watch",{})',
-    "U=H.getInstance(),MTKinstallRuntimeJsonReload(),"
+    '.subscribe("mtk-runtime-json-changed"',
+    '.dispatchMessage("mtk-runtime-json-watch",{})',
+    "MTKinstallRuntimeJsonReload(),"
   ];
   const mainMarkers = [
     "const MTKruntimeJsonFs=require(\"node:fs\")",
@@ -70,15 +70,11 @@ function inspectState() {
 }
 
 function inspectPristineRenderer() {
-  for (const contract of [
-    "U=H.getInstance(),y((e,t)=>{U.dispatchMessage(e,t)})",
-    "export{"
-  ]) {
-    if (count(rendererSource, contract) !== 1) {
-      throw new Error(`Upstream changed: runtime JSON renderer contract is not unique: ${contract}`);
-    }
+  const profile = rendererProfile(rendererSource);
+  if (count(rendererSource, "export{") !== 1) {
+    throw new Error("Upstream changed: runtime JSON renderer export list is not unique");
   }
-  if (!/(?:\{|,)U as [$A-Z_a-z][$\w]*(?=,|})/.test(rendererSource.slice(rendererSource.lastIndexOf("export{")))) {
+  if (!new RegExp(`(?:\\{|,)${profile.bus} as [$A-Z_a-z][$\\w]*(?=,|})`).test(rendererSource.slice(rendererSource.lastIndexOf("export{")))) {
     throw new Error("Upstream changed: renderer host bus is not exported from app-initial");
   }
 }
@@ -99,19 +95,26 @@ function inspectPristineMain() {
 }
 
 function patchRenderer(value, workspaceRoot) {
-  const helper = rendererHelper(workspaceRoot);
+  const profile = rendererProfile(value);
+  const helper = rendererHelper(workspaceRoot, profile.bus);
   let patched = helper + value;
   patched = replaceOnce(
     patched,
-    "U=H.getInstance(),y((e,t)=>{U.dispatchMessage(e,t)})",
-    "U=H.getInstance(),MTKinstallRuntimeJsonReload(),y((e,t)=>{U.dispatchMessage(e,t)})",
+    profile.contract,
+    profile.contract.replace(",", ",MTKinstallRuntimeJsonReload(),"),
     "renderer host-bus initialization"
   );
   return patched;
 }
 
-function rendererHelper(workspaceRoot) {
-  return String.raw`const MTKruntimeJsonFiles=new Set(["task-attention-policy.json","task-visual-palette.json"]),MTKruntimeJsonAcceptors=new Map;let MTKruntimeJsonInstalled=!1;function MTKruntimeJsonQueue(e,t=!1){let n=MTKruntimeJsonAcceptors.get(e);if(n!=null)if(n.running)n.queued=!0,n.initial=n.initial||t;else{n.running=!0;let r=t;Promise.resolve().then(()=>n.accept(Object.freeze({initial:r}))).catch(()=>!1).finally(()=>{n.running=!1;if(MTKruntimeJsonAcceptors.get(e)!==n)return;if(n.queued){let t=n.initial;n.queued=!1,n.initial=!1,MTKruntimeJsonQueue(e,t)}})}}function MTKruntimeJsonRegister(e,t){if(!MTKruntimeJsonFiles.has(e)||typeof t!=="function")return null;let n={accept:t,running:!1,queued:!1,initial:!1};MTKruntimeJsonAcceptors.set(e,n),queueMicrotask(()=>{MTKruntimeJsonAcceptors.get(e)===n&&MTKruntimeJsonQueue(e,!0)});return()=>{MTKruntimeJsonAcceptors.get(e)===n&&MTKruntimeJsonAcceptors.delete(e)}}function MTKinstallRuntimeJsonReload(){if(MTKruntimeJsonInstalled)return;MTKruntimeJsonInstalled=!0;let e=globalThis.__MTK_RUNTIME_JSON_RELOAD__;if(e!==void 0&&e?.version!==1)return;globalThis.__MTK_RUNTIME_JSON_RELOAD__=Object.freeze({version:1,register:MTKruntimeJsonRegister,workspaceRoot:${JSON.stringify(workspaceRoot)}}),U.subscribe("mtk-runtime-json-changed",e=>{MTKruntimeJsonFiles.has(e?.fileName)&&MTKruntimeJsonQueue(e.fileName,!1)}),U.dispatchMessage("mtk-runtime-json-watch",{})}`;
+function rendererHelper(workspaceRoot, bus) {
+  return String.raw`const MTKruntimeJsonFiles=new Set(["task-attention-policy.json","task-visual-palette.json"]),MTKruntimeJsonAcceptors=new Map;let MTKruntimeJsonInstalled=!1;function MTKruntimeJsonQueue(e,t=!1){let n=MTKruntimeJsonAcceptors.get(e);if(n!=null)if(n.running)n.queued=!0,n.initial=n.initial||t;else{n.running=!0;let r=t;Promise.resolve().then(()=>n.accept(Object.freeze({initial:r}))).catch(()=>!1).finally(()=>{n.running=!1;if(MTKruntimeJsonAcceptors.get(e)!==n)return;if(n.queued){let t=n.initial;n.queued=!1,n.initial=!1,MTKruntimeJsonQueue(e,t)}})}}function MTKruntimeJsonRegister(e,t){if(!MTKruntimeJsonFiles.has(e)||typeof t!=="function")return null;let n={accept:t,running:!1,queued:!1,initial:!1};MTKruntimeJsonAcceptors.set(e,n),queueMicrotask(()=>{MTKruntimeJsonAcceptors.get(e)===n&&MTKruntimeJsonQueue(e,!0)});return()=>{MTKruntimeJsonAcceptors.get(e)===n&&MTKruntimeJsonAcceptors.delete(e)}}function MTKinstallRuntimeJsonReload(){if(MTKruntimeJsonInstalled)return;MTKruntimeJsonInstalled=!0;let e=globalThis.__MTK_RUNTIME_JSON_RELOAD__;if(e!==void 0&&e?.version!==1)return;globalThis.__MTK_RUNTIME_JSON_RELOAD__=Object.freeze({version:1,register:MTKruntimeJsonRegister,workspaceRoot:${JSON.stringify(workspaceRoot)}}),${bus}.subscribe("mtk-runtime-json-changed",e=>{MTKruntimeJsonFiles.has(e?.fileName)&&MTKruntimeJsonQueue(e.fileName,!1)}),${bus}.dispatchMessage("mtk-runtime-json-watch",{})}`;
+}
+
+function rendererProfile(value) {
+  const matches = [...value.matchAll(/(?<bus>[$A-Z_a-z][$\w]*)=(?<owner>[$A-Z_a-z][$\w]*)\.getInstance\(\),(?<bridge>[$A-Z_a-z][$\w]*)\(\(e,t\)=>\{\k<bus>\.dispatchMessage\(e,t\)\}\)/g)];
+  if (matches.length !== 1) throw new Error("Upstream changed: runtime JSON renderer host-bus owner is not unique");
+  return {bus: matches[0].groups.bus, contract: matches[0][0]};
 }
 
 function patchMain(value, workspaceRoot) {

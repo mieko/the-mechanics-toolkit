@@ -33,6 +33,13 @@ assert.equal(JSON.parse(rendererConfig.ship), localShip, "renderer and main proc
 const rendererStart = rendererSource.indexOf("const MTKtinrelayLocalShip=");
 const rendererEnd = rendererSource.indexOf("function MTKtinrelayPointerNode(", rendererStart);
 assert.ok(rendererStart >= 0 && rendererEnd > rendererStart, "localized renderer pointer parser");
+const outgoingHelpersStart = rendererSource.indexOf("function MTKtinrelayOutgoingAcceptance(", rendererStart);
+assert.ok(outgoingHelpersStart > rendererEnd, "localized outgoing renderer helpers");
+const incomingHostBus = uniqueMatch(
+  rendererSource.slice(rendererStart, outgoingHelpersStart),
+  /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-pointer-result"/g,
+  "incoming renderer host bus"
+).groups.bus;
 const parsePointer = Function(`${rendererSource.slice(rendererStart, rendererEnd)};return MTKtinrelayPointerFromMessage`)();
 
 const pointer = {
@@ -176,7 +183,18 @@ missing.code = "ENOENT";
 executorResult = missing;
 await assert.rejects(mainHelpers.inspect(request), {message: "Tinrelay client is unavailable."});
 
-const rendererHelpers = rendererSource.slice(rendererStart, rendererSource.indexOf("function Cb(", rendererStart));
+const outgoingViewStart = rendererSource.indexOf("function MTKtinrelayOutgoingView(", rendererStart);
+const rendererHelpersEnd = rendererSource.indexOf("function ", outgoingViewStart + "function ".length);
+assert.ok(outgoingViewStart > rendererStart && rendererHelpersEnd > outgoingViewStart,
+  "localized Tinrelay presentation helpers");
+const rendererHelpers = rendererSource.slice(rendererStart, rendererHelpersEnd);
+const outgoingHostBus = uniqueMatch(
+  rendererHelpers,
+  /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g,
+  "outgoing renderer host bus"
+).groups.bus;
+assert.equal(outgoingHostBus, incomingHostBus,
+  "incoming and outgoing Tinrelay presentation share Codex's renderer host bridge");
 const scrollHelpersEnd = rendererHelpers.indexOf("function MTKtinrelayEnsureStyle(");
 assert.ok(scrollHelpersEnd > 0, "localized Tinrelay scroll helpers");
 let queuedScroll = null;
@@ -215,7 +233,8 @@ scrollApi.schedule(scrollApi.snapshot());
 assert.equal(queuedScroll, null, "reading more than one viewport up is never disturbed");
 for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "MTKoutboundFormattedText", "window.open"])
   assert.ok(!rendererHelpers.includes(forbidden), `renderer omits ${forbidden}`);
-assert.ok(rendererHelpers.includes('(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})'),
+assert.match(rendererHelpers,
+  /\(0,[A-Za-z_$][\w$]*\.jsx\)\([A-Za-z_$][\w$]*,\{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"\}\)/,
   "incoming and outgoing bodies reuse Codex's complete stock user-message bubble");
 assert.ok(!rendererHelpers.includes('maxWidth:"min(38rem,86%)"'),
   "Tinrelay does not maintain a competing message-width rule");

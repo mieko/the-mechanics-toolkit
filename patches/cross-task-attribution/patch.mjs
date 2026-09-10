@@ -95,14 +95,27 @@ function inspectState(source) {
 function inspectPristine(source) {
   const labelAt = source.indexOf("localConversation.codexDelegationUserMessage.app");
   const delegation = containingFunction(source, labelAt);
-  const wrapper = functionAt(source, source.indexOf("function vb("));
-  const bubble = functionAt(source, source.indexOf("function Eg("));
+  const profile = [
+    {
+      delegation: "Cb", delegationCache: "wb", delegationJsx: "Tb",
+      wrapper: "vb", wrapperCache: "yb", wrapperJsx: "bb",
+      bubble: "Eg", bubbleCache: "Og"
+    },
+    {
+      delegation: "Yb", delegationCache: "Xb", delegationJsx: "Zb",
+      wrapper: "Wb", wrapperCache: "Gb", wrapperJsx: "Kb",
+      bubble: "$g", bubbleCache: "t_"
+    }
+  ].find(candidate => delegation.text.startsWith(`function ${candidate.delegation}(`));
+  if (profile == null) throw new Error("Upstream changed: attribution component family is unknown");
+  const wrapper = functionAt(source, source.indexOf(`function ${profile.wrapper}(`));
+  const bubble = functionAt(source, source.indexOf(`function ${profile.bubble}(`));
   for (const contract of [
-    "function Cb(e){let t=(0,wb.c)(13),{conversationId:n,sourceThreadId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c}=e,",
-    "h=(0,Tb.jsx)(vb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m})",
-    "function vb(e){let t=(0,yb.c)(16),{label:n,conversationId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c,onLabelClick:l}=e,",
-    "m=f?(0,bb.jsx)(Eg,{message:i,sentAtMs:a,collapsedLineCount:xb,compactActions:u,cwd:o,hostId:s,threadId:r}):null",
-    "function Eg(e){let t=(0,Og.c)(127),",
+    `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(13),{conversationId:n,sourceThreadId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c}=e,`,
+    `h=(0,${profile.delegationJsx}.jsx)(${profile.wrapper},{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m})`,
+    `function ${profile.wrapper}(e){let t=(0,${profile.wrapperCache}.c)(16),{label:n,conversationId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c,onLabelClick:l}=e,`,
+    `m=f?(0,${profile.wrapperJsx}.jsx)(${profile.bubble},{message:i,sentAtMs:a,collapsedLineCount:${profile.wrapper === "vb" ? "xb" : "qb"},compactActions:u,cwd:o,hostId:s,threadId:r}):null`,
+    `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(127),`,
     '"data-user-message-bubble":!0,className:'
   ]) {
     if (!source.includes(contract)) throw new Error(`Upstream changed: attribution contract ${contract}`);
@@ -110,7 +123,7 @@ function inspectPristine(source) {
   if (!new RegExp(`d=${id}\\(\\)\\?\`/hotkey-window/thread/\\$\\{r\\}\`:\`/local/\\$\\{r\\}\``).test(delegation.text)) {
     throw new Error("Upstream changed: attribution destination route");
   }
-  return { delegation, wrapper, bubble };
+  return { delegation, wrapper, bubble, profile };
 }
 
 function patchAttribution(source, ownerFile, details) {
@@ -118,12 +131,13 @@ function patchAttribution(source, ownerFile, details) {
   let delegation = details.delegation.text;
   let wrapper = details.wrapper.text;
   let bubble = details.bubble.text;
+  const profile = details.profile;
 
-  delegation = replaceOnce(delegation, "function Cb(e){let t=(0,wb.c)(13),", "function Cb(e){let t=(0,wb.c)(14),", "delegation cache size");
+  delegation = replaceOnce(delegation, `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(13),`, `function ${profile.delegation}(e){let t=(0,${profile.delegationCache}.c)(14),`, "delegation cache size");
   const labelEnd = ",t[1]=p):p=t[1];";
   const metadata =
     `let MTKstore=${imports.storeHook}(${imports.storeScope}),MTKtitle=MTKstore.get(MTKtitleAtom,{hostId:s??\`local\`,threadId:r}),` +
-    "MTKresolvedSender=MTKsender(MTKtitle,null);MTKresolvedSender!=null&&(p=(0,Tb.jsxs)(Tb.Fragment,{children:[f,`Sent by ${MTKresolvedSender}`]}));";
+    `MTKresolvedSender=MTKsender(MTKtitle,null);MTKresolvedSender!=null&&(p=(0,${profile.delegationJsx}.jsxs)(${profile.delegationJsx}.Fragment,{children:[f,\`Sent by \${MTKresolvedSender}\`]}));`;
   delegation = replaceOnce(delegation, labelEnd, labelEnd + metadata, "delegation metadata insertion");
   delegation = replaceOnce(
     delegation,
@@ -138,7 +152,7 @@ function patchAttribution(source, ownerFile, details) {
     "delegated bubble style handoff"
   );
 
-  wrapper = replaceOnce(wrapper, "function vb(e){let t=(0,yb.c)(16),", "function vb(e){let t=(0,yb.c)(17),", "wrapper cache size");
+  wrapper = replaceOnce(wrapper, `function ${profile.wrapper}(e){let t=(0,${profile.wrapperCache}.c)(16),`, `function ${profile.wrapper}(e){let t=(0,${profile.wrapperCache}.c)(17),`, "wrapper cache size");
   wrapper = replaceOnce(wrapper, "compactActions:c,onLabelClick:l}=e,", "compactActions:c,onLabelClick:l,messageBubbleStyle:MTKbubbleStyleOverride}=e,", "wrapper style prop");
   wrapper = replaceOnce(wrapper, "cwd:o,hostId:s,threadId:r})", "cwd:o,hostId:s,threadId:r,messageBubbleStyle:MTKbubbleStyleOverride})", "bubble style prop");
   wrapper = replaceOnce(
@@ -149,20 +163,23 @@ function patchAttribution(source, ownerFile, details) {
   );
   wrapper = replaceOnce(wrapper, "t[10]=a,t[11]=f,t[12]=m)", "t[10]=a,t[11]=f,t[16]=MTKbubbleStyleOverride,t[12]=m)", "wrapper style storage");
 
-  bubble = replaceOnce(bubble, "function Eg(e){let t=(0,Og.c)(127),", "function Eg(e){let t=(0,Og.c)(128),", "bubble cache size");
+  bubble = replaceOnce(bubble, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(127),`, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(128),`, "bubble cache size");
   const bubbleOwner = bubble.includes("cwd:D,hostId:O}=e,") ?
     ["cwd:D,hostId:O}=e,", "cwd:D,hostId:O,messageBubbleStyle:MTKbubbleStyleOverride}=e,"] :
     ["cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,"];
   bubble = replaceOnce(bubble, ...bubbleOwner, "bubble style destructuring");
-  const currentBubble = bubble.includes("t[42]!==de||t[43]!==oe||t[44]!==_e){");
-  const bubbleDependency = currentBubble ?
-    ["t[42]!==de||t[43]!==oe||t[44]!==_e){", "t[42]!==de||t[43]!==oe||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
-    ["t[42]!==fe||t[43]!==se||t[44]!==ve){", "t[42]!==fe||t[43]!==se||t[44]!==ve||t[127]!==MTKbubbleStyleOverride){"];
+  const bubbleDependency = bubble.includes("t[42]!==de||t[43]!==ae||t[44]!==_e){") ?
+    ["t[42]!==de||t[43]!==ae||t[44]!==_e){", "t[42]!==de||t[43]!==ae||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
+    bubble.includes("t[42]!==de||t[43]!==oe||t[44]!==_e){") ?
+      ["t[42]!==de||t[43]!==oe||t[44]!==_e){", "t[42]!==de||t[43]!==oe||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
+      ["t[42]!==fe||t[43]!==se||t[44]!==ve){", "t[42]!==fe||t[43]!==se||t[44]!==ve||t[127]!==MTKbubbleStyleOverride){"];
   bubble = replaceOnce(bubble, ...bubbleDependency, "bubble style cache dependency");
   bubble = replaceOnce(bubble, '"data-user-message-bubble":!0,className:', '"data-user-message-bubble":!0,style:MTKbubbleStyleOverride,className:', "bubble semantic accent");
-  const bubbleStorage = currentBubble ?
-    ["t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve", "t[42]=de,t[43]=oe,t[44]=_e,t[127]=MTKbubbleStyleOverride,t[45]=ve"] :
-    ["t[42]=fe,t[43]=se,t[44]=ve,t[45]=be", "t[42]=fe,t[43]=se,t[44]=ve,t[127]=MTKbubbleStyleOverride,t[45]=be"];
+  const bubbleStorage = bubble.includes("t[42]=de,t[43]=ae,t[44]=_e,t[45]=ve") ?
+    ["t[42]=de,t[43]=ae,t[44]=_e,t[45]=ve", "t[42]=de,t[43]=ae,t[44]=_e,t[127]=MTKbubbleStyleOverride,t[45]=ve"] :
+    bubble.includes("t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve") ?
+      ["t[42]=de,t[43]=oe,t[44]=_e,t[45]=ve", "t[42]=de,t[43]=oe,t[44]=_e,t[127]=MTKbubbleStyleOverride,t[45]=ve"] :
+      ["t[42]=fe,t[43]=se,t[44]=ve,t[45]=be", "t[42]=fe,t[43]=se,t[44]=ve,t[127]=MTKbubbleStyleOverride,t[45]=be"];
   bubble = replaceOnce(bubble, ...bubbleStorage, "bubble style storage");
 
   const helper = currentHelper();
@@ -210,6 +227,22 @@ function resolveImports(ownerSource, ownerFile) {
       storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
     };
   }
+  const titleMarker = appPrimary.indexOf("localTitle:r})})}));");
+  if (titleMarker >= 0) {
+    const beforeTitle = appPrimary.slice(Math.max(0, titleMarker - 1600), titleMarker);
+    const candidates = [...beforeTitle.matchAll(new RegExp(`(?<atom>${id})=iS\\((?<scope>${id}),`, "g"))];
+    const titleSelector = candidates.at(-1);
+    if (titleSelector == null || !beforeTitle.slice(titleSelector.index).includes("hasConversation")) {
+      throw new Error("Upstream changed: current task-title selector owner is ambiguous");
+    }
+    const storeHookInternal = currentStoreHookInternal(appInitial);
+    return {
+      before: primaryImport[0],
+      after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, titleSelector.groups.atom)} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, storeHookInternal)),
+      storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
+    };
+  }
   const primaryInitialImport = uniqueMatch(appPrimary, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-primary app-initial import");
   const titleExport = importedExport(primaryInitialImport.groups.specifiers, "ap", false);
   if (titleExport != null) {
@@ -230,9 +263,13 @@ function resolveImports(ownerSource, ownerFile) {
 }
 
 function currentStoreHookInternal(source) {
-  const current = [...source.matchAll(new RegExp(`function Oks\\(\\)\\{let e=\\(0,${id}\\.c\\)\\(12\\),t=(?<hook>${id})\\(Q\\),`, "g"))];
-  if (current.length === 1) return current[0].groups.hook;
-  if (current.length > 1) throw new Error("Upstream changed: current store hook owner is ambiguous");
+  const marker = source.indexOf("sidebarElectron.recentChats");
+  if (marker >= 0) {
+    const owner = containingFunction(source, marker).text;
+    const current = [...owner.matchAll(new RegExp(`let e=\\(0,${id}\\.c\\)\\(12\\),t=(?<hook>${id})\\(Q\\),`, "g"))];
+    if (current.length === 1) return current[0].groups.hook;
+    if (current.length > 1) throw new Error("Upstream changed: current store hook owner is ambiguous");
+  }
   return "hb";
 }
 

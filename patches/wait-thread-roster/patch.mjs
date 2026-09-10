@@ -180,6 +180,7 @@ function resolveTaskImports(ownerSource) {
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
   const profiles = [
+    ["function ALs(){", "kW=Py(Q,", ["db", "Q", "kW", "FF", "IF"]],
     ["function Oks(){", "cW=Xy(Q,", ["Db", "Q", "cW", "oF", "sF"]],
     ["function Oks(){", "XU=zy(Q,", ["hb", "Q", "XU", "ZP", "QP"]],
     ["function qOs(){", "aW=Iy(Q,", ["pb", "Q", "aW", "QP", "$P"]],

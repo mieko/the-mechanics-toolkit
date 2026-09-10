@@ -137,6 +137,32 @@ function uniqueFile(pattern) {
 }
 
 function inspectSidebarArchiveProtection(source, primarySource) {
+  const build8378Applied = [
+    "globalThis.__MTKsidebarArchiveProtected=MTKsidebarArchiveProtected",
+    "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function DPn(",
+    "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}",
+    "function UPn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i,archiveProtected:a}){return a&&(e=e.filter(e=>e.id!==`archive-thread`&&e.id!==`archive-task`)),r.length<2?e:",
+    "archiveProtected:Qkn(T,r).some(e=>{let t=T.get($u,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})",
+    "archiveProtected:Qkn(G,e).some(e=>{let t=G.get($u,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})",
+    "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(Ee||L)?Me:t",
+    "Be=Se&&!MTKsidebarArchiveProtected(se)?je:null",
+    "if(Se&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`",
+    "archive:MTKsidebarArchiveProtected(e.task.id)?null:n,getMenuItems:K&&!MTKsidebarArchiveProtected(e.task.id)?e=>d(["
+  ];
+  if (primarySource != null && build8378Applied.every(contract => source.includes(contract) || primarySource.includes(contract))) return "applied";
+
+  const build8378NeedsApply = [
+    "archive:w?void 0:{id:`archive-thread`,onSelect:()=>i()}",
+    "function UPn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i}){return r.length<2?e:",
+    "selectedThreadKeys:Qkn(T,r),threadKey:r})",
+    "selectedThreadKeys:Qkn(G,e),threadKey:e})",
+    "archive:t!=null&&(Ee||L)?Me:t",
+    "Be=Se?je:null",
+    "if(Se&&e.push({id:`archive-task`",
+    "archive:n,getMenuItems:K?e=>d(["
+  ];
+  if (primarySource != null && build8378NeedsApply.every(contract => primarySource.includes(contract))) return "needs-apply";
+
   const build8109Applied = [
     "globalThis.__MTKsidebarArchiveProtected=MTKsidebarArchiveProtected",
     "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function UAn(",
@@ -339,6 +365,15 @@ function appProfile(source) {
       helperReplacements: [["A_($)", "Db(Q)"], ["x$c.useEffect", "Mks.useEffect"], ["e.get($g)", "e.get(zb)"], ["e($g)", "e(zb)"], ['Qg(e,"local")', 'Rb(e,"local")']],
       bottomFadeBefore: null,
       bottomFadeAfter: null
+    },
+    {
+      name: "26.903.61454-8378",
+      seam: "function ALs(){let e=(0,NLs.c)(12),",
+      patchedSeam: "function ALs(){MTKusePaletteBootstrap();let e=(0,NLs.c)(12),",
+      fixedOwnerRoot: true,
+      helperReplacements: [["A_($)", "db(Q)"], ["x$c.useEffect", "PLs.useEffect"], ["e.get($g)", "e.get(Cb)"], ["e($g)", "e(Cb)"], ['Qg(e,"local")', 'Sb(e,"local")']],
+      bottomFadeBefore: null,
+      bottomFadeAfter: null
     }
   ];
   const matches = profiles.filter(profile => source.includes(profile.seam) &&
@@ -368,6 +403,11 @@ function bottomFadeProfile(appSource, primarySource) {
       file: "app-primary",
       before: '(0,y3.jsx)(`div`,{"aria-hidden":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})',
       after: '(0,y3.jsx)(`div`,{"aria-hidden":!0,"data-mtk-palette-bottom-fade":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})'
+    },
+    {
+      file: "app-primary",
+      before: '(0,_3.jsx)(`div`,{"aria-hidden":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})',
+      after: '(0,_3.jsx)(`div`,{"aria-hidden":!0,"data-mtk-palette-bottom-fade":!0,className:`pointer-events-none absolute inset-x-0 bottom-0 z-0 h-full bg-gradient-to-t from-surface via-surface extension:from-surface-secondary extension:via-surface-secondary`})'
     }
   ];
   const matches = profiles.filter(profile => (profile.file === "app-initial" ? appSource : primarySource).includes(profile.before));
@@ -406,6 +446,10 @@ function localProfile(source) {
     { name: "26.901.51231-8109", cacheBefore: "function $o(e){let t=(0,os.c)(88),", cacheAfter: "function $o(e){let t=(0,os.c)(89),",
       rootBefore: 't[72]!==W||t[73]!==G||t[74]!==K||t[75]!==q||t[76]!==ie||t[77]!==oe||t[78]!==se||t[79]!==ce||t[80]!==le||t[81]!==de||t[82]!==fe||t[83]!==pe?(he=(0,Q.jsxs)(`div`,{ref:ne,className:`relative h-full min-h-0`,children:[W,G,K,q,re,ie,oe,se,ce,le,de,fe,pe]}),t[72]=W,t[73]=G,t[74]=K,t[75]=q,t[76]=ie,t[77]=oe,t[78]=se,t[79]=ce,t[80]=le,t[81]=de,t[82]=fe,t[83]=pe,t[84]=he):he=t[84];',
       rootAfter: 't[72]!==W||t[73]!==G||t[74]!==K||t[75]!==q||t[76]!==ie||t[77]!==oe||t[78]!==se||t[79]!==ce||t[80]!==le||t[81]!==de||t[82]!==fe||t[83]!==pe||t[88]!==r?(he=(0,Q.jsxs)(`div`,{ref:ne,"data-mtk-palette-room-host":!0,"data-mtk-palette-thread-id":r,className:`relative h-full min-h-0`,children:[W,G,K,q,re,ie,oe,se,ce,le,de,fe,pe]}),t[72]=W,t[73]=G,t[74]=K,t[75]=q,t[76]=ie,t[77]=oe,t[78]=se,t[79]=ce,t[80]=le,t[81]=de,t[82]=fe,t[83]=pe,t[88]=r,t[84]=he):he=t[84];' }
+    ,
+    { name: "26.903.61454-8378", cacheBefore: "function $o(e){let t=(0,os.c)(88),", cacheAfter: "function $o(e){let t=(0,os.c)(89),",
+      rootBefore: 't[72]!==K||t[73]!==q||t[74]!==re||t[75]!==ie||t[76]!==oe||t[77]!==se||t[78]!==ce||t[79]!==le||t[80]!==ue||t[81]!==de||t[82]!==fe||t[83]!==pe?(me=(0,Q.jsxs)(`div`,{ref:W,className:`relative h-full min-h-0`,children:[K,q,re,ie,ae,oe,se,ce,le,ue,de,fe,pe]}),t[72]=K,t[73]=q,t[74]=re,t[75]=ie,t[76]=oe,t[77]=se,t[78]=ce,t[79]=le,t[80]=ue,t[81]=de,t[82]=fe,t[83]=pe,t[84]=me):me=t[84];',
+      rootAfter: 't[72]!==K||t[73]!==q||t[74]!==re||t[75]!==ie||t[76]!==oe||t[77]!==se||t[78]!==ce||t[79]!==le||t[80]!==ue||t[81]!==de||t[82]!==fe||t[83]!==pe||t[88]!==r?(me=(0,Q.jsxs)(`div`,{ref:W,"data-mtk-palette-room-host":!0,"data-mtk-palette-thread-id":r,className:`relative h-full min-h-0`,children:[K,q,re,ie,ae,oe,se,ce,le,ue,de,fe,pe]}),t[72]=K,t[73]=q,t[74]=re,t[75]=ie,t[76]=oe,t[77]=se,t[78]=ce,t[79]=le,t[80]=ue,t[81]=de,t[82]=fe,t[83]=pe,t[88]=r,t[84]=me):me=t[84];' }
   ];
   const matches = profiles.filter(profile => source.includes(profile.cacheBefore) && source.includes(profile.rootBefore));
   return matches.length === 1 ? matches[0] : null;
@@ -735,6 +779,44 @@ function addModelPinPolicyBridge(source, prefix) {
 function patchSidebarArchiveAffordances(file, primaryFile) {
   let source = fs.readFileSync(file, "utf8");
   let primarySource = fs.readFileSync(primaryFile, "utf8");
+  if (primarySource.includes("function DPn({scope:e,target:t,actions:n,onRename:r,onArchive:i,")) {
+    primarySource = replaceOnce(
+      primarySource,
+      "function DPn({scope:e,target:t,actions:n,onRename:r,onArchive:i,",
+      "const MTKsidebarArchiveProtected=e=>globalThis.__MTKsidebarArchiveProtected?.(e)===!0;function DPn({scope:e,target:t,actions:n,onRename:r,onArchive:i,",
+      "build-8378 archive classifier bridge"
+    );
+    primarySource = replaceOnce(primarySource, "archive:w?void 0:{id:`archive-thread`,onSelect:()=>i()}", "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}", "build-8378 local context archive item");
+    primarySource = replaceOnce(
+      primarySource,
+      "function UPn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i}){return r.length<2?e:",
+      "function UPn({items:e,onArchive:t,onSelect:n,selectedThreadKeys:r,threadKey:i,archiveProtected:a}){return a&&(e=e.filter(e=>e.id!==`archive-thread`&&e.id!==`archive-task`)),r.length<2?e:",
+      "build-8378 bulk archive filter"
+    );
+    primarySource = replaceOnce(
+      primarySource,
+      "selectedThreadKeys:Qkn(T,r),threadKey:r})",
+      "selectedThreadKeys:Qkn(T,r),threadKey:r,archiveProtected:Qkn(T,r).some(e=>{let t=T.get($u,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})})",
+      "build-8378 local protected selection"
+    );
+    primarySource = replaceOnce(
+      primarySource,
+      "selectedThreadKeys:Qkn(G,e),threadKey:e})",
+      "selectedThreadKeys:Qkn(G,e),threadKey:e,archiveProtected:Qkn(G,e).some(e=>{let t=G.get($u,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})})",
+      "build-8378 unified protected selection"
+    );
+    primarySource = replaceOnce(primarySource, "archive:t!=null&&(Ee||L)?Me:t,getMenuItems:", "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(Ee||L)?Me:t,getMenuItems:", "build-8378 local inline archive");
+    primarySource = replaceOnce(primarySource, "Be=Se?je:null", "Be=Se&&!MTKsidebarArchiveProtected(se)?je:null", "build-8378 cloud inline archive");
+    primarySource = replaceOnce(primarySource, "if(Se&&e.push({id:`archive-task`", "if(Se&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`", "build-8378 cloud context archive item");
+    primarySource = replaceOnce(
+      primarySource,
+      "archive:n,getMenuItems:K?e=>d([",
+      "archive:MTKsidebarArchiveProtected(e.task.id)?null:n,getMenuItems:K&&!MTKsidebarArchiveProtected(e.task.id)?e=>d([",
+      "build-8378 remote row archive"
+    );
+    fs.writeFileSync(primaryFile, primarySource);
+    return;
+  }
   if (primarySource.includes("function UAn({scope:e,target:t,actions:n,onRename:r,onArchive:i,")) {
     primarySource = replaceOnce(
       primarySource,
@@ -930,6 +1012,25 @@ function patchLocalPage(file) {
 function patchDelegation(file) {
   let source = fs.readFileSync(file, "utf8");
   if (source.includes("data-mtk-palette-source-id")) throw new Error("delegation palette prototype already applied");
+  if (source.includes("function Yb(e){let t=(0,Xb.c)(14),")) {
+    source = replaceOnce(source, "function Yb(e){let t=(0,Xb.c)(14),", "function Yb(e){let t=(0,Xb.c)(16),", "build-8378 delegation palette cache size");
+    source = replaceOnce(
+      source,
+      "t[5]!==l||t[6]!==n||t[7]!==o||t[8]!==s||t[9]!==i||t[10]!==a||t[11]!==m||t[13]!==p?(h=(0,Zb.jsx)(Wb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m,messageBubbleStyle:MTKdelegatedBubbleStyle}),t[5]=l,t[6]=n,t[7]=o,t[8]=s,t[9]=i,t[10]=a,t[11]=m,t[13]=p,t[12]=h):h=t[12]",
+      "t[5]!==l||t[6]!==n||t[7]!==o||t[8]!==s||t[9]!==i||t[10]!==a||t[11]!==m||t[13]!==p||t[14]!==MTKtitle||t[15]!==r?(h=(0,Zb.jsx)(Wb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m,messageBubbleStyle:MTKdelegatedBubbleStyle,paletteSourceTitle:MTKtitle,paletteSourceId:r}),t[5]=l,t[6]=n,t[7]=o,t[8]=s,t[9]=i,t[10]=a,t[11]=m,t[13]=p,t[14]=MTKtitle,t[15]=r,t[12]=h):h=t[12]",
+      "build-8378 delegated provenance attributes handoff"
+    );
+    source = replaceOnce(source, "function Wb(e){let t=(0,Gb.c)(17),", "function Wb(e){let t=(0,Gb.c)(19),", "build-8378 delegation wrapper palette cache size");
+    source = replaceOnce(source, "onLabelClick:l,messageBubbleStyle:MTKbubbleStyleOverride}=e,", "onLabelClick:l,messageBubbleStyle:MTKbubbleStyleOverride,paletteSourceTitle:MTKsourceTitle,paletteSourceId:MTKsourceId}=e,", "build-8378 delegation provenance props");
+    source = replaceOnce(
+      source,
+      "t[13]!==p||t[14]!==m?(h=(0,Kb.jsxs)(`div`,{className:`flex w-full flex-col items-end justify-end gap-1`,children:[p,m]}),t[13]=p,t[14]=m,t[15]=h):h=t[15]",
+      "t[13]!==p||t[14]!==m||t[17]!==MTKsourceTitle||t[18]!==MTKsourceId?(h=(0,Kb.jsxs)(`div`,{\"data-mtk-palette-source-title\":MTKsourceTitle??void 0,\"data-mtk-palette-source-id\":MTKsourceId??void 0,className:`flex w-full flex-col items-end justify-end gap-1`,children:[p,m]}),t[13]=p,t[14]=m,t[17]=MTKsourceTitle,t[18]=MTKsourceId,t[15]=h):h=t[15]",
+      "build-8378 delegation provenance DOM surface"
+    );
+    fs.writeFileSync(file, source);
+    return;
+  }
   if (source.includes("function Cb(e){let t=(0,wb.c)(14),")) {
     source = replaceOnce(source, "function Cb(e){let t=(0,wb.c)(14),", "function Cb(e){let t=(0,wb.c)(16),", "build-7746 delegation palette cache size");
     source = replaceOnce(

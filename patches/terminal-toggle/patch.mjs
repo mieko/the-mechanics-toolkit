@@ -60,6 +60,13 @@ function inspectState(value) {
 }
 
 function verifyOwnedBehavior(value) {
+  const build8378Contracts = [
+    "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u",
+    "allowWithinEditable:c,enabled:a,onKeyDown:l",
+    "qTi=()=>{C1t.run({action:{type:`windows.terminal.toggle`,windowId:Hx}})",
+    "[`toggleTerminal`,qTi]"
+  ];
+  if (build8378Contracts.every(contract => count(value, contract) === 1)) return;
   const build8109Contracts = [
     "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u",
     "allowWithinEditable:c,enabled:a,onKeyDown:l",

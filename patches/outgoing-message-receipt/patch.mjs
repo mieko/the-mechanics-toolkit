@@ -22,9 +22,12 @@ const assets = path.join(root, "webview/assets");
 assertStockStyles();
 const target = uniqueOwner();
 const conversationTarget = uniqueConversationOwner();
+const conversationTurnTarget = uniqueConversationTurnOwner(conversationTarget);
 const mainTarget = uniqueMainOwner();
 let source = fs.readFileSync(target, "utf8");
 let conversationSource = fs.readFileSync(conversationTarget, "utf8");
+let conversationTurnSource = conversationTurnTarget === conversationTarget
+  ? conversationSource : fs.readFileSync(conversationTurnTarget, "utf8");
 let mainSource = fs.readFileSync(mainTarget, "utf8");
 const collapseOwner = assertPersistentActivityContract(source);
 const presentation = resolvePresentationOwners(source);
@@ -85,13 +88,15 @@ if (command === "apply" && state === "theme-label-upgrade") {
 
 if (command === "apply" && state === "needs-apply") {
   source = patchSource(source);
-  conversationSource = patchConversation(conversationSource);
+  ({conversationSource, conversationTurnSource} = patchConversation(conversationSource, conversationTurnSource));
   mainSource = patchMain(mainSource);
   fs.writeFileSync(target, source);
   fs.writeFileSync(conversationTarget, conversationSource);
+  if (conversationTurnTarget !== conversationTarget) fs.writeFileSync(conversationTurnTarget, conversationTurnSource);
   fs.writeFileSync(mainTarget, mainSource);
   syntaxCheck(target);
   syntaxCheck(conversationTarget);
+  if (conversationTurnTarget !== conversationTarget) syntaxCheck(conversationTurnTarget);
   syntaxCheck(mainTarget);
   state = inspectState();
   if (state !== "applied") throw new Error("outgoing receipt transform did not verify");
@@ -105,7 +110,7 @@ process.stdout.write(`${JSON.stringify({
   messageRendering: "stock-recipient-user-message-formatter",
   collapseOwner: path.relative(root, collapseOwner),
   formatterOwner: path.relative(root, presentation.formatterFile),
-  targets: [target, conversationTarget, mainTarget].map(file => path.relative(root, file))
+  targets: [...new Set([target, conversationTarget, conversationTurnTarget, mainTarget])].map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
 function inspectState() {
@@ -137,7 +142,6 @@ function inspectState() {
     'subscribe("mtk-outbound-receipt-remember-result"',
     'dispatchMessage("mtk-outbound-receipts-list"',
     'subscribe("mtk-outbound-receipts-result"',
-    "sourceTurnId:S",
     "MTKoutboundReceipt as MTKoutboundReceipt"
   ];
   const mainMarkers = [
@@ -150,11 +154,14 @@ function inspectState() {
     "type:`mtk-outbound-receipt-remember-result`",
     "case`mtk-outbound-receipts-list`:"
   ];
+  const combinedConversationSource = conversationTurnTarget === conversationTarget
+    ? conversationSource : `${conversationSource}\n${conversationTurnSource}`;
   const ownerApplied = ownerMarkers.every(marker => source.includes(marker));
-  const conversationApplied = conversationMarkers.every(marker => conversationSource.includes(marker));
+  const conversationApplied = conversationMarkers.every(marker => combinedConversationSource.includes(marker)) &&
+    (conversationSource.includes("sourceTurnId:S") || conversationSource.includes("sourceTurnId:w"));
   const mainApplied = mainMarkers.every(marker => mainSource.includes(marker));
   const conversationCacheStart = conversationSource.indexOf("const MTKoutboundReceiptContract=");
-  const conversationCacheEnd = conversationSource.indexOf("function Oy(", conversationCacheStart);
+  const conversationCacheEnd = conversationSource.indexOf(conversationHelperBoundary(conversationSource), conversationCacheStart);
   const conversationCache = conversationCacheStart >= 0 && conversationCacheEnd > conversationCacheStart
     ? conversationSource.slice(conversationCacheStart, conversationCacheEnd) : "";
   const taskBucketConversationApplied = conversationCache.includes("function MTKOutboundTurnReceipts(") &&
@@ -163,15 +170,16 @@ function inspectState() {
     mainSource.includes("function MTKoutboundReceiptTaskDir(") && mainSource.includes("function MTKoutboundReceiptMigrateLegacy(");
   const acklessConversationApplied = conversationMarkers.filter(marker =>
     marker !== 'subscribe("mtk-outbound-receipt-remember-result"'
-  ).every(marker => conversationSource.includes(marker)) &&
+  ).every(marker => combinedConversationSource.includes(marker)) &&
     !conversationSource.includes('subscribe("mtk-outbound-receipt-remember-result"');
   const acklessMainApplied = mainMarkers.filter(marker =>
     marker !== "type:`mtk-outbound-receipt-remember-result`"
   ).every(marker => mainSource.includes(marker)) &&
     !mainSource.includes("type:`mtk-outbound-receipt-remember-result`");
-  const anyApplied = ownerMarkers.some(marker => source.includes(marker)) ||
-    conversationMarkers.some(marker => conversationSource.includes(marker)) ||
-    mainMarkers.some(marker => mainSource.includes(marker));
+  const anyApplied = source.includes("function MTKOutboundMessageReceipt(") ||
+    source.includes('register?.("outgoingMessageReceipt"') ||
+    combinedConversationSource.includes("const MTKoutboundReceiptContract=") ||
+    mainSource.includes("const MTKoutboundReceiptContract=");
   if (count(source, green) === 1 && count(source, red) === 0 && ownerApplied &&
       taskBucketMainApplied && acklessConversationApplied && acklessMainApplied &&
       source.includes(acklessRegistryCall)) {
@@ -266,13 +274,17 @@ function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isA
   return themed;
 }
 
-function inspectPristineConversation(value) {
+function inspectPristineConversation(value, turnValue = conversationTurnSource) {
   const ownerImport = ownerImportProfile(value);
   if (ownerImport.specifiers.includes("MTKoutboundReceipt")) {
     throw new Error("Upstream changed: outgoing receipt import is unexpectedly present");
   }
-  dynamicRendererProfile(value);
-  assistantProfile(value);
+  const dynamic = dynamicRendererProfile(value);
+  if (dynamic.variant === "split-8378") {
+    splitTurnProfile(turnValue);
+  } else {
+    assistantProfile(value);
+  }
 }
 
 function inspectPristineMain(value) {
@@ -280,17 +292,17 @@ function inspectPristineMain(value) {
     throw new Error("Upstream changed: outgoing receipt main message seam is not unique");
   }
   if (count(value, "var mQ=i.i(`electron-message-handler`)") +
-      count(value, "var pQ=i.i(`electron-message-handler`)") !== 1) {
+      count(value, "var pQ=i.i(`electron-message-handler`)") +
+      count(value, "var fQ=i.i(`electron-message-handler`)") !== 1) {
     throw new Error("Upstream changed: outgoing receipt main helper owner is not unique");
   }
   uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner");
 }
 
-function patchConversation(value) {
+function patchConversation(value, turnValue) {
   const ownerImport = ownerImportProfile(value);
   const hostBus = resolveHostBus(value);
   const dynamic = dynamicRendererProfile(value);
-  const assistant = assistantProfile(value);
   let patched = replaceOnce(
     value,
     ownerImport.text,
@@ -301,9 +313,35 @@ function patchConversation(value) {
   patched = replaceOnce(
     patched,
     dynamic.callText,
-    dynamic.callText.replace("enableTimelineTargets:xe,item:n", "enableTimelineTargets:xe,item:n,sourceTurnId:S"),
+    dynamic.patchedCallText,
     "outbound source turn context"
   );
+  if (dynamic.variant === "split-8378") {
+    const turn = splitTurnProfile(turnValue);
+    patched = replaceOnce(
+      patched,
+      "export{",
+      "export{MTKOutboundTurnReceipts as MTKOutboundTurnReceipts,",
+      "durable receipt component export"
+    );
+    let patchedTurn = replaceOnce(
+      turnValue,
+      turn.importText,
+      `import{${turn.specifiers},MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"${turn.relative}";`,
+      "durable receipt component import"
+    );
+    patchedTurn = replaceOnce(
+      patchedTurn,
+      turn.children,
+      turn.children.replace("children:[qt,", "children:[(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),qt,"),
+      "durable outbound turn receipts"
+    );
+    const insertion = patched.indexOf("function hx(");
+    if (insertion < 0) throw new Error("Upstream changed: split dynamic renderer owner is missing");
+    patched = patched.slice(0, insertion) + conversationHelpers(hostBus, "gS", "_x") + patched.slice(insertion);
+    return {conversationSource: patched, conversationTurnSource: patchedTurn};
+  }
+  const assistant = assistantProfile(value);
   patched = replaceOnce(
     patched,
     assistant.children,
@@ -312,7 +350,8 @@ function patchConversation(value) {
   );
   const insertion = patched.indexOf("function Oy(");
   if (insertion < 0) throw new Error("Upstream changed: assistant renderer owner is missing");
-  return patched.slice(0, insertion) + conversationHelpers(hostBus) + patched.slice(insertion);
+  patched = patched.slice(0, insertion) + conversationHelpers(hostBus) + patched.slice(insertion);
+  return {conversationSource: patched, conversationTurnSource: patched};
 }
 
 function upgradeConversationCache(value) {
@@ -327,7 +366,11 @@ function upgradeConversationCache(value) {
 
 function upgradeMainCache(value) {
   const start = value.indexOf("const MTKoutboundReceiptContract=");
-  const ends = [value.indexOf("var mQ=i.i(`electron-message-handler`)", start), value.indexOf("var pQ=i.i(`electron-message-handler`)", start)]
+  const ends = [
+    value.indexOf("var mQ=i.i(`electron-message-handler`)", start),
+    value.indexOf("var pQ=i.i(`electron-message-handler`)", start),
+    value.indexOf("var fQ=i.i(`electron-message-handler`)", start)
+  ]
     .filter(index => index > start);
   if (start < 0 || ends.length !== 1 || value.indexOf("const MTKoutboundReceiptContract=", start + 1) >= 0 ||
       value.slice(start, ends[0]).includes("MTKoutboundReceiptTaskBucketLimit")) {
@@ -348,6 +391,28 @@ function ownerImportProfile(value) {
 }
 
 function dynamicRendererProfile(value) {
+  if (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) {
+    const start = value.indexOf("function hx(");
+    const owner = functionAt(value, start);
+    const patchedFunction = replaceOnce(
+      owner.text,
+      "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=Mh(o)?.render?.(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4]",
+      "{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s,sourceTurnId:h}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l||t[4]!==h?(u=Mh(o)?.render?.(o,l,i,c,{conversationId:n,turnId:h}),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=h,t[5]=u):u=t[5]",
+      "split dynamic renderer context body"
+    );
+    const call = uniqueMatch(
+      value,
+      /\(e=\(0,\$\.jsx\)\(hx,\{agentActivityIcon:Ie,conversationId:d,enableTimelineTargets:we,item:n\}\),t\[338\]=Ie,t\[339\]=d,t\[340\]=we,t\[341\]=n,t\[342\]=e\)/g,
+      "split conversation dynamic renderer call"
+    );
+    return {
+      variant: "split-8378",
+      functionText: owner.text,
+      patchedFunction,
+      callText: call[0],
+      patchedCallText: call[0].replace("enableTimelineTargets:we,item:n}", "enableTimelineTargets:we,item:n,sourceTurnId:w}")
+    };
+  }
   const start = value.indexOf("function Ub(");
   const owner = functionAt(value, start);
   if (!owner.text.includes("rh(o)?.render(o,l,i,c)")) {
@@ -364,7 +429,27 @@ function dynamicRendererProfile(value) {
     /\(e=\(0,[$A-Z_a-z][$\w]*\.jsx\)\(Ub,\{agentActivityIcon:Ne,conversationId:d,enableTimelineTargets:xe,item:n\}\),t\[332\]=Ne,t\[333\]=d,t\[334\]=xe,t\[335\]=n,t\[336\]=e\)/g,
     "conversation dynamic renderer call"
   );
-  return {functionText: owner.text, patchedFunction, callText: call[0]};
+  return {
+    variant: "combined-legacy",
+    functionText: owner.text,
+    patchedFunction,
+    callText: call[0],
+    patchedCallText: call[0].replace("enableTimelineTargets:xe,item:n", "enableTimelineTargets:xe,item:n,sourceTurnId:S")
+  };
+}
+
+function splitTurnProfile(value) {
+  const relative = `./${path.basename(conversationTarget)}`;
+  const imported = uniqueMatch(
+    value,
+    new RegExp(`import\\{(?<specifiers>[^}]+)\\}from"${escapeRegExp(relative)}";`, "g"),
+    "split conversation renderer import"
+  );
+  if (!value.includes("function _i(") || !value.includes("{conversationId:s") || !value.includes("turnId:d")) {
+    throw new Error("Upstream changed: split turn renderer ownership is missing");
+  }
+  const children = uniqueMatch(value, /children:\[qt,Va,Ha,Ua\]/g, "split turn root children")[0];
+  return {importText: imported[0], specifiers: imported.groups.specifiers, relative, children};
 }
 
 function assistantProfile(value) {
@@ -378,10 +463,17 @@ function assistantProfile(value) {
   return {children: children[0]};
 }
 
+function conversationHelperBoundary(value) {
+  if (value.includes("function Oy(")) return "function Oy(";
+  if (value.includes("function hx(")) return "function hx(";
+  throw new Error("Upstream changed: outgoing receipt helper boundary is missing");
+}
+
 function resolveHostBus(value) {
   const imported = uniqueMatch(value, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "conversation app-initial import");
   const appInitial = fs.readFileSync(path.resolve(path.dirname(conversationTarget), imported.groups.relative), "utf8");
-  const exported = exportedAs(appInitial, "U");
+  const internal = appInitial.includes("function ALs(){") ? "H" : "U";
+  const exported = exportedAs(appInitial, internal);
   return uniqueMatch(
     imported.groups.specifiers,
     new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"),
@@ -389,12 +481,12 @@ function resolveHostBus(value) {
   ).groups.local;
 }
 
-function acklessConversationHelpers(hostBus) {
-  return String.raw`const MTKoutboundReceiptContract="outgoing-message-receipt-v1",MTKoutboundReceiptLimit=256,MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;function MTKoutboundReceiptRecord(e){if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="callId\0contract\0prompt\0recordedAtMs\0sourceThreadId\0sourceTurnId\0targetHostId\0targetThreadId"||e.contract!==MTKoutboundReceiptContract||typeof e.callId!=="string"||e.callId.length===0||e.callId.length>256||typeof e.sourceThreadId!=="string"||e.sourceThreadId.length===0||typeof e.sourceTurnId!=="string"||e.sourceTurnId.length===0||typeof e.targetThreadId!=="string"||e.targetThreadId.length===0||typeof e.targetHostId!=="string"||e.targetHostId.length===0||typeof e.prompt!=="string"||!Number.isSafeInteger(e.recordedAtMs)||e.recordedAtMs<=0)return null;return e}function MTKoutboundReceiptState(e){let t=MTKoutboundReceiptStates.get(e);return t==null&&(t={loaded:!1,loading:!1,records:new Map,listeners:new Set},MTKoutboundReceiptStates.set(e,t)),t}function MTKoutboundReceiptValues(e){return[...e.records.values()].sort((e,t)=>e.recordedAtMs-t.recordedAtMs||e.callId.localeCompare(t.callId))}function MTKoutboundReceiptNotify(e){let t=MTKoutboundReceiptValues(e);for(let n of e.listeners)n(t)}function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);t.records.set(e.callId,e);let r=MTKoutboundReceiptValues(t);for(let e of r.slice(0,Math.max(0,r.length-MTKoutboundReceiptLimit)))t.records.delete(e.callId);MTKoutboundReceiptNotify(t),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{record:e});return!0}function MTKoutboundLoad(e){let t=MTKoutboundReceiptState(e);if(t.loaded||t.loading)return;t.loading=!0;let n=crypto.randomUUID();MTKoutboundReceiptRequests.set(n,e),${hostBus}.dispatchMessage("mtk-outbound-receipts-list",{requestId:n,sourceThreadId:e})}globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRequests.delete(e.requestId);let n=MTKoutboundReceiptState(t);n.loading=!1,n.loaded=!0;if(e.ok===!0&&Array.isArray(e.records))for(let r of e.records){r=MTKoutboundReceiptRecord(r);r!=null&&r.sourceThreadId===t&&!n.records.has(r.callId)&&n.records.set(r.callId,r)}MTKoutboundReceiptNotify(n)});function MTKOutboundTurnReceipts({conversationId:e,turnId:t}){let n=typeof e==="string"&&e.length>0&&typeof t==="string"&&t.length>0,r=n?MTKoutboundReceiptState(e):null,[i,a]=Jy.useState(()=>r==null?[]:MTKoutboundReceiptValues(r).filter(e=>e.sourceTurnId===t));return Jy.useEffect(()=>{if(r==null)return;let n=e=>a(e.filter(e=>e.sourceTurnId===t));return r.listeners.add(n),MTKoutboundLoad(e),n(MTKoutboundReceiptValues(r)),()=>r.listeners.delete(n)},[e,t,r]),i.length===0?null:(0,Yy.jsx)("div",{"data-mtk-outgoing-message-receipts":!0,className:"mb-3 flex min-w-0 flex-col items-start gap-2",children:i.map(e=>(0,Yy.jsx)(MTKoutboundReceipt,{item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,success:!0}},e.callId))})}`;
+function acklessConversationHelpers(hostBus, react = "Jy", jsx = "Yy") {
+  return String.raw`const MTKoutboundReceiptContract="outgoing-message-receipt-v1",MTKoutboundReceiptLimit=256,MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;function MTKoutboundReceiptRecord(e){if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="callId\0contract\0prompt\0recordedAtMs\0sourceThreadId\0sourceTurnId\0targetHostId\0targetThreadId"||e.contract!==MTKoutboundReceiptContract||typeof e.callId!=="string"||e.callId.length===0||e.callId.length>256||typeof e.sourceThreadId!=="string"||e.sourceThreadId.length===0||typeof e.sourceTurnId!=="string"||e.sourceTurnId.length===0||typeof e.targetThreadId!=="string"||e.targetThreadId.length===0||typeof e.targetHostId!=="string"||e.targetHostId.length===0||typeof e.prompt!=="string"||!Number.isSafeInteger(e.recordedAtMs)||e.recordedAtMs<=0)return null;return e}function MTKoutboundReceiptState(e){let t=MTKoutboundReceiptStates.get(e);return t==null&&(t={loaded:!1,loading:!1,records:new Map,listeners:new Set},MTKoutboundReceiptStates.set(e,t)),t}function MTKoutboundReceiptValues(e){return[...e.records.values()].sort((e,t)=>e.recordedAtMs-t.recordedAtMs||e.callId.localeCompare(t.callId))}function MTKoutboundReceiptNotify(e){let t=MTKoutboundReceiptValues(e);for(let n of e.listeners)n(t)}function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);t.records.set(e.callId,e);let r=MTKoutboundReceiptValues(t);for(let e of r.slice(0,Math.max(0,r.length-MTKoutboundReceiptLimit)))t.records.delete(e.callId);MTKoutboundReceiptNotify(t),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{record:e});return!0}function MTKoutboundLoad(e){let t=MTKoutboundReceiptState(e);if(t.loaded||t.loading)return;t.loading=!0;let n=crypto.randomUUID();MTKoutboundReceiptRequests.set(n,e),${hostBus}.dispatchMessage("mtk-outbound-receipts-list",{requestId:n,sourceThreadId:e})}globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRequests.delete(e.requestId);let n=MTKoutboundReceiptState(t);n.loading=!1,n.loaded=!0;if(e.ok===!0&&Array.isArray(e.records))for(let r of e.records){r=MTKoutboundReceiptRecord(r);r!=null&&r.sourceThreadId===t&&!n.records.has(r.callId)&&n.records.set(r.callId,r)}MTKoutboundReceiptNotify(n)});function MTKOutboundTurnReceipts({conversationId:e,turnId:t}){let n=typeof e==="string"&&e.length>0&&typeof t==="string"&&t.length>0,r=n?MTKoutboundReceiptState(e):null,[i,a]=${react}.useState(()=>r==null?[]:MTKoutboundReceiptValues(r).filter(e=>e.sourceTurnId===t));return ${react}.useEffect(()=>{if(r==null)return;let n=e=>a(e.filter(e=>e.sourceTurnId===t));return r.listeners.add(n),MTKoutboundLoad(e),n(MTKoutboundReceiptValues(r)),()=>r.listeners.delete(n)},[e,t,r]),i.length===0?null:(0,${jsx}.jsx)("div",{"data-mtk-outgoing-message-receipts":!0,className:"mb-3 flex min-w-0 flex-col items-start gap-2",children:i.map(e=>(0,${jsx}.jsx)(MTKoutboundReceipt,{item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,success:!0}},e.callId))})}`;
 }
 
-function conversationHelpers(hostBus) {
-  const ackless = acklessConversationHelpers(hostBus);
+function conversationHelpers(hostBus, react = "Jy", jsx = "Yy") {
+  const ackless = acklessConversationHelpers(hostBus, react, jsx);
   const current = ackless
     .replace(
       "MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;",
@@ -426,7 +518,11 @@ function upgradeConversationAcknowledgment(value) {
 
 function patchMain(value) {
   const electron = uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner").groups.electron;
-  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)"].find(marker => value.includes(marker));
+  const helperOwner = [
+    "var mQ=i.i(`electron-message-handler`)",
+    "var pQ=i.i(`electron-message-handler`)",
+    "var fQ=i.i(`electron-message-handler`)"
+  ].find(marker => value.includes(marker));
   if (helperOwner == null) throw new Error("Upstream changed: outgoing receipt main helper owner is not recognized");
   let patched = replaceOnce(value, helperOwner, `${mainHelpers(electron)}${helperOwner}`, "outgoing receipt main helper owner");
   return replaceOnce(
@@ -711,6 +807,21 @@ function resolveTaskImports(ownerSource) {
   const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appInitial.includes("function ALs(){") && appInitial.includes("kW=Py(Q,")) {
+    const additions = [
+      `${exportedAs(appInitial, "db")} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, "Q")} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, "kW")} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, "FF")} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, "IF")} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
   if (appInitial.includes("function Oks(){") && appInitial.includes("cW=Xy(Q,")) {
     const additions = [
       `${exportedAs(appInitial, "Db")} as MTKoutboundStoreHook`,
@@ -957,10 +1068,28 @@ function uniqueConversationOwner() {
   const matches = fs.readdirSync(assets).filter(name => {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
-    return value.includes("function Ub(") && value.includes("function Oy(") &&
-      value.includes("toolActivityTurnKey") && value.includes(`from"./${path.basename(target)}"`);
+    const combined = value.includes("function Ub(") && value.includes("function Oy(");
+    const split = value.includes("function hx(") &&
+      (value.includes("Mh(o)?.render?.(o,l,i,c)") || value.includes("function MTKOutboundTurnReceipts("));
+    return (combined || split) && value.includes("toolActivityTurnKey") &&
+      value.includes(`from"./${path.basename(target)}"`);
   });
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} conversation renderer owners`);
+  return path.join(assets, matches[0]);
+}
+
+function uniqueConversationTurnOwner(owner) {
+  const ownerSource = fs.readFileSync(owner, "utf8");
+  if (ownerSource.includes("function Oy(")) return owner;
+  const basename = path.basename(owner);
+  const matches = fs.readdirSync(assets).filter(name => {
+    if (!name.endsWith(".js") || name === basename) return false;
+    const value = fs.readFileSync(path.join(assets, name), "utf8");
+    return value.includes("function _i(") &&
+      (value.includes("children:[qt,Va,Ha,Ua]") || value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:d}")) &&
+      value.includes(`from"./${basename}"`);
+  });
+  if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} conversation turn owners`);
   return path.join(assets, matches[0]);
 }
 

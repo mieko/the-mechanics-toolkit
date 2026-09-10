@@ -140,16 +140,15 @@ function inspectState() {
 }
 
 function inspectPristineRenderer(source) {
-  const message = functionAt(source, source.indexOf("function vb("));
-  const delegation = functionAt(source, source.indexOf("function Cb("));
-  if (!message.text.includes("collapsedLineCount:xb") || !message.text.includes("threadId:r") ||
+  const profile = incomingRendererProfile(source);
+  const message = functionAt(source, source.indexOf(`function ${profile.message}(`));
+  const delegation = functionAt(source, source.indexOf(`function ${profile.delegation}(`));
+  if (!message.text.includes(`collapsedLineCount:${profile.collapsedLines}`) || !message.text.includes("threadId:r") ||
       !delegation.text.includes("sourceThreadId:r") || !delegation.text.includes("message:i") ||
-      count(delegation.text, "(0,Tb.jsx)(vb,") !== 1) {
+      count(delegation.text, `(0,${profile.delegationJsx}.jsx)(${profile.message},`) !== 1) {
     throw new Error("Upstream changed: delegated message renderer contract is not recognized");
   }
-  if (!["var yb,bb,xb,Sb=e((()=>{yb=un(),Hn(),Mg(),bb=Y(),xb=2}))",
-    "var yb,bb,xb,Sb=e((()=>{yb=wt(),js(),Mg(),bb=X(),xb=2}))",
-    "var yb,bb,xb,Sb=e((()=>{yb=Ua(),Wc(),Mg(),bb=z(),xb=2}))"].some(owner => source.includes(owner))) {
+  if (!source.includes(profile.moduleBefore)) {
     throw new Error("Upstream changed: delegated message renderer module owner is not recognized");
   }
   resolveHostBus(source);
@@ -158,6 +157,7 @@ function inspectPristineRenderer(source) {
 function inspectAppliedRenderer(source) {
   inspectAppliedRendererBase(source);
   const helpers = helperSlice(source);
+  const profile = incomingRendererProfile(source);
   for (const contract of [
     "function MTKtinrelayAddress(",
     'function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"',
@@ -166,7 +166,7 @@ function inspectAppliedRenderer(source) {
     'MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip)',
     'MTKtinrelayAddress(null,n.sender_ship)',
     'function MTKtinrelayMessageView(',
-    '(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})',
+    `(0,${profile.helperJsx}.jsx)(${profile.messageComponent},{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})`,
     'data-user-message-bubble',
     'function MTKtinrelayEnsureStyle()',
     'mtk-tinrelay-signal',
@@ -193,11 +193,12 @@ function inspectAppliedRenderer(source) {
     'Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)',
     'setTimeout(()=>{let t=e.element',
     'MTKtinrelayScheduleScroll(d.current)',
-    '(0,Tb.jsx)(MTKtinrelayMessageView,{body:'
+    `(0,${profile.helperJsx}.jsx)(MTKtinrelayMessageView,{body:`
   ]) {
     if (!helpers.includes(contract)) throw new Error(`Tinrelay renderer postcondition missing: ${contract}`);
   }
-  if (!["MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)"].some(marker => source.includes(marker))) {
+  if (!["MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)",
+    "MTKtinrelayReact=t(_e(),1)"].some(marker => source.includes(marker))) {
     throw new Error("Tinrelay renderer React owner is not initialized");
   }
   if (source.includes("dangerouslySetInnerHTML") &&
@@ -224,8 +225,9 @@ function inspectAppliedRenderer(source) {
 }
 
 function inspectAppliedRendererBase(source) {
-  const message = functionAt(source, source.indexOf("function vb("));
-  const delegation = functionAt(source, source.indexOf("function Cb("));
+  const profile = incomingRendererProfile(source);
+  const message = functionAt(source, source.indexOf(`function ${profile.message}(`));
+  const delegation = functionAt(source, source.indexOf(`function ${profile.delegation}(`));
   for (const contract of ["messageNode:MTKmessageNode", "MTKmessageNode??(f?"]) {
     if (!message.text.includes(contract) && !delegation.text.includes(contract)) {
       throw new Error(`Tinrelay renderer postcondition missing: ${contract}`);
@@ -248,7 +250,8 @@ function inspectPristineMain(source) {
     }
   }
   if (count(source, "var mQ=i.i(`electron-message-handler`)") +
-      count(source, "var pQ=i.i(`electron-message-handler`)") !== 1) {
+      count(source, "var pQ=i.i(`electron-message-handler`)") +
+      count(source, "var fQ=i.i(`electron-message-handler`)") !== 1) {
     throw new Error("Upstream changed: Tinrelay main helper owner is not unique");
   }
 }
@@ -287,23 +290,52 @@ function inspectAppliedMainBase(source) {
   }
 }
 
+function incomingRendererProfile(value) {
+  if (value.includes("function Wb(") && value.includes("function Yb(")) {
+    const moduleBefore = "var Gb,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),Kb=X(),qb=2}))";
+    const moduleAfter = "var Gb,MTKtinrelayReact,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),MTKtinrelayReact=t(_e(),1),Kb=X(),qb=2}))";
+    return {
+      cache: "Gb", collapsedLines: "qb", delegation: "Yb", delegationJsx: "Zb",
+      helperJsx: "Kb", jsx: "Kb", message: "Wb", messageComponent: "$g", moduleBefore, moduleAfter
+    };
+  }
+  const profiles = [
+    {cache:"un",initializer:"Hn",jsx:"Y",react:"Wo"},
+    {cache:"wt",initializer:"js",jsx:"X",react:"ic"},
+    {cache:"Ua",initializer:"Wc",jsx:"z",react:"Mc"}
+  ];
+  for (const profile of profiles) {
+    const moduleBefore = `var yb,bb,xb,Sb=e((()=>{yb=${profile.cache}(),${profile.initializer}(),Mg(),bb=${profile.jsx}(),xb=2}))`;
+    const moduleAfter = `var yb,MTKtinrelayReact,bb,xb,Sb=e((()=>{yb=${profile.cache}(),${profile.initializer}(),Mg(),MTKtinrelayReact=t(${profile.react}(),1),bb=${profile.jsx}(),xb=2}))`;
+    if (!value.includes(moduleBefore) && !value.includes(moduleAfter)) continue;
+    return {
+      cache:"yb", collapsedLines:"xb", delegation:"Cb", delegationJsx:"Tb", helperJsx:"Tb", jsx:"bb",
+      message:"vb", messageComponent:"Eg", moduleBefore,
+      moduleAfter
+    };
+  }
+  if (value.includes("function Wb(") && value.includes("function MTKtinrelayPointerFromMessage(")) {
+    return {
+      cache:"Gb", collapsedLines:"qb", delegation:"Yb", delegationJsx:"Zb",
+      helperJsx:"Kb", jsx:"Kb", message:"Wb", messageComponent:"$g",
+      moduleBefore:"var Gb,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),Kb=X(),qb=2}))",
+      moduleAfter:"var Gb,MTKtinrelayReact,Kb,qb,Jb=e((()=>{Gb=mr(),ke(),a_(),MTKtinrelayReact=t(_e(),1),Kb=X(),qb=2}))"
+    };
+  }
+  throw new Error("Upstream changed: delegated message renderer profile is not recognized");
+}
+
 function patchRenderer(value, localShip) {
   const hostBus = resolveHostBus(value);
-  const profile = value.includes("var yb,bb,xb,Sb=e((()=>{yb=un(),Hn(),Mg(),bb=Y(),xb=2}))") ?
-    {cache: "un", initializer: "Hn", jsx: "Y", react: "Wo"} :
-    value.includes("var yb,bb,xb,Sb=e((()=>{yb=wt(),js(),Mg(),bb=X(),xb=2}))") ?
-      {cache: "wt", initializer: "js", jsx: "X", react: "ic"} :
-      {cache: "Ua", initializer: "Wc", jsx: "z", react: "Mc"};
-  const moduleBefore = `var yb,bb,xb,Sb=e((()=>{yb=${profile.cache}(),${profile.initializer}(),Mg(),bb=${profile.jsx}(),xb=2}))`;
-  const moduleAfter = `var yb,MTKtinrelayReact,bb,xb,Sb=e((()=>{yb=${profile.cache}(),${profile.initializer}(),Mg(),MTKtinrelayReact=t(${profile.react}(),1),bb=${profile.jsx}(),xb=2}))`;
-  let patched = replaceOnce(value, moduleBefore, moduleAfter, "delegated message module owner");
+  const profile = incomingRendererProfile(value);
+  let patched = replaceOnce(value, profile.moduleBefore, profile.moduleAfter, "delegated message module owner");
 
-  const messageStart = patched.indexOf("function vb(");
+  const messageStart = patched.indexOf(`function ${profile.message}(`);
   const message = functionAt(patched, messageStart);
-  const cache = /let t=\(0,yb\.c\)\((?<size>\d+)\)/.exec(message.text);
+  const cache = new RegExp(`let t=\\(0,${escapeRegExp(profile.cache)}\\.c\\)\\((?<size>\\d+)\\)`).exec(message.text);
   if (cache == null) throw new Error("Upstream changed: delegated message cache owner is missing");
   const cacheSize = Number(cache.groups.size);
-  let messageAfter = message.text.replace(cache[0], `let t=(0,yb.c)(${cacheSize + 1})`);
+  let messageAfter = message.text.replace(cache[0], `let t=(0,${profile.cache}.c)(${cacheSize + 1})`);
   if (messageAfter.includes("paletteSourceId:MTKsourceId}=e")) {
     messageAfter = replaceOnce(
       messageAfter,
@@ -321,8 +353,8 @@ function patchRenderer(value, localShip) {
   }
   messageAfter = replaceOnce(
     messageAfter,
-    "?(m=f?(0,bb.jsx)(Eg,{",
-    `||t[${cacheSize}]!==MTKmessageNode?(m=MTKmessageNode??(f?(0,bb.jsx)(Eg,{`,
+      `?(m=f?(0,${profile.jsx}.jsx)(${profile.messageComponent},{`,
+    `||t[${cacheSize}]!==MTKmessageNode?(m=MTKmessageNode??(f?(0,${profile.jsx}.jsx)(${profile.messageComponent},{`,
     "delegated message-node branch"
   );
   messageAfter = replaceOnce(
@@ -333,34 +365,35 @@ function patchRenderer(value, localShip) {
   );
   patched = patched.slice(0, message.start) + messageAfter + patched.slice(message.end);
 
-  const delegationStart = patched.indexOf("function Cb(");
+  const delegationStart = patched.indexOf(`function ${profile.delegation}(`);
   const delegation = functionAt(patched, delegationStart);
   const delegationAfter = replaceOnce(
     delegation.text,
-    "(vb,{conversationId:n,label:p,message:i,",
-    "(vb,{conversationId:n,label:p,message:i,messageNode:MTKtinrelayPointerNode(i),",
+    `(${profile.message},{conversationId:n,label:p,message:i,`,
+    `(${profile.message},{conversationId:n,label:p,message:i,messageNode:MTKtinrelayPointerNode(i),`,
     "Tinrelay pointer presentation"
   );
   patched = patched.slice(0, delegation.start) + delegationAfter + patched.slice(delegation.end);
-  patched = patched.slice(0, delegation.start) + rendererHelpers(hostBus, localShip) + patched.slice(delegation.start);
-  patched = patchTinrelayLabelOwner(patched);
+  patched = patched.slice(0, delegation.start) + rendererHelpers(hostBus, localShip, profile) + patched.slice(delegation.start);
+  patched = patchTinrelayLabelOwner(patched, profile);
   return patched;
 }
 
-function rendererHelpers(hostBus, localShip) {
-  return `${pointerHelpers(localShip)}${scrollHelpers()}${presentationHelpers(hostBus)}`;
+function rendererHelpers(hostBus, localShip, profile = {jsx:"Tb", messageComponent:"Eg"}) {
+  const jsx = profile.helperJsx ?? profile.jsx;
+  return `${pointerHelpers(localShip, jsx)}${scrollHelpers()}${presentationHelpers(hostBus, jsx, profile.messageComponent)}`;
 }
 
-function pointerHelpers(localShip) {
-  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"||e.includes("\r"))return null;let t=e.endsWith("\n")?e.slice(0,-1):e,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")return null;let r;try{r=JSON.parse(n[1])}catch{return null}if(r==null||typeof r!=="object"||Array.isArray(r))return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayPointerNode(e){return MTKtinrelayPointerFromMessage(e)==null?null:(0,Tb.jsx)(MTKtinrelayPointerView,{pointerText:e})}function MTKtinrelayAddress(e,t){return(typeof e==="string"&&e.length>0?e:"")+"@"+t}`;
+function pointerHelpers(localShip, jsx = "Tb") {
+  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"||e.includes("\r"))return null;let t=e.endsWith("\n")?e.slice(0,-1):e,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")return null;let r;try{r=JSON.parse(n[1])}catch{return null}if(r==null||typeof r!=="object"||Array.isArray(r))return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayPointerNode(e){return MTKtinrelayPointerFromMessage(e)==null?null:(0,${jsx}.jsx)(MTKtinrelayPointerView,{pointerText:e})}function MTKtinrelayAddress(e,t){return(typeof e==="string"&&e.length>0?e:"")+"@"+t}`;
 }
 
 function scrollHelpers() {
   return 'function MTKtinrelayScrollSnapshot(){let e=[...document.querySelectorAll(".thread-scroll-container")].find(e=>e.clientHeight>0&&e.getClientRects().length>0);return e==null?null:{element:e,follow:Math.max(0,-e.scrollTop)<=Math.max(1,e.clientHeight)}}function MTKtinrelayScheduleScroll(e){e?.follow===!0&&setTimeout(()=>{let t=e.element;t.isConnected&&t.clientHeight>0&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo({behavior:"instant",top:0})},32)}';
 }
 
-function presentationHelpers(hostBus) {
-  return `function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n}){MTKtinrelayEnsureStyle();return(0,Tb.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,Tb.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,Tb.jsx)(Eg,{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=${hostBus}.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,${hostBus}.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,Tb.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l})]})}`;
+function presentationHelpers(hostBus, jsx = "Tb", messageComponent = "Eg") {
+  return `function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n}){MTKtinrelayEnsureStyle();return(0,${jsx}.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,${jsx}.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,${jsx}.jsx)(${messageComponent},{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=${hostBus}.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,${hostBus}.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l})]})}`;
 }
 
 
@@ -496,7 +529,8 @@ function migrateRendererPresentation(value) {
 }
 
 function patchMain(value, config) {
-  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
+  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
+    "var fQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
   if (helperOwner == null) throw new Error("Upstream changed: Tinrelay main helper owner is not recognized");
   let patched = replaceOnce(
     value,
@@ -517,19 +551,19 @@ function mainHelpers(config) {
   return String.raw`const MTKtinrelayClient=${JSON.stringify(config.client)},MTKtinrelayLocalShip=${JSON.stringify(config.localShip)};function MTKtinrelayMainPointer(e){if(typeof e?.requestId!=="string"||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(e.requestId)||typeof e.pointerText!=="string"||e.pointerText.includes("\r"))throw Error("Invalid local Tinrelay pointer.");let t=e.pointerText.endsWith("\n")?e.pointerText.slice(0,-1):e.pointerText,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")throw Error("Invalid local Tinrelay pointer.");let r;try{r=JSON.parse(n[1])}catch{throw Error("Invalid local Tinrelay pointer.")}let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(r==null||typeof r!=="object"||Array.isArray(r)||Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")throw Error("Invalid local Tinrelay pointer.");return r}function MTKtinrelayExec(e){return new Promise((t,n)=>{x.execFile(MTKtinrelayClient,["--ship",e.local_ship,"inbox","show",e.local_id],{encoding:"utf8",maxBuffer:1048576,shell:!1,timeout:8e3,windowsHide:!0},(r,i)=>{if(r){n(Error(r.code==="ENOENT"?"Tinrelay client is unavailable.":"Tinrelay could not inspect this transmission."));return}t(i)})})}async function MTKtinrelayInspect(e){let t=MTKtinrelayMainPointer(e),n=await MTKtinrelayExec(t),r;try{r=JSON.parse(n)}catch{throw Error("Tinrelay returned an invalid inspection.")}if(r==null||typeof r!=="object"||Array.isArray(r)||r.contract!=="tinrelay-inspected-inbox-v1"||r.kind!=="transmission"||r.signed_transmission==null||typeof r.signed_transmission!=="object"||Array.isArray(r.signed_transmission))throw Error("Tinrelay inspection did not match this pointer.");let i=r.signed_transmission,a=r.author_label,o=i.from_label,s=typeof a==="string"&&a.length>0&&typeof o==="string"&&o===a||a===null&&(o===void 0||o===null);if(r.local_id!==t.local_id||r.recipient_ship!==t.local_ship||r.sender_ship!==t.sender_ship||r.attention_label!==t.attention_label||!s||r.sender_ship!==i.sender_ship||r.recipient_ship!==i.recipient_ship||r.attention_label!==i.to_label||typeof i.body!=="string")throw Error("Tinrelay inspection did not match this pointer.");return{localId:r.local_id,localShip:r.recipient_ship,senderShip:r.sender_ship,attentionLabel:r.attention_label,authorLabel:a,body:i.body}}`;
 }
 
-function patchTinrelayLabelOwner(value) {
-  const start = value.indexOf("function vb(");
+function patchTinrelayLabelOwner(value, profile = incomingRendererProfile(value)) {
+  const start = value.indexOf(`function ${profile.message}(`);
   const message = functionAt(value, start);
   if (message.text.includes("MTKmessageNode?null:")) return value;
-  const cache = /let t=\(0,yb\.c\)\((?<size>\d+)\)/.exec(message.text);
+  const cache = new RegExp(`let t=\\(0,${escapeRegExp(profile.cache)}\\.c\\)\\((?<size>\\d+)\\)`).exec(message.text);
   if (cache == null) throw new Error("Upstream changed: delegated message label cache owner is missing");
   const cacheSize = Number(cache.groups.size);
-  let after = message.text.replace(cache[0], `let t=(0,yb.c)(${cacheSize + 1})`);
+  let after = message.text.replace(cache[0], `let t=(0,${profile.cache}.c)(${cacheSize + 1})`);
   const mergeMatch = /className:(?<merge>[$A-Z_a-z][$\w]*)\(`text-size-chat-sm flex items-center gap-1 px-1 py-0\.5 text-codex-description`/.exec(message.text);
   if (mergeMatch == null) throw new Error("Upstream changed: delegated message class merge owner is missing");
   const merge = mergeMatch.groups.merge;
-  const before = `t[2]!==n||t[3]!==l?(p=l?(0,bb.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,bb.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[4]=p):p=t[4]`;
-  const replacement = `t[2]!==n||t[3]!==l||t[${cacheSize}]!==MTKmessageNode?(p=MTKmessageNode?null:l?(0,bb.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,bb.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[${cacheSize}]=MTKmessageNode,t[4]=p):p=t[4]`;
+  const before = `t[2]!==n||t[3]!==l?(p=l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[4]=p):p=t[4]`;
+  const replacement = `t[2]!==n||t[3]!==l||t[${cacheSize}]!==MTKmessageNode?(p=MTKmessageNode?null:l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[${cacheSize}]=MTKmessageNode,t[4]=p):p=t[4]`;
   after = replaceOnce(after, before, replacement, "Tinrelay stock delegated-label suppression");
   return value.slice(0, message.start) + after + value.slice(message.end);
 }
@@ -542,7 +576,7 @@ function resolveHostBus(source) {
     "app-initial import"
   );
   const appInitial = fs.readFileSync(path.resolve(path.dirname(renderer), imported.groups.relative), "utf8");
-  const exported = exportedAs(appInitial, "U");
+  const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") ? "H" : "U");
   const binding = uniqueMatch(
     imported.groups.specifiers,
     new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>[$A-Z_a-z][$\\w]*)(?=,|$)`, "g"),
@@ -562,14 +596,15 @@ function exportedAs(source, internal) {
 
 function helperSlice(source) {
   const start = source.indexOf("function MTKtinrelayPointerFromMessage(");
-  const end = source.indexOf("function Cb(", start);
+  const end = source.indexOf(`function ${incomingRendererProfile(source).delegation}(`, start);
   if (start < 0 || end < 0) throw new Error("Tinrelay renderer helper boundary is missing");
   return source.slice(start, end);
 }
 
 function mainHelperSlice(source) {
   const start = source.indexOf("const MTKtinrelayClient=");
-  const boundaries = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)"]
+  const boundaries = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
+    "var fQ=i.i(`electron-message-handler`)"]
     .map(marker => source.indexOf(marker, start))
     .filter(index => index >= 0);
   const end = boundaries.length === 1 ? boundaries[0] : -1;

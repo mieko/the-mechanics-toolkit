@@ -16,13 +16,14 @@ const build7345 = source.includes("function g$c(e){MTKusePaletteBootstrap();") |
 const build7746 = source.includes("function qOs(){MTKusePaletteBootstrap();") || source.includes("function qOs(){MTKuseAttentionBootstrap7746();MTKusePaletteBootstrap();");
 const build8109 = source.includes("function Oks(){MTKuseAttentionBootstrap8109();MTKusePaletteBootstrap();");
 const build7942 = source.includes("function Oks(){MTKusePaletteBootstrap();") || source.includes("function Oks(){MTKuseAttentionBootstrap7942();MTKusePaletteBootstrap();");
+const build8378 = source.includes("function ALs(){MTKusePaletteBootstrap();") || source.includes("function ALs(){MTKuseAttentionBootstrap8378();MTKusePaletteBootstrap();");
 const appPrimary = uniqueAsset(/^app-primary-.*\.js$/);
 const primarySource = readAsset(appPrimary);
 const rendererSource = source + primarySource;
 const helperStart = source.indexOf("const MTKpaletteRelativePath=");
 const helperTail = source.slice(helperStart);
 const helperBoundary = helperTail.match(
-  /function [$A-Z_a-z][$\w]*\((?:e)?\)\{(?:MTKuseAttentionBootstrap(?:7345|7746|7942|8109)?\(\);)?MTKusePaletteBootstrap\(\);/
+  /function [$A-Z_a-z][$\w]*\((?:e)?\)\{(?:MTKuseAttentionBootstrap(?:7345|7746|7942|8109|8378)?\(\);)?MTKusePaletteBootstrap\(\);/
 );
 const rootBoundary = helperBoundary == null ? -1 : helperStart + helperBoundary.index;
 const attentionBoundary = source.indexOf('const MTKattentionRelativePath=', helperStart);
@@ -84,7 +85,7 @@ const react = { useEffect: callback => callback() };
 const bootstrapApi = Function(
   "_s", "Ss", "vs", "ys", "Q", "Y", "Ysn", "Can", "Xsn", "fS", "Kjl", "QSl", "XMl", "yYl", "Vg", "Qg", "Lg", "zg", "Hg", "$g", "Rg", "Bg",
   "A_", "$", "x$c", "Pb", "Fb", "pb", "ZOs", "wb", "Tb",
-  "hb", "Mks", "Db", "Eb", "Rb", "zb",
+  "hb", "Mks", "Db", "Eb", "Rb", "zb", "db", "PLs", "Cb", "Sb",
   `${helper};return {bootstrap:MTKusePaletteBootstrap,accept:MTKacceptPaletteReload,reasoning:MTKreasoningShouldStayOpen}`
 )(
   () => scope, () => scope, () => scope, () => scope, Symbol("scope"), () => [{ projectKind: "local", rootPaths: [owner] }],
@@ -103,7 +104,9 @@ const bootstrapApi = Function(
   () => scope, react, build8109 ? () => scope : managerAtom,
   () => { appServerClientCalls++; if (manager == null) throw new Error("AppServerManager RPC is not connected"); return client; },
   () => { appServerClientCalls++; if (manager == null) throw new Error("AppServerManager RPC is not connected"); return client; },
-  managerAtom
+  managerAtom,
+  () => scope, react, managerAtom,
+  () => { appServerClientCalls++; if (manager == null) throw new Error("AppServerManager RPC is not connected"); return client; }
 );
 assert.doesNotThrow(() => bootstrapApi.bootstrap(), "bootstrap waits instead of crashing before App Server readiness");
 assert.equal(appServerClientCalls, 0, "host client is not requested before manager readiness");
@@ -361,7 +364,9 @@ assert.ok(!source.includes('setProperty("--mtk-row-dark"'), "unused inactive-row
 assert.ok(source.includes("function MTKloadPaletteWhenReady("), "startup has an App Server readiness boundary");
 assert.ok(source.includes(".when(({get:"), "startup waits for the manager atom instead of throwing");
 assert.ok(source.includes("function MTKqueueSidebar(e){if(!MTKpaletteMutationRelevant(e))return;"), "observer rejects irrelevant transcript mutations before queueing");
-assert.equal(count(rendererSource, build8109
+assert.equal(count(rendererSource, build8378
+  ? "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}"
+  : build8109
   ? "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}"
   : build7746
   ? "archive:w||MTKsidebarArchiveProtected(m)?void 0:{id:`archive-thread`,onSelect:()=>i()}"
@@ -369,7 +374,9 @@ assert.equal(count(rendererSource, build8109
   : build7345 ? "archive:S||MTKsidebarArchiveProtected(f)?void 0:{id:`archive-thread`,onSelect:()=>i()}"
   : "...MTKsidebarArchiveProtected(n)?[]:[{id:`archive-thread`,onSelect:Ke}],...nt()?"), 1,
   "local sidebar context menu consults exact-ID protection");
-assert.equal(count(rendererSource, build8109
+assert.equal(count(rendererSource, build8378
+  ? "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(Ee||L)?Me:t"
+  : build8109
   ? "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(De||L)?Ne:t"
   : build7746
   ? "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(Ee||L)?Me:t"
@@ -377,14 +384,21 @@ assert.equal(count(rendererSource, build8109
   : build7345 ? "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(De||L)?Ne:t"
   : "archive:MTKsidebarArchiveProtected(n)?null:t!=null&&(Be||R)?Ke:t"), 1,
   "local sidebar hover action consults exact-ID protection");
-const currentArchiveOwner = build7345 || build7942 || build8109 || source.includes("archiveProtected:sTl(V,e).some(");
-const archiveProjection = build8109 ? "archiveProtected:HTn(T,r).some(e=>{let t=T.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})" : build7746 ? "archiveProtected:CEn(T,r).some(e=>MTKsidebarArchiveProtected(gC(e)))" : build7345
+const currentArchiveOwner = build7345 || build7942 || build8109 || build8378 || source.includes("archiveProtected:sTl(V,e).some(");
+const archiveProjection = build8378 ? "archiveProtected:Qkn(T,r).some(e=>{let t=T.get($u,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})" : build8109 ? "archiveProtected:HTn(T,r).some(e=>{let t=T.get(tm,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})" : build7746 ? "archiveProtected:CEn(T,r).some(e=>MTKsidebarArchiveProtected(gC(e)))" : build7345
   ? "archiveProtected:XMc(T,e).some(e=>MTKsidebarArchiveProtected(KNc(T.get(VN,e))))"
   : build7942 ? "archiveProtected:BTn(T,r).some(e=>{let t=T.get(pv,e),n=t?.kind===`local`?t.conversationId:t?.kind===`remote`?t.task.id:null;return MTKsidebarArchiveProtected(n)})"
   : currentArchiveOwner ? "archiveProtected:sTl(V,e).some(" : "archiveProtected:twl(T,e).some(";
 assert.equal(count(rendererSource, archiveProjection), 1,
   "bulk selection suppresses archive when any selected task is protected");
-if (build8109) {
+if (build8378) {
+  for (const contract of [
+    "Be=Se&&!MTKsidebarArchiveProtected(se)?je:null",
+    "if(Se&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`",
+    "archive:MTKsidebarArchiveProtected(e.task.id)?null:n",
+    "getMenuItems:K&&!MTKsidebarArchiveProtected(e.task.id)?"
+  ]) assert.ok(primarySource.includes(contract), `remote sidebar archive contract: ${contract}`);
+} else if (build8109) {
   for (const contract of [
     "Ve=Ce&&!MTKsidebarArchiveProtected(se)?Me:null",
     "if(Ce&&!MTKsidebarArchiveProtected(se)&&e.push({id:`archive-task`",
@@ -413,10 +427,10 @@ if (build8109) {
   assert.ok(!source.includes("MTKsidebarArchiveProtected(Jy(t))"),
     "current bulk protection does not pass a flattened entry through the retired nested-entry helper");
 }
-const bulkFunctionName = build8109 ? "ajn" : build7942 ? "rjn" : build7746 ? "ljn" : build7345 ? "cRc" : currentArchiveOwner ? "zAl" : "Nkl";
-const bulkSetName = build8109 ? "sjn" : build7942 ? "ajn" : build7746 ? "djn" : build7345 ? "uRc" : currentArchiveOwner ? "VAl" : "Fkl";
-const bulkMessagesName = build8109 ? "cjn" : build7942 ? "ojn" : build7746 ? "nQ" : build7345 ? "dRc" : currentArchiveOwner ? "HAl" : "Ikl";
-const bulkOwnerSource = build8109 || build7942 || build7746 ? primarySource : source;
+const bulkFunctionName = build8378 ? "UPn" : build8109 ? "ajn" : build7942 ? "rjn" : build7746 ? "ljn" : build7345 ? "cRc" : currentArchiveOwner ? "zAl" : "Nkl";
+const bulkSetName = build8378 ? "GPn" : build8109 ? "sjn" : build7942 ? "ajn" : build7746 ? "djn" : build7345 ? "uRc" : currentArchiveOwner ? "VAl" : "Fkl";
+const bulkMessagesName = build8378 ? "KPn" : build8109 ? "cjn" : build7942 ? "ojn" : build7746 ? "nQ" : build7345 ? "dRc" : currentArchiveOwner ? "HAl" : "Ikl";
+const bulkOwnerSource = build8378 || build8109 || build7942 || build7746 ? primarySource : source;
 const bulkStart = bulkOwnerSource.indexOf(`function ${bulkFunctionName}(`);
 const bulkEnd = bulkOwnerSource.indexOf("function ", bulkStart + 9);
 assert.ok(bulkStart >= 0 && bulkEnd > bulkStart, "sidebar bulk menu adapter seam");

@@ -13,9 +13,10 @@ const rendererSource = fs.readFileSync(renderer, "utf8");
 const mainSource = fs.readFileSync(main, "utf8");
 
 const rendererStart = rendererSource.indexOf('const MTKruntimeJsonFiles=');
-const rendererTerminator = 'U.dispatchMessage("mtk-runtime-json-watch",{})}';
-const rendererEnd = rendererSource.indexOf(rendererTerminator, rendererStart) + rendererTerminator.length;
-assert.ok(rendererStart >= 0 && rendererEnd > rendererStart, "renderer helper boundary");
+const rendererTail = rendererSource.slice(rendererStart);
+const rendererTerminator = /(?<bus>[$A-Z_a-z][$\w]*)\.dispatchMessage\("mtk-runtime-json-watch",\{\}\)\}/.exec(rendererTail);
+const rendererEnd = rendererTerminator == null ? -1 : rendererStart + rendererTerminator.index + rendererTerminator[0].length;
+assert.ok(rendererStart >= 0 && rendererTerminator != null && rendererEnd > rendererStart, "renderer helper boundary");
 const rendererHelper = rendererSource.slice(rendererStart, rendererEnd);
 const subscriptions = new Map();
 const dispatches = [];
@@ -30,7 +31,7 @@ const hostBus = {
 };
 const realm = {};
 const rendererApi = Function(
-  "globalThis", "U", "queueMicrotask",
+  "globalThis", rendererTerminator.groups.bus, "queueMicrotask",
   `${rendererHelper};return {install:MTKinstallRuntimeJsonReload,register:MTKruntimeJsonRegister}`
 )(realm, hostBus, queueMicrotask);
 rendererApi.install();
@@ -155,7 +156,7 @@ assert.doesNotThrow(() => errorCallback(), "late watcher error cleanup is idempo
 assert.equal(closeCount, 1);
 
 assert.ok(mainSource.includes('case`mtk-runtime-json-watch`:MTKstartRuntimeJsonWatch(e,this.windowManager);break'));
-assert.ok(rendererSource.includes("U=H.getInstance(),MTKinstallRuntimeJsonReload(),"));
+assert.match(rendererSource, new RegExp(`${rendererTerminator.groups.bus}=[$A-Z_a-z][$\\w]*\\.getInstance\\(\\),MTKinstallRuntimeJsonReload\\(\\),`));
 process.stdout.write(`${JSON.stringify({
   state: "green",
   watchedDirectory: ".codex",

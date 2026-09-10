@@ -44,19 +44,21 @@ const Ui = {
     return snapshot();
   }
 };
-const hook = Function("Ui", "globalThis", `${hookText};return MTKuseReasoningRetention`)(Ui, bridge);
+const hookReact = hookText.match(/return ([A-Za-z_$][\w$]*)\.useSyncExternalStore\(/)?.[1];
+assert.ok(hookReact, "turn hook names its React owner");
+const hook = Function(hookReact, "globalThis", `${hookText};return MTKuseReasoningRetention`)(Ui, bridge);
 assert.equal(hook(kept), true);
 assert.equal(hook(ordinary), false);
 assert.equal(subscribed, true, "the turn rerenders when the async palette arrives");
 
 assert.match(
   thread.source,
-  /if\(!MTKreasoningThreadRetained\)for\(let t of i\)EE\(b,\{conversationId:e,turnSearchKey:t\},!0\)/,
+  /if\(!MTKreasoningThreadRetained\)for\(let t of i\)[A-Za-z_$][\w$]*\([A-Za-z_$][\w$]*,\{conversationId:e,turnSearchKey:t\},!0\)/,
   "the next-turn transition does not persist an automatic collapse for an opted-in task"
 );
 assert.match(
   thread.source,
-  /\[e,c,G,b,fe,MTKreasoningThreadRetained\]/,
+  /\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*,MTKreasoningThreadRetained\]/,
   "the auto-collapse effect follows live retention-policy changes"
 );
 
@@ -69,7 +71,8 @@ assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapse
 assert.deepEqual(collapse({...base, preventAutoCollapse: true, persistedCollapsed: false}), {shouldAllowCollapse: true, isCollapsed: false}, "manual reopen still wins");
 assert.equal(
   turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") ||
-    turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained"),
+    turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:Dt||br||MTKreasoningRetained"),
   true,
   "selected policy reaches the stock collapse decision"
 );

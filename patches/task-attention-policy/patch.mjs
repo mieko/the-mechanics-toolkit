@@ -19,7 +19,9 @@ let state = inspectState(source, primarySource);
 
 if (command === "apply" && state === "needs-apply") {
   const workspaceRoot = configuredWorkspaceRoot();
-  if (current8109Contracts(source, primarySource).every(Boolean)) {
+  if (current8378Contracts(source, primarySource).every(Boolean)) {
+    ({ appSource: source, primarySource } = patch8378(source, primarySource, workspaceRoot));
+  } else if (current8109Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch8109(source, primarySource, workspaceRoot));
   } else if (current7942Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch7942(source, primarySource, workspaceRoot));
@@ -45,6 +47,27 @@ process.stdout.write(`${JSON.stringify({
 }, null, 2)}\n`);
 
 function inspectState(value, primaryValue) {
+  const build8378Markers = [
+    value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
+    value.includes("MTKattentionPolicyAtom=Dy(Q,null)"),
+    value.includes("function MTKattentionIgnoredThread8378("),
+    value.includes("function MTKacceptAttentionReload8378("),
+    value.includes('__MTK_RUNTIME_JSON_RELOAD__?.register("task-attention-policy.json"'),
+    value.includes("function MTKuseAttentionBootstrap8378("),
+    value.includes("function ALs(){MTKuseAttentionBootstrap8378();"),
+    primaryValue.includes("function MTKuseTaskAttention8378("),
+    primaryValue.includes("MTKattentionIgnoredForTask=MTKuseTaskAttention8378(pt,n)"),
+    primaryValue.includes("let At=MTKattentionIgnoredForTask?{...kt,unread:!1,unreadCount:0}:kt"),
+    primaryValue.includes("Pt=MTKattentionIgnoredForTask?[]:Nt==null?[]:[Nt]"),
+    primaryValue.includes("let Bt=MTKattentionIgnoredForTask?void 0:zt"),
+    primaryValue.includes("hasUnreadTurn:!MTKattentionIgnoredForTask&&!Et&&et===!0"),
+    value.includes("s=s.filter(t=>!MTKattentionIgnoredThread8378(e,t,c))"),
+    value.includes("[desktop-notifications] suppressed task-attention-policy turn-complete")
+  ];
+  if (value.includes("function MTKuseAttentionBootstrap8378(") || primaryValue.includes("function MTKuseTaskAttention8378(")) {
+    if (!build8378Markers.every(Boolean)) throw new Error("Unrecognized build-8378 task attention patch: partial markers");
+    return "applied";
+  }
   const build8109Markers = [
     value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
     value.includes("MTKattentionPolicyAtom=Uy(Q,null)"),
@@ -170,6 +193,7 @@ function inspectState(value, primaryValue) {
   }
   if (present.some(Boolean)) throw new Error("Unrecognized task attention patch: partial markers");
 
+  if (current8378Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current8109Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current7942Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current7746Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
@@ -180,6 +204,56 @@ function inspectState(value, primaryValue) {
     if (!value.includes(contract)) throw new Error(`Upstream changed: missing task attention contract ${contract}`);
   }
   return "needs-apply";
+}
+
+function current8378Contracts(appValue, primaryValue) {
+  return [
+    ["function ALs(){MTKusePaletteBootstrap();let e=(0,NLs.c)(12),", "function ALs(){let e=(0,NLs.c)(12),"].some(contract => appValue.includes(contract)),
+    appValue.includes("function SCs(e,t){T.info(`[desktop-notifications] service starting`)"),
+    appValue.includes("let a=dV(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:s}=h(t.conversationId)"),
+    appValue.includes("hZ=Dy(Q,eMa)"),
+    appValue.includes("c$a,l$a=t((()=>{Z(),") && appValue.includes("c$a=jy(Q,({get:e})=>"),
+    appValue.includes("s=t===`work`?pmr({cloudThreadsAllowed:i,localThreadsAllowed:nI(e(MO)),threadKeys:o}):o;return r+"),
+    primaryValue.includes("function HMn(e){let t=(0,WMn.c)(139),"),
+    primaryValue.includes("pt=jC(Zjn,{hostId:Je??`local`,threadId:n})??Ue?.title??null,mt=jC(QC,n)??Ue?.threadSource"),
+    primaryValue.includes("):kt=t[25];let At=kt,jt;t[26]"),
+    primaryValue.includes("Pt=Nt==null?[]:[Nt]"),
+    primaryValue.includes("):zt=t[45];let Bt=zt,Vt;t[46]"),
+    primaryValue.includes("hasUnreadTurn:!Et&&et===!0")
+  ];
+}
+
+function patch8378(appValue, primaryValue, workspaceRoot) {
+  let helper = String.raw`const MTKattentionRelativePath=".codex/task-attention-policy.json";let MTKattentionPromiseKey=null,MTKattentionPromise=null,MTKattentionPolicy=null;var MTKattentionPolicyAtom;const MTKattentionListeners=new Set;function MTKattentionPlainObject8378(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&Object.getPrototypeOf(e)===Object.prototype}function MTKattentionJoin8378(e,t){return e.replace(/[\\/]+$/,"" )+"/"+t}function MTKattentionMissing8378(e){return e instanceof Error&&("code"in e&&e.code==="ENOENT"||e.message.includes("No such file or directory")||e.message.includes("(os error 2)"))}function MTKattentionBase64Size8378(e){return Math.floor(e.length*3/4)-(e.endsWith("==")?2:+e.endsWith("="))}async function MTKfindAttentionFile8378(e,t){let n=MTKattentionJoin8378(t,".codex"),r=MTKattentionJoin8378(t,MTKattentionRelativePath);try{let i=await e.sendRequest("fs/getMetadata",{path:n});if(!i.isDirectory||i.isSymlink)throw Error("unsafe attention policy directory");let a=await e.sendRequest("fs/getMetadata",{path:r});if(!a.isFile||a.isSymlink)throw Error("unsafe attention policy file");let{dataBase64:o}=await e.sendRequest("fs/readFile",{path:r});if(MTKattentionBase64Size8378(o)>16384)throw Error("attention policy too large");return o}catch(e){if(MTKattentionMissing8378(e))return null;throw e}}function MTKparseAttentionPolicy8378(e){let t;try{t=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(e),e=>e.charCodeAt(0))))}catch{return null}if(!MTKattentionPlainObject8378(t)||Object.keys(t).length!==1||!Array.isArray(t.ignore)||t.ignore.length>64)return null;let n=[];for(let e of t.ignore){if(typeof e!=="string"||e.length===0||e.length>512)return null;try{n.push(new RegExp(e))}catch{return null}}return n}async function MTKloadAttentionPolicy8378(e,t){try{let n=await MTKfindAttentionFile8378(e,t);return n==null?null:MTKparseAttentionPolicy8378(n)}catch{return null}}function MTKattentionMatch8378(e,t,n){if(e==null)return!1;let r=typeof t==="string"?t:"",i=typeof n==="string"?n:"";return e.some(e=>e.test(r)||e.test(i))}function MTKattentionIgnored8378(e,t){return MTKattentionMatch8378(MTKattentionPolicy,e,t)}function MTKattentionIgnoredThread8378(e,t,n){let r=e(kW,t);return r?.kind==="local"?MTKattentionMatch8378(n,r.catalogTitle??r.summary?.title,r.conversationId):r?.kind==="remote"?MTKattentionMatch8378(n,r.task.title,r.task.id):!1}function MTKinstallAttentionPolicy8378(e,t){MTKattentionPolicy=e,t.set(MTKattentionPolicyAtom,e);for(let e of MTKattentionListeners)e()}function MTKattentionSubscribe8378(e){return MTKattentionListeners.add(e),()=>MTKattentionListeners.delete(e)}async function MTKloadAttentionWhenReady8378(e,t){try{return e.get(Cb)==null&&await e.when(({get:e})=>e(Cb)!=null),await MTKloadAttentionPolicy8378(Sb(e,"local"),t)}catch{return null}}async function MTKacceptAttentionReload8378(e,t,n,r){let i=await MTKloadAttentionWhenReady8378(e,t);return r()&&(i!=null||n?.initial===!0)?(MTKinstallAttentionPolicy8378(i,e),i!=null):!1}function MTKuseAttentionBootstrap8378(){let e=db(Q),t=${JSON.stringify(workspaceRoot)};return PLs.useEffect(()=>{let n=!1,r=globalThis.__MTK_RUNTIME_JSON_RELOAD__?.register("task-attention-policy.json",r=>MTKacceptAttentionReload8378(e,t,r,()=>!n));if(typeof r==="function")return()=>{n=!0,r()};return MTKattentionPromiseKey!==t&&(MTKattentionPromiseKey=t,MTKattentionPromise=MTKloadAttentionWhenReady8378(e,t)),MTKattentionPromise.then(t=>{n||MTKinstallAttentionPolicy8378(t,e)}),()=>{n=!0}},[e]),globalThis.__MTKattentionIgnored=MTKattentionIgnored8378,globalThis.__MTKattentionSubscribe=MTKattentionSubscribe8378,null}`;
+  const roots = [
+    "function ALs(){MTKusePaletteBootstrap();let e=(0,NLs.c)(12),",
+    "function ALs(){let e=(0,NLs.c)(12),"
+  ];
+  const root = roots.find(contract => appValue.includes(contract));
+  if (root == null) throw new Error("Upstream changed: build-8378 attention bootstrap owner is unrecognized");
+  let appPatched = replaceOnce(appValue, root, helper + root.replace("function ALs(){", "function ALs(){MTKuseAttentionBootstrap8378();"), "build-8378 attention bootstrap");
+  appPatched = replaceOnce(appPatched, "c$a,l$a=t((()=>{Z(),", "c$a,l$a=t((()=>{Z(),MTKattentionPolicyAtom=Dy(Q,null),", "build-8378 attention atom");
+  appPatched = replaceOnce(
+    appPatched,
+    "s=t===`work`?pmr({cloudThreadsAllowed:i,localThreadsAllowed:nI(e(MO)),threadKeys:o}):o;return r+",
+    "s=t===`work`?pmr({cloudThreadsAllowed:i,localThreadsAllowed:nI(e(MO)),threadKeys:o}):o,c=e(MTKattentionPolicyAtom);c!=null&&(s=s.filter(t=>!MTKattentionIgnoredThread8378(e,t,c)));return r+",
+    "build-8378 Dock badge projection"
+  );
+  appPatched = replaceOnce(
+    appPatched,
+    "let a=dV(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:s}=h(t.conversationId)",
+    "let a=dV(e.getConversation(t.conversationId));if(MTKattentionIgnored8378(a,t.conversationId)){T.debug(`[desktop-notifications] suppressed task-attention-policy turn-complete`,{safe:{conversationId:t.conversationId},sensitive:{}});return}let{navigationPath:o,navigateToNotification:s}=h(t.conversationId)",
+    "build-8378 native notification projection"
+  );
+
+  const primaryHelper = 'function MTKuseTaskAttention8378(e,t){let n=globalThis.__MTKattentionSubscribe??(()=>()=>{});return GMn.useSyncExternalStore(n,()=>globalThis.__MTKattentionIgnored?.(e,t)===!0,()=>!1)}';
+  let primaryPatched = replaceOnce(primaryValue, "function HMn(e){let t=(0,WMn.c)(139),", `${primaryHelper}function HMn(e){let t=(0,WMn.c)(139),`, "build-8378 task attention hook");
+  primaryPatched = replaceOnce(primaryPatched, "pt=jC(Zjn,{hostId:Je??`local`,threadId:n})??Ue?.title??null,mt=jC(QC,n)??Ue?.threadSource", "pt=jC(Zjn,{hostId:Je??`local`,threadId:n})??Ue?.title??null,MTKattentionIgnoredForTask=MTKuseTaskAttention8378(pt,n),mt=jC(QC,n)??Ue?.threadSource", "build-8378 local title");
+  primaryPatched = replaceOnce(primaryPatched, "):kt=t[25];let At=kt,jt;t[26]", "):kt=t[25];let At=MTKattentionIgnoredForTask?{...kt,unread:!1,unreadCount:0}:kt,jt;t[26]", "build-8378 status projection");
+  primaryPatched = replaceOnce(primaryPatched, "Pt=Nt==null?[]:[Nt]", "Pt=MTKattentionIgnoredForTask?[]:Nt==null?[]:[Nt]", "build-8378 approval projection");
+  primaryPatched = replaceOnce(primaryPatched, "):zt=t[45];let Bt=zt,Vt;t[46]", "):zt=t[45];let Bt=MTKattentionIgnoredForTask?void 0:zt,Vt;t[46]", "build-8378 waiting projection");
+  primaryPatched = replaceOnce(primaryPatched, "hasUnreadTurn:!Et&&et===!0", "hasUnreadTurn:!MTKattentionIgnoredForTask&&!Et&&et===!0", "build-8378 hover-card unread projection");
+  return { appSource: appPatched, primarySource: primaryPatched };
 }
 
 function current8109Contracts(appValue, primaryValue) {

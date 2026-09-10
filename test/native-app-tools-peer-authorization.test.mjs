@@ -12,8 +12,10 @@ assert.equal(matches.length, 1, "unique main-process asset");
 const source = fs.readFileSync(path.join(build, matches[0]), "utf8");
 const start = source.indexOf("function MTKnativeAppToolsPeerAuthorizer()");
 const profile = source.includes("async function mie(")
-  ? {owner: "mie", authorizer: "Tf"}
-  : {owner: "zie", authorizer: "nd"};
+  ? {owner: "mie", authorizer: "Tf", addon: "i"}
+  : source.includes("async function Cae(")
+  ? {owner: "Cae", authorizer: "gd", addon: "i"}
+  : {owner: "zie", authorizer: "nd", addon: "i"};
 const end = source.indexOf(`async function ${profile.owner}(`, start);
 assert.ok(start >= 0 && end > start, "localized native app-tools peer helper");
 const helperSource = source.slice(start, end);
@@ -44,7 +46,7 @@ assert.equal(
   1,
   "only the native app-tools pipe uses the mixed-signature fallback"
 );
-assert.equal(count(source, "i.authorizeSocketPeer(t,n)"), 1, "the native stock authorizer remains installed");
+assert.equal(count(source, `${profile.addon}.authorizeSocketPeer(t,n)`), 1, "the native stock authorizer remains installed");
 
 process.stdout.write(`${JSON.stringify({
   state: "green",
