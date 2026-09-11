@@ -1,12 +1,14 @@
 # Extraction ledger
 
 This repository is the canonical source for the portable patches recorded below. The ledger says
-what crossed the extraction boundary and is the sole fleet-wide record of current-build static and
-live qualification. Patch READMEs retain patch-specific behavioral evidence without duplicating
-this fast-changing build receipt. This ledger is not a promise to publish every historical
-experiment.
+what crossed the extraction boundary and is the public fleet-wide qualification record: current
+static and live evidence, explicitly carried earlier live evidence, and the next useful evidence
+boundary. A next boundary strengthens or refreshes the record; it is not automatically a blocker to
+the qualified build named below. Raw maintainer logs and receipts remain ignored local evidence.
+Patch READMEs retain patch-specific behavioral evidence without duplicating this fast-changing
+record. This ledger is not a promise to publish every historical experiment.
 
-| Area | Public state | Next boundary |
+| Area | Public state | Next evidence boundary |
 | --- | --- | --- |
 | ASAR raw-header integrity | Extracted, fixture-tested, and used by the build-8576 full-fleet stage | Requalify a disposable candidate from the next inspected pristine build |
 | Read-only app inspection | Extracted, fixture-tested, and exercised against pristine and staged build 8576 | Record each newly accepted build |
@@ -34,16 +36,16 @@ experiment.
 
 ## Current build qualification
 
-Codex Desktop `26.903.71938` (build `8576`) was inspected and staged from a pristine vendor update
-on 2026-09-10. The complete selected desktop-package fleet—including the separately built Codex
-0.153.4 binary—passed every focused probe before and after repacking, remained byte-identical on a
-second application, preserved the native package tree and executable helper, and produced a valid
-code signature and ASAR seal. The rebuilt full fleet was installed and reached the healthy Codex
-task surface. Current regression probes cover renderer-store capture, shared Tinrelay host-bus
-ownership, and outgoing-radio hoist order; each patch's remaining live behavior is still an
-independent acceptance boundary where the table says so. Build-8576 live acceptance also proved
-that current and previously persisted outgoing Tinrelay presentations remain after the user request
-that caused them across restart.
+Codex Desktop `26.903.71938` (build `8576`) for macOS ARM64 was inspected and staged from a pristine
+vendor update on 2026-09-10. The complete selected desktop-package fleet—including the separately
+built Codex 0.153.4 binary—passed every focused probe before and after repacking, remained
+byte-identical on a second application, preserved the native package tree and executable helper,
+and produced a valid code signature and ASAR seal. The rebuilt full fleet was installed and reached
+the healthy Codex task surface. Current regression probes cover renderer-store capture, shared
+Tinrelay host-bus ownership, and outgoing-radio hoist order; each patch's remaining live behavior
+is still an independent acceptance boundary where the table says so. Build-8576 live acceptance
+also proved that current and previously persisted outgoing Tinrelay presentations remain after the
+user request that caused them across restart.
 
 The predecessor qualification remains useful evidence: the installed build `8109` launched
 successfully, and the configured palette, sidebar, terminal, retained reasoning, native task

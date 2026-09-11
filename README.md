@@ -35,6 +35,26 @@ restart on the older installed build. If it is not an exact match, the agent mus
 and qualify the selected patches; nearby version numbers are not compatibility evidence. The full
 build-selection route is in [Preparing a patched Codex update](docs/update-workflow.md).
 
+When returning to a retained checkout, the agent should inspect its Git state, fast-forward it when
+that will not overwrite local work, and refresh its local dependencies before choosing a Codex
+build:
+
+```sh
+git status --short
+git pull --ff-only
+npm install
+```
+
+Keep private settings in the ignored `toolkit.local.json`; do not resolve a dirty checkout by
+discarding work. Then follow the simple selection rule:
+
+| Exact evidence found | What to do |
+| --- | --- |
+| The offered Codex version **and build** match current TMTK qualification | Acquire that pristine official update and stage the selected fleet from current TMTK. |
+| They match an earlier qualification-bearing TMTK commit | Inspect and use that exact toolkit source; do not assume current `main` still supports the older build. |
+| The offered build has no exact qualification | Port and qualify the desired fleet directly against that offered build, or wait. Do not patch the older installed build first. |
+| Codex offers no update | Use the installed build only when its exact version/build is qualified; otherwise it also needs a port. |
+
 For an exact pre-qualified macOS build, the ordinary agent-operated path is:
 
 ```sh
@@ -43,16 +63,18 @@ cd the-mechanics-toolkit
 npm install
 cp toolkit.example.json toolkit.local.json
 
+# Replace every fictional path and select the intended patch fleet before continuing.
 node bin/toolkit.mjs inspect /path/to/Pristine-ChatGPT.app
 node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app \
   /path/to/ChatGPT-MechanicsToolkit.app \
   --config toolkit.local.json
 ```
 
-`npm install` prepares this repository's tooling; it does not patch or install Codex. The agent
-should configure `toolkit.local.json` with the person, stage and prove all selected patches
-together, and explain the interruption and recovery path. After obtaining authority, it gives the
-verified candidate to the supervisor from the task that should own recovery:
+`npm install` prepares this repository's tooling; it does not patch or install Codex.
+`toolkit.example.json` is a schema-bearing example with fictional absolute paths, not a runnable
+configuration. The agent should configure its private copy with the person, stage and prove all
+selected patches together, and explain the interruption and recovery path. After obtaining
+authority, it gives the verified candidate to the supervisor from the task that should own recovery:
 
 ```sh
 bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
@@ -74,12 +96,14 @@ CLI session for continued troubleshooting. TMTK cannot promise that an arbitrary
 every launch failure is repairable; it makes failure observable and preserves both a verified
 rollback and a route back to the agent who was already doing the work.
 
-After the new build passes its live checks, close the update instead of leaving a workbench behind:
-delete the staged candidate, remove unpacked source applications and work from older releases, and
-keep at most one compact pristine vendor artifact if future restaging is useful. Preserve a failed
-run only while it still supports an active diagnosis or qualification. TMTK cleans its own internal
-scratch and bounds supervisor rollback storage; the agent remains responsible for the explicit
-source and destination paths it chose.
+After the new build passes its live checks, close the update instead of leaving a workbench behind.
+Loose application bundles can each consume well over a gigabyte; the source, staged candidate, and
+old release benches are not a cache TMTK owns or prunes. Delete the accepted candidate and unpacked
+source, remove superseded release work, and keep at most one compressed pristine vendor artifact if
+future restaging is useful. Preserve a failed run only while it supports an active diagnosis or
+qualification. The supervisor separately bounds its private recovery storage to one full rollback.
+See [Closing the workbench](docs/update-workflow.md#close-the-workbench) for the exact keep/remove
+boundary.
 
 The [`qualification/`](qualification/) runbooks are for toolkit maintainers and agents actively
 porting or validating TMTK with explicit authority to replace the installed application. Some of
@@ -115,6 +139,7 @@ feature checks—not recreate the maintainer's destructive failure fixtures.
 - [For people](#for-people)
 - [For Codex agents](#for-codex-agents)
 - [Updates and restarts](#updates-and-restarts)
+- [Closing the workbench](docs/update-workflow.md#close-the-workbench)
 - [Repository boundary](#repository-boundary)
 
 ## Two patch layers
@@ -140,12 +165,17 @@ and live acceptance remain separate actions.
 
 ## Codex Desktop package patches
 
-The desktop package fleet is currently qualified against **Codex Desktop `26.903.71938` (`8576`)**.
+The desktop package fleet is currently qualified on **macOS ARM64** against **Codex Desktop
+`26.903.71938` (`8576`)**.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
 and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
-evidence. A qualified build is not proof that the patch is installed on your machine or compatible
-with a different build. “Active” means the patch is maintained on this repository's current branch;
-it does not mean the patch is qualified for an unnamed Codex build.
+evidence. Qualification may carry a previous live result only when the patch's current owner and
+behavior remain equivalent and the current complete fleet passes static proof and a healthy launch;
+changed or uncertain seams require a current live check. The ledger states which evidence is
+current, carried, or still worth strengthening. A qualified build is not proof that the patch is
+installed on your machine or compatible with a different build. “Active” means the patch is
+maintained on this repository's current branch; it does not mean the patch is qualified for an
+unnamed Codex build.
 
 | Patch | What changes for the person using Codex |
 | --- | --- |

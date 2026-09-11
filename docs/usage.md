@@ -58,7 +58,7 @@ After a candidate has passed static proof and the person has authorized adoption
 safe-start supervisor from the Codex task that should own recovery:
 
 ```sh
-tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
   /Applications/ChatGPT.app
 ```
 
@@ -79,7 +79,7 @@ It recovers the invoking task's stored project directory from Codex's local task
 the subprocess `PWD`, and opens the same task in a terminal if the application exits before healthy
 renderer readiness or stays unready through the configured grace period. See
 [safe restart and rescue](safe-start.md) for lifecycle, fallback configuration, private diagnostics,
-and `did-codex-launch`.
+and `bin/did-codex-launch`.
 
 After three unsuccessful repair-and-relaunch turns, the supervisor offers **Restore
 Known-Working** and **Open Terminal Line with Agent**. Restore copies the exact pre-adoption app
@@ -89,7 +89,7 @@ interactive Codex CLI session. A plain supervised restart remains available when
 candidate to adopt:
 
 ```sh
-tmtk-restart /Applications/ChatGPT.app
+bin/tmtk-restart /Applications/ChatGPT.app
 ```
 
 That form detects and rescues launch failure but has no pre-adoption app to restore automatically.
@@ -97,10 +97,11 @@ That form detects and rescues launch failure but has no pre-adoption app to rest
 ## Local configuration
 
 Copy [`toolkit.example.json`](../toolkit.example.json) to the ignored `toolkit.local.json`, or use
-another private path. `enabledPatches` selects the staged fleet; the catalog applies it in
-dependency-safe order regardless of array order. Any selection containing an ASAR patch must also
-include `renderer-patch-registry`, which publishes the installed patch inventory and optional
-cross-patch capabilities after the other transforms run.
+another private path. The example contains fictional absolute paths and is not runnable until the
+agent replaces the applicable values. `enabledPatches` selects the staged fleet; the catalog
+applies it in dependency-safe order regardless of array order. Any selection containing an ASAR
+patch must also include `renderer-patch-registry`, which publishes the installed patch inventory
+and optional cross-patch capabilities after the other transforms run.
 
 Configuration-backed patches use these values:
 

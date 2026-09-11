@@ -12,14 +12,14 @@ to type or manage them.
 From an agent turn whose environment contains Codex's task identity:
 
 ```sh
-tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
   /Applications/ChatGPT.app
 ```
 
 An agent can prepend incident-specific instructions to the automatic rescue briefing:
 
 ```sh
-tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
+bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
   --prompt "Preserve the staged candidate while diagnosing this launch." \
   /Applications/ChatGPT.app
 ```
@@ -154,7 +154,7 @@ not contend for the task writer.
 Inspect the last attempt at any time:
 
 ```sh
-did-codex-launch
+bin/did-codex-launch
 ```
 
 Its exit status is zero when the last attempt reached renderer readiness, or when an exact restored

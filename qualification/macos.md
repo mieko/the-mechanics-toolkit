@@ -3,8 +3,10 @@
 This document contains two related qualifications with separate conclusions:
 
 - **Patchset qualification** proves that one exact Codex Desktop version/build and enabled patch
-  fleet launches cleanly and that every selected feature works. The supervisor surrounds that
-  restart as recovery protection, but must not activate.
+  fleet passes complete static proof and launches cleanly. Each selected feature needs either a
+  current live result or an explicitly recorded earlier live result whose semantic owner and
+  behavior remain equivalent. Changed, uncertain, or newly composed seams require a current live
+  check. The supervisor surrounds that restart as recovery protection, but must not activate.
 - **Supervisor capability qualification** deliberately exercises blank-renderer and living-Oops
   failures to prove that recovery itself works. It is repeated when the supervisor contract or one
   of its relevant integration boundaries changes, not merely because another patch was added or
@@ -23,7 +25,9 @@ Run from the toolkit repository. Keep an untouched vendor application as `SOURCE
 new path outside `/Applications` as `CANDIDATE_APP`, and use the private toolkit configuration as
 `CONFIG`. Record the exact source URL or installer provenance, toolkit commit, source-patch commit,
 version, build, hashes, commands, and outputs in one dated qualification receipt under ignored
-`.work/qualifications/` state.
+`.work/qualifications/` state. After acceptance, summarize the qualification in the tracked
+[`extraction ledger`](../docs/extraction-ledger.md) and a qualification-bearing commit; adopters do
+not depend on the ignored raw receipt.
 
 ## 1. Prove the complete candidate statically
 
@@ -109,7 +113,7 @@ broken fixture as its candidate. Give the automatic repair turn the exact health
 must restore and verify:
 
 ```sh
-tmtk-restart --candidate "$BLANK_FIXTURE" \
+bin/tmtk-restart --candidate "$BLANK_FIXTURE" \
   --prompt "CONTROLLED BLANK QUALIFICATION TOKEN. Restore /Applications/ChatGPT.app directly from $CANDIDATE_APP, verify its signature and ASAR integrity, then finish the turn." \
   /Applications/ChatGPT.app
 ```
@@ -129,7 +133,7 @@ current evidence, verify that the exact controlled fixture remains installed, le
 and finish the turn. Use the living-Oops fixture as the candidate:
 
 ```sh
-tmtk-restart --candidate "$OOPS_FIXTURE" \
+bin/tmtk-restart --candidate "$OOPS_FIXTURE" \
   --prompt "CONTROLLED LIVING-OOPS QUALIFICATION TOKEN. This phase deliberately exercises all three failed repair-and-relaunch attempts. Inspect the evidence, verify that /Applications/ChatGPT.app still matches the recorded Oops fixture, do not repair or replace it during these three attempts, and finish the turn." \
   /Applications/ChatGPT.app
 ```
@@ -191,11 +195,11 @@ substitute for the other.
 From that same task, run:
 
 ```sh
-tmtk-restart --candidate "$CANDIDATE_APP" /Applications/ChatGPT.app
+bin/tmtk-restart --candidate "$CANDIDATE_APP" /Applications/ChatGPT.app
 ```
 
 Wait for the invoking response to finish, then click **Relaunch Codex** in the confirmation dialog.
-After Codex returns, require `did-codex-launch` to report `launched: true`, `phase: ready`, the exact
+After Codex returns, require `bin/did-codex-launch` to report `launched: true`, `phase: ready`, the exact
 current version/build, and the same task ID, directory, model, and reasoning effort. Confirm that no
 rescue Terminal opened. A freshly signed app may wait at a Keychain prompt; entering the prompt and
 then reaching renderer readiness is a pass. Any rescue activation means this patchset failed the
@@ -256,7 +260,10 @@ version/build and patch fleet:
 - healthy renderer-ready restart evidence with no supervisor activation;
 - the current supervisor capability receipt and the comparison showing that none of its named
   invalidating inputs changed, or a newly completed capability receipt when they did;
-- the per-patch evidence matrix, the exact numbered human checklist, and an all-`y` expanded answer record;
+- the per-patch evidence matrix, with every selected row recorded as a current pass or as
+  `carried-equivalent` with its earlier evidence and the current equivalence basis;
+- the exact numbered human checklist and an all-`y` expanded answer record for every current human
+  check the matrix requires;
 - any platform-specific residual risk or intentionally unrun check.
 
 The separate **supervisor capability receipt** is green only when it contains:

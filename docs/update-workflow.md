@@ -8,6 +8,20 @@ remaining interruption instead of installing an unproved application.
 
 ## Take the pre-qualified macOS path
 
+If this is a retained checkout, inspect it before choosing a Codex build. Fast-forward only after
+any tracked changes are understood and preserved; private ignored configuration stays local. Then
+refresh the repository-local dependencies:
+
+```sh
+git status --short
+git pull --ff-only
+npm install
+```
+
+Do not discard tracked work to make the pull succeed. Current `main` is the first qualification
+source to inspect; an older qualification-bearing commit is usable only as that exact historical
+toolkit source, after its patch selection and evidence have been checked.
+
 Do not begin by patching whatever happens to be installed. On macOS, first use **Codex > Check for
 Updates...** or inspect an update indicator already visible in the app. If Codex offers an update,
 identify that release before choosing the toolkit source. Prefer the newest offered release already
@@ -125,10 +139,37 @@ Use these roles instead:
    explicit known-working restore or interactive terminal choice.
 10. Exercise the narrow live checks for the selected fleet. Retain the supervisor incident until
     the new build is accepted so its diagnostics and known-working rollback remain available.
-11. Close the update after acceptance. Delete the staged candidate and unpacked staging source,
-    remove work directories from older releases, and keep at most one pristine vendor ZIP when a
-    compact restaging source is useful. Retain a failed candidate or failure fixture only while it
-    supports an active diagnosis or qualification.
+11. [Close the workbench](#close-the-workbench) after acceptance.
+
+## Close the workbench
+
+Staging uses explicit operator-chosen paths. TMTK removes its temporary extracted-ASAR scratch, but
+it will not delete the pristine source, completed candidate, downloaded vendor artifact, or a
+maintainer's `.work` tree. That boundary prevents a public tool from guessing which application
+copy is valuable, but it also means an agent that never closes a release can accumulate several
+gigabytes per update.
+
+After live acceptance, keep:
+
+- the canonical installed `/Applications/ChatGPT.app`;
+- the ignored private configuration used to reproduce the fleet;
+- the TMTK checkout and its small qualification evidence; and
+- at most one compressed pristine vendor ZIP when fast restaging is worth its size.
+
+Remove the accepted loose candidate, unpacked pristine application, superseded release directories,
+and failed candidates or controlled failure fixtures that no longer support active diagnosis. If
+the checkout uses the conventional ignored `.work` directory, inspect its exact contents and size
+before removing anything:
+
+```sh
+du -sh .work .work/* 2>/dev/null
+```
+
+Do not turn this into a broad home-directory cleanup. The supervisor owns
+`~/.codex/tmtk-rescue/` separately: it retains at most one full `known-good.app`, prunes older full
+rollback payloads on a later candidate adoption, and leaves only small evidence in older incident
+directories. Keep the current rollback through acceptance; old evidence may be removed later when
+it no longer supports diagnosis. Never delete the whole `~/.codex` directory.
 
 ## Troubleshoot ambiguous Sparkle state
 
