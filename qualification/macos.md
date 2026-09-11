@@ -170,9 +170,11 @@ real bundled Codex CLI in the exact originating task and catalogued project dire
 unique prompt and diagnostic paths already submitted. The person watches but does not type. The
 CLI must report the same model and reasoning effort that were recorded for
 the task when the supervisor was armed; any mismatch warning fails the phase. Before that resume,
-the failed application's main process and bundled Codex CLI or App Server writers must be gone and
-the five databases required by Codex's state runtime must accept a write reservation; lingering
-crashpad, renderer, and other non-writer helpers do not block recovery. Inherited Codex
+the exact `com.openai.codex` application at the target executable path and the exact invoking CLI
+PID recorded from the supervisor's own parent chain must be gone, and the five databases required
+by Codex's state runtime must accept a write reservation. Unrelated CLIs, browser extensions, other
+app copies, crashpad, renderer, and other helpers must not be classified by name or block recovery.
+The supervisor-owned rescue CLI is tracked separately by its exact launched PID. Inherited Codex
 task-identity variables must not be allowed to override the task ID frozen when the supervisor was
 armed. In the blank phase, the turn must restore and verify the healthy candidate. In the Oops
 phase, it must preserve and verify the controlled broken fixture as instructed. Its

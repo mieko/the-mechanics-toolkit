@@ -8,10 +8,13 @@ import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import {
+  ancestorProcessPid,
+  applicationIsRunning,
   applicationLayout,
   closeOwnedRescueTerminal,
   confirmApplicationRestart,
   confirmRepairFallback,
+  confirmTaskHandoff,
   defaultTerminal,
   diagnosticLocations,
   launchApplication,
@@ -19,8 +22,7 @@ import {
   replaceApplicationWithVerifiedSource,
   requestApplicationQuit,
   rescueStopHookOverride,
-  resolveApplication,
-  runningApplicationPids
+  resolveApplication
 } from "../src/restart-platform.mjs";
 import {
   automaticRepairPrompt,
@@ -93,6 +95,17 @@ try {
   assert.equal(confirmRepairFallback({platform: "darwin", processRunner() {
     return {status: 0, stdout: "Open Terminal Line with Agent\n", stderr: "", error: null};
   }}), "interactive");
+  const handoffCalls = [];
+  assert.equal(confirmTaskHandoff({platform: "darwin", processRunner(command, arguments_, options) {
+    handoffCalls.push({command, arguments_, options});
+    return {status: 0, stdout: "Continue\n", stderr: "", error: null};
+  }}), true);
+  assert.match(handoffCalls[0].options.input, /agent task that armed this restart is still active/);
+  assert.match(handoffCalls[0].options.input, /Close its existing terminal or session, then click Continue/);
+  assert.match(handoffCalls[0].options.input, /buttons \{"Don't Relaunch", "Continue"\}/);
+  assert.equal(confirmTaskHandoff({platform: "darwin", processRunner() {
+    return {status: 0, stdout: "Don't Relaunch\n", stderr: "", error: null};
+  }}), false);
   assert.throws(() => confirmApplicationRestart({platform: "darwin", processRunner() {
     return {status: 1, stdout: "", stderr: "dialog failed", error: null};
   }}), /dialog failed/);
@@ -100,23 +113,40 @@ try {
   const quitCalls = [];
   assert.equal(requestApplicationQuit(applicationExecutable, {
     platform: "darwin",
-    processTable: `123 ${applicationExecutable}`,
     processRunner(command, arguments_, options) {
       quitCalls.push({command, arguments_, options});
+      if (arguments_[0] === "-l") {
+        return {status: 0, stdout: "true\n", stderr: "", error: null};
+      }
       return {status: 0, stdout: "", stderr: "", error: null};
     }
   }), true);
-  assert.equal(quitCalls[0].command, "/usr/bin/osascript");
-  assert.match(quitCalls[0].arguments_.at(-1), /tell application id "com\.openai\.codex" to quit/);
-  assert.equal("timeout" in quitCalls[0].options, false,
+  assert.equal(quitCalls.length, 2);
+  assert.deepEqual(quitCalls[0].arguments_, ["-l", "JavaScript", "-", applicationExecutable]);
+  assert.match(quitCalls[0].options.input, /runningApplicationsWithBundleIdentifier\("com\.openai\.codex"\)/);
+  assert.match(quitCalls[0].options.input, /executableURL/);
+  assert.equal(quitCalls[1].command, "/usr/bin/osascript");
+  assert.match(quitCalls[1].arguments_.at(-1), /tell application id "com\.openai\.codex" to quit/);
+  assert.equal("timeout" in quitCalls[1].options, false,
     "the detached supervisor lets the person answer Codex's native shutdown warning");
   assert.equal(requestApplicationQuit(applicationExecutable, {
     platform: "darwin",
-    processTable: `123 ${applicationExecutable}`,
-    processRunner() {
+    processRunner(_command, arguments_) {
+      if (arguments_[0] === "-l") {
+        return {status: 0, stdout: "true\n", stderr: "", error: null};
+      }
       return {status: 1, stdout: "", stderr: "execution error: User canceled. (-128)", error: null};
     }
   }), false, "cancelling Codex's own shutdown warning is not a rescue failure");
+  let quitWhenStoppedCalls = 0;
+  assert.equal(requestApplicationQuit(applicationExecutable, {
+    platform: "darwin",
+    processRunner() {
+      quitWhenStoppedCalls += 1;
+      return {status: 0, stdout: "false\n", stderr: "", error: null};
+    }
+  }), true, "an already-stopped Desktop application needs no quit request");
+  assert.equal(quitWhenStoppedCalls, 1);
   const taskId = "01900000-0000-7000-8000-000000000001";
   const model = "gpt-5.6-sol";
   const reasoningEffort = "high";
@@ -536,20 +566,46 @@ try {
   assert.equal(restoredStatus.restoredKnownGood, true);
   assert.equal(launchStatus(null).launched, false);
 
-  assert.throws(() => runningApplicationPids("/some/Codex", {platform: "linux"}),
+  assert.throws(() => applicationIsRunning("/some/Codex", {platform: "linux"}),
     /not yet qualified for linux/);
-  const applicationProcesses = [
-    `101 ${applicationExecutable}`,
-    `102 ${path.join(app, "Contents/Resources/codex")} app-server`,
-    `103 ${path.join(app, "Contents/Frameworks/Codex Helper.app/Contents/MacOS/Codex Helper")} --type=utility`,
-    `104 ${path.join(app, "Contents/Resources/codex")} resume ${taskId}`,
-    `106 ${path.join(app, "Contents/Frameworks/Crashpad.framework/Helpers/chrome_crashpad_handler")} --database=/tmp/crashpad`,
-    "105 /Applications/Other.app/Contents/MacOS/Other"
-  ].join("\n");
-  assert.deepEqual(runningApplicationPids(applicationExecutable, {
+  const applicationStateCalls = [];
+  assert.equal(applicationIsRunning(applicationExecutable, {
     platform: "darwin",
-    processTable: applicationProcesses
-  }), [101, 102, 104], "quiescence tracks task-state writers but ignores lingering helpers");
+    processRunner(command, arguments_, options) {
+      applicationStateCalls.push({command, arguments_, options});
+      return {status: 0, stdout: "true\n", stderr: "", error: null};
+    }
+  }), true, "Desktop lifecycle comes from the exact macOS bundle identity");
+  assert.equal(applicationStateCalls[0].command, "/usr/bin/osascript");
+  assert.deepEqual(applicationStateCalls[0].arguments_, [
+    "-l", "JavaScript", "-", applicationExecutable
+  ]);
+  assert.match(applicationStateCalls[0].options.input, /executableURL/);
+  const exactCli = path.join(app, "Contents/Resources/codex");
+  const processIdentities = new Map([
+    [303, "303 202 /bin/zsh\n"],
+    [202, `202 101 ${exactCli}\n`],
+    [101, "101 1 /Applications/Other.app/Contents/MacOS/codex-helper\n"]
+  ]);
+  const processQueries = [];
+  assert.equal(ancestorProcessPid(exactCli, {
+    platform: "darwin",
+    startPid: 303,
+    processRunner(command, arguments_, options) {
+      processQueries.push({command, arguments_, options});
+      const pid = Number(arguments_[1]);
+      return {status: 0, stdout: processIdentities.get(pid) ?? "", stderr: "", error: null};
+    }
+  }), 202, "only the exact invoking CLI in this command's ancestry is retained");
+  assert.deepEqual(processQueries.map(call => call.arguments_[1]), ["303", "202"]);
+  assert.equal(ancestorProcessPid(exactCli, {
+    platform: "darwin",
+    startPid: 101,
+    processRunner(_command, arguments_) {
+      const pid = Number(arguments_[1]);
+      return {status: 0, stdout: processIdentities.get(pid) ?? "", stderr: "", error: null};
+    }
+  }), null, "a similarly named unrelated process is not an invoking Codex CLI");
   let quiescenceChecks = 0;
   assert.equal(await waitForApplicationQuiescence({
     executable: applicationExecutable,

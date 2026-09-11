@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { inspectAppBundle } from "./app-bundle.mjs";
-import { applicationLayout, defaultTerminal, resolveApplication, runningApplicationPids } from "./restart-platform.mjs";
+import { applicationIsRunning, applicationLayout, defaultTerminal, resolveApplication } from "./restart-platform.mjs";
 
 const taskIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const runtimeDatabaseNames = [
@@ -262,7 +262,7 @@ export async function waitForApplicationQuiescence({
   platform = process.platform,
   timeoutMs = 30_000,
   intervalMs = 100,
-  processLookup = () => runningApplicationPids(executable, {platform})
+  processLookup = () => applicationIsRunning(executable, {platform}) ? [true] : []
 }) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

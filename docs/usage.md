@@ -71,6 +71,12 @@ leaves the running application untouched and discards the unused rollback copy. 
 Codex** authorizes the supervisor to quit the current app, copy the verified candidate into the
 canonical path, verify it again, and launch it.
 
+On macOS, the quit gate identifies Desktop by the exact `com.openai.codex` bundle identity and
+target executable path. It also records only the exact bundled Codex CLI in the invoking command's
+parent chain and waits for that PID to exit before launching Desktop, then proves the Codex state
+databases accept a writer. It does not scan for process names containing `Codex` or `ChatGPT`;
+unrelated CLIs, extensions, other app copies, and helpers cannot hold the restart open.
+
 Use `--prompt TEXT` to prepend incident-specific context. The generated rescue message still states
 that Desktop failed, that the resumed task is in Codex CLI without native task-to-task messaging,
 and where its diagnostic, supervisor, and application-output logs live.

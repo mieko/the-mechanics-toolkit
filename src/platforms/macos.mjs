@@ -89,6 +89,37 @@ end run`;
   throw new Error(`macOS repair fallback returned an unknown choice: ${choice || "<empty>"}`);
 }
 
+export function confirmTaskHandoff({processRunner = spawnSync, iconFile = toolkitIcon} = {}) {
+  const script = String.raw`
+on run arguments
+  set dialogMessage to "Codex closed, but the agent task that armed this restart is still active." & return & return & "Close its existing terminal or session, then click Continue."
+try
+  if (count of arguments) > 0 then
+    set iconFile to POSIX file (item 1 of arguments) as alias
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Don't Relaunch", "Continue"} default button "Continue" cancel button "Don't Relaunch" with icon iconFile
+  else
+    set answer to display dialog dialogMessage with title "The Mechanic's Toolkit" buttons {"Don't Relaunch", "Continue"} default button "Continue" cancel button "Don't Relaunch" with icon caution
+  end if
+  return button returned of answer
+on error number -128
+  return "Don't Relaunch"
+end try
+end run`;
+  const arguments_ = fs.existsSync(iconFile) ? ["-", iconFile] : ["-"];
+  const result = processRunner("/usr/bin/osascript", arguments_, {
+    encoding: "utf8",
+    input: script
+  });
+  if (result.error != null) throw result.error;
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout).trim() || "macOS task handoff confirmation failed");
+  }
+  const choice = result.stdout.trim();
+  if (choice === "Continue") return true;
+  if (choice === "Don't Relaunch") return false;
+  throw new Error(`macOS task handoff confirmation returned an unknown choice: ${choice || "<empty>"}`);
+}
+
 export function diagnosticLocations(home) {
   return {
     desktopLogs: path.join(home, "Library/Logs/com.openai.codex"),
@@ -111,8 +142,65 @@ export function launchApplication({app, marker, appLog, processLauncher = spawn}
   return child;
 }
 
-export function requestApplicationQuit(executable, {processTable = null, processRunner = spawnSync} = {}) {
-  if (primaryApplicationPids(executable, processTable).length === 0) return true;
+export function applicationIsRunning(executable, {processRunner = spawnSync} = {}) {
+  const script = String.raw`
+ObjC.import("AppKit");
+function run(arguments_) {
+  const expectedExecutable = arguments_[0];
+  const applications = $.NSRunningApplication.runningApplicationsWithBundleIdentifier("com.openai.codex");
+  for (let index = 0; index < applications.count; index += 1) {
+    const executableURL = applications.objectAtIndex(index).executableURL;
+    if (executableURL && ObjC.unwrap(executableURL.path) === expectedExecutable) return "true";
+  }
+  return "false";
+}`;
+  const result = processRunner("/usr/bin/osascript", [
+    "-l", "JavaScript", "-", executable
+  ], {encoding: "utf8", input: script});
+  if (result.error != null) throw result.error;
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout).trim() || "macOS could not inspect Codex");
+  }
+  const running = result.stdout.trim();
+  if (running === "true") return true;
+  if (running === "false") return false;
+  throw new Error(`macOS returned an invalid Codex application state for ${executable}: ${running || "<empty>"}`);
+}
+
+export function ancestorProcessPid(executable, {
+  startPid = process.ppid,
+  processRunner = spawnSync,
+  maximumDepth = 32
+} = {}) {
+  if (typeof executable !== "string" || executable.trim() === "") {
+    throw new Error("ancestor executable is required");
+  }
+  if (!Number.isInteger(startPid) || startPid <= 0) {
+    throw new Error("ancestor search requires a valid starting PID");
+  }
+  let pid = startPid;
+  const visited = new Set();
+  for (let depth = 0; depth < maximumDepth && pid > 1 && !visited.has(pid); depth += 1) {
+    visited.add(pid);
+    const result = processRunner("/bin/ps", [
+      "-p", String(pid), "-o", "pid=", "-o", "ppid=", "-o", "comm="
+    ], {encoding: "utf8"});
+    if (result.error != null) throw result.error;
+    if (result.status !== 0 || result.stdout.trim() === "") return null;
+    const match = result.stdout.match(/^\s*(\d+)\s+(\d+)\s+(.+?)\s*$/);
+    if (match == null) throw new Error(`macOS returned an invalid process identity for PID ${pid}`);
+    const observedPid = Number(match[1]);
+    const parentPid = Number(match[2]);
+    const command = match[3];
+    if (observedPid !== pid) throw new Error(`macOS returned the wrong process identity for PID ${pid}`);
+    if (command === executable) return pid;
+    pid = parentPid;
+  }
+  return null;
+}
+
+export function requestApplicationQuit(executable, {processRunner = spawnSync} = {}) {
+  if (!applicationIsRunning(executable, {processRunner})) return true;
   const script = String.raw`
 with timeout of 86400 seconds
   tell application id "com.openai.codex" to quit
@@ -125,34 +213,6 @@ end timeout`;
     throw new Error(message || "macOS refused to quit Codex");
   }
   return true;
-}
-
-export function runningApplicationPids(executable, {processTable = null} = {}) {
-  const cli = path.join(path.dirname(path.dirname(executable)), "Resources/codex");
-  return readProcessTable(processTable).flatMap(line => {
-    const match = line.match(/^\s*(\d+)\s+(.+)$/);
-    if (match == null) return [];
-    const command = match[2];
-    return command === executable || command.startsWith(`${executable} `) ||
-      command === cli || command.startsWith(`${cli} `) ? [Number(match[1])] : [];
-  });
-}
-
-function primaryApplicationPids(executable, processTable = null) {
-  return readProcessTable(processTable).flatMap(line => {
-    const match = line.match(/^\s*(\d+)\s+(.+)$/);
-    if (match == null) return [];
-    const command = match[2];
-    return command === executable || command.startsWith(`${executable} `) ? [Number(match[1])] : [];
-  });
-}
-
-function readProcessTable(value = null) {
-  if (value != null) return String(value).split("\n");
-  const result = spawnSync("/bin/ps", ["-axo", "pid=,command="], {encoding: "utf8"});
-  if (result.error != null) throw result.error;
-  if (result.status !== 0) throw new Error((result.stderr || result.stdout).trim() || "cannot inspect macOS processes");
-  return result.stdout.split("\n");
 }
 
 export function openRescueTerminal({terminalApp, commandFile, processRunner = spawnSync}) {

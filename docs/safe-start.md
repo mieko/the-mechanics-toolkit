@@ -48,8 +48,10 @@ pre-adoption rollback to offer. The command:
    known-working rollback inside the private incident directory;
 5. returns control to the invoking agent immediately while the detached supervisor presents a
    blocking macOS dialog with **Don't Restart** and **Relaunch Codex**;
-6. after **Relaunch Codex**, asks the existing canonical application to quit and waits until its
-   main process and bundled Codex CLI or App Server writers have stopped;
+6. after **Relaunch Codex**, asks the exact `com.openai.codex` application at the target executable
+   path to quit, waits for the
+   exact invoking Codex CLI ancestor recorded when the supervisor was armed, and proves the Codex
+   state databases accept a writer;
 7. when adopting, copies the still-verified candidate into the canonical path and verifies the
    installed result before launching it through macOS LaunchServices with a fresh private marker;
 8. accepts readiness only when Codex's stock trusted-renderer `ready` event reaches the patched
@@ -100,13 +102,20 @@ runtime dependency or part of the application-signing boundary.
 The repair turns are sequential continuations of the same task, not disposable agents. The
 supervisor freezes the task's recorded model and reasoning effort when it is armed, then passes
 both explicitly to every automatic and interactive resume. It refuses before asking Desktop to
-quit if that substrate identity cannot be established. Before each explicit resume, the supervisor
-waits for the application's main process and bundled Codex CLI or App Server writers to stop, then
-waits for the state, logs, goals, memories, and queue databases to accept a write reservation. This
-closes the process-exit-to-database-release seam: starting the CLI while a former Desktop writer
-still owns one of those databases can make Codex initialize without its state runtime and fall back
-to expensive rollout scans.
-Lingering crashpad, renderer, and other non-writer helpers do not block recovery. It also removes
+quit if that substrate identity cannot be established. The macOS adapter does not scan the process
+table for names containing `Codex` or `ChatGPT`: Desktop lifecycle comes from the exact
+`com.openai.codex` bundle identity and target executable path, and task handoff follows only this
+command's parent chain to the exact bundled CLI executable and freezes that PID. After Desktop
+quits, that one invoking CLI must exit. If it remains, the supervisor asks the person to close its
+existing terminal or session and does not launch a second copy of the task.
+
+Before installation, launch, and every explicit rescue resume, the supervisor also waits for the
+state, logs, goals, memories, and queue databases to accept a write reservation. This closes the
+process-exit-to-database-release seam: starting a new runtime while a former Desktop writer still
+owns one of those databases can make Codex initialize without its state runtime and fall back to
+expensive rollout scans. Unrelated Codex CLIs, browser extensions, crashpad, renderer, and other
+helpers are not guessed at by name and do not become lifecycle blockers. The rescue CLI is tracked
+separately by the exact PID the supervisor launched. It also removes
 inherited `CODEX_THREAD_ID` and `CODEX_SESSION_ID` values so they cannot override the task ID frozen
 when `tmtk-restart` was armed. A later attempt can see what the earlier attempt diagnosed and
 changed, plus the newer launch evidence.

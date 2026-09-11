@@ -7,12 +7,14 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { diagnoseApp } from "../src/diagnose-app.mjs";
 import {
+  ancestorProcessPid,
+  applicationIsRunning,
   confirmApplicationRestart,
+  confirmTaskHandoff,
   launchApplication,
   openRescueTerminal,
   replaceApplicationWithVerifiedSource,
-  requestApplicationQuit,
-  runningApplicationPids
+  requestApplicationQuit
 } from "../src/restart-platform.mjs";
 import {
   loadRescueFile,
@@ -20,6 +22,7 @@ import {
   rescueConfiguration,
   rescuePrompt,
   verifiedApplicationSource,
+  waitForCodexStateQuiescence,
   waitForReadiness
 } from "../src/safe-start.mjs";
 
@@ -90,8 +93,13 @@ function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath
     marker: path.join(incidentDirectory, "renderer.ready"),
     incidentDirectory,
     rescueFile: rescueFilePath,
+    invokingCliPid: ancestorProcessPid(configuration.cli, {platform: configuration.platform}),
     configuration
   };
+  if ((process.env.CODEX_THREAD_ID || process.env.CODEX_SESSION_ID) && state.invokingCliPid == null) {
+    fs.rmSync(incidentDirectory, {recursive: true, force: true});
+    fail("tmtk-restart: could not identify the exact invoking Codex CLI process", 2);
+  }
   writeJson(stateFile, state);
   writeJson(latestFile, state);
   const log = fs.openSync(path.join(incidentDirectory, "supervisor.log"), "a", 0o600);
@@ -183,13 +191,48 @@ async function supervise(stateFile, {
       save({phase: "cancelled", cancelledAt: new Date().toISOString(), cancellation: "codex-quit-dialog"});
       return true;
     }
-    const stopped = await waitUntil(() => !runningApplicationPids(configuration.executable).length, 30_000);
+    const stopped = await waitUntil(() => !applicationIsRunning(configuration.executable, {
+      platform: configuration.platform
+    }), 30_000);
     if (!stopped) {
       discardUnusedKnownGood(configuration, state);
       const failure = "existing Codex process did not quit after its shutdown dialog completed";
       process.stderr.write(`TMTK restart stopped: ${failure}.\n`);
       save({phase: "quit-not-completed", failedAt: new Date().toISOString(), failure});
       return false;
+    }
+
+    if (state.invokingCliPid != null && state.invokingCliExitObserved !== true) {
+      save({phase: "waiting-for-invoking-cli-exit", invokingCliPid: state.invokingCliPid});
+      while (!await waitUntil(() => !processExists(state.invokingCliPid), 30_000)) {
+        if (!confirmTaskHandoff({platform: configuration.platform})) {
+          discardUnusedKnownGood(configuration, state);
+          save({
+            phase: "cancelled",
+            cancelledAt: new Date().toISOString(),
+            cancellation: "invoking-cli-remained-active"
+          });
+          return true;
+        }
+      }
+      save({
+        phase: "invoking-cli-closed",
+        invokingCliExitObserved: true,
+        invokingCliExitedAt: new Date().toISOString()
+      });
+    }
+
+    save({phase: "waiting-for-codex-state-quiescence"});
+    if (!await waitForCodexStateQuiescence({
+      codexHome: configuration.codexHome,
+      timeoutMs: 30_000
+    })) {
+      return rescue(
+        "Codex state databases did not become writable after Desktop and the invoking task runtime exited",
+        state,
+        save,
+        {openTerminal: openTerminalOnFailure}
+      );
     }
 
     if (configuration.candidate != null && state.candidateInstalled !== true &&
@@ -255,7 +298,9 @@ async function supervise(stateFile, {
         timeoutReason += "; Codex shutdown was cancelled";
         return rescue(timeoutReason, state, save, {openTerminal: false});
       }
-      const stoppedAfterTimeout = await waitUntil(() => !runningApplicationPids(configuration.executable).length, 30_000);
+      const stoppedAfterTimeout = await waitUntil(() => !applicationIsRunning(configuration.executable, {
+        platform: configuration.platform
+      }), 30_000);
       if (!stoppedAfterTimeout) {
         timeoutReason += "; the exact application process remained alive after its shutdown dialog completed";
         return rescue(timeoutReason, state, save, {openTerminal: false});

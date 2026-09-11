@@ -30,6 +30,14 @@ export function confirmRepairFallback({
   return implementation(platform).confirmRepairFallback({processRunner, iconFile});
 }
 
+export function confirmTaskHandoff({
+  platform = process.platform,
+  processRunner = undefined,
+  iconFile = undefined
+} = {}) {
+  return implementation(platform).confirmTaskHandoff({processRunner, iconFile});
+}
+
 export function diagnosticLocations(home, platform = process.platform) {
   return implementation(platform).diagnosticLocations(home);
 }
@@ -46,14 +54,24 @@ export function launchApplication({
 
 export function requestApplicationQuit(executable, {
   platform = process.platform,
-  processTable = null,
   processRunner = undefined
 } = {}) {
-  return implementation(platform).requestApplicationQuit(executable, {processTable, processRunner});
+  return implementation(platform).requestApplicationQuit(executable, {processRunner});
 }
 
-export function runningApplicationPids(executable, {platform = process.platform, processTable = null} = {}) {
-  return implementation(platform).runningApplicationPids(executable, {processTable});
+export function applicationIsRunning(executable, {
+  platform = process.platform,
+  processRunner
+} = {}) {
+  return implementation(platform).applicationIsRunning(executable, {processRunner});
+}
+
+export function ancestorProcessPid(executable, {
+  platform = process.platform,
+  startPid = process.ppid,
+  processRunner
+} = {}) {
+  return implementation(platform).ancestorProcessPid(executable, {startPid, processRunner});
 }
 
 export function openRescueTerminal({terminalApp, commandFile, processRunner = undefined}, {platform = process.platform} = {}) {
