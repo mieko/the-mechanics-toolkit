@@ -43,15 +43,18 @@ build:
 git status --short
 git pull --ff-only
 npm install
+npm run check
+npm test
 ```
 
 Keep private settings in the ignored `toolkit.local.json`; do not resolve a dirty checkout by
-discarding work. Then follow the simple selection rule:
+discarding work. If a fast-forward would disturb tracked work, fetch and materialize the selected
+published commit in a separate worktree instead. Then follow the simple selection rule:
 
 | Exact evidence found | What to do |
 | --- | --- |
 | The offered Codex version **and build** match current TMTK qualification | Acquire that pristine official update and stage the selected fleet from current TMTK. |
-| They match an earlier qualification-bearing TMTK commit | Inspect and use that exact toolkit source; do not assume current `main` still supports the older build. |
+| They match an earlier qualification-bearing TMTK commit | Use the newest matching first-parent commit on `origin/main`, then inspect that exact toolkit source; do not assume current `main` still supports the older build. |
 | The offered build has no exact qualification | Port and qualify the desired fleet directly against that offered build, or wait. Do not patch the older installed build first. |
 | Codex offers no update | Use the installed build only when its exact version/build is qualified; otherwise it also needs a port. |
 

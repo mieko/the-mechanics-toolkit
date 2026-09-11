@@ -36,16 +36,46 @@ record. This ledger is not a promise to publish every historical experiment.
 
 ## Current build qualification
 
-Codex Desktop `26.903.71938` (build `8576`) for macOS ARM64 was inspected and staged from a pristine
-vendor update on 2026-09-10. The complete selected desktop-package fleet—including the separately
-built Codex 0.153.4 binary—passed every focused probe before and after repacking, remained
-byte-identical on a second application, preserved the native package tree and executable helper,
-and produced a valid code signature and ASAR seal. The rebuilt full fleet was installed and reached
-the healthy Codex task surface. Current regression probes cover renderer-store capture, shared
-Tinrelay host-bus ownership, and outgoing-radio hoist order; each patch's remaining live behavior
-is still an independent acceptance boundary where the table says so. Build-8576 live acceptance
-also proved that current and previously persisted outgoing Tinrelay presentations remain after the
-user request that caused them across restart.
+Codex Desktop `26.903.71938` (build `8576`) for macOS ARM64 was inspected and staged on macOS
+`26.6.2` (`25G83`) from a pristine vendor update on 2026-09-10. The complete selected
+desktop-package fleet—including the separately built Codex 0.153.4 binary—passed every focused
+probe before and after repacking, remained byte-identical on a second application, preserved the
+native package tree and executable helper, and produced a valid code signature and ASAR seal. The
+rebuilt full fleet was installed and reached the healthy Codex task surface. Current regression
+probes cover renderer-store capture, shared Tinrelay host-bus ownership, and outgoing-radio hoist
+order; each patch's remaining live behavior is still an independent acceptance boundary where the
+table says so. Build-8576 live acceptance also proved that current and previously persisted
+outgoing Tinrelay presentations remain after the user request that caused them across restart.
+
+The qualified desktop fleet was staged with these exact package patches:
+
+```json
+[
+  "cross-task-attribution",
+  "runtime-json-reload",
+  "task-visual-palette",
+  "reasoning-retention",
+  "model-identity-guard",
+  "macos-menu-title",
+  "standalone-output-compaction",
+  "sidebar-action-collapse",
+  "task-attention-policy",
+  "terminal-toggle",
+  "outgoing-message-receipt",
+  "wait-thread-roster",
+  "tinrelay-pointer-presentation",
+  "native-app-tools-peer-authorization",
+  "renderer-patch-registry",
+  "safe-start-readiness"
+]
+```
+
+`standalone-output-compaction` integrated the separately built Codex 0.153.4 source repair named
+above. Private paths and user policy are intentionally absent from this public record. A subset on
+the same vendor build inherits only its selected patches' exact source recognition and recorded
+patch-specific evidence; it must satisfy catalog dependencies, pass staging as that subset, and
+receive its own focused live checks. It is not the full-fleet composition receipt merely because it
+contains fewer transforms.
 
 The predecessor qualification remains useful evidence: the installed build `8109` launched
 successfully, and the configured palette, sidebar, terminal, retained reasoning, native task

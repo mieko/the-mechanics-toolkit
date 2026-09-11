@@ -15,9 +15,11 @@ does not install, replace, launch, publish, or deploy it.
 
 Configuration-backed patches read their ordinary sections from the same file. The palette requires
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array
-order. Every fleet containing an ASAR patch must include `renderer-patch-registry`; it runs after
-the behavior transforms and records the completed selected surface. Bundle-only fleets do not need
-a renderer registry.
+order. Every staged fleet must include `safe-start-readiness`, because the adoption supervisor
+accepts a candidate only after that trusted renderer signal, and `renderer-patch-registry`, which
+runs after the behavior transforms and records the completed selected surface. These are staging
+infrastructure, including when the user-facing selection would otherwise change only bundle
+metadata.
 
 The staging command does not apply Rust source patches or build Codex. Follow the selected entry in
 [`source-patches/`](../source-patches/) first. Its compiled result becomes a package input only

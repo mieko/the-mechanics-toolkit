@@ -37,10 +37,12 @@ receipts.
 
 ## Check and apply
 
-Every staged fleet containing an ASAR patch must select `renderer-patch-registry`. The staging
-catalog applies behavior patches first and the registry last, so its declarations describe the
-completed selected tree. When working on an extracted tree directly, follow that same order and
-reapply the registry after adding or removing a patch.
+Every staged fleet must select `renderer-patch-registry`, including a user-facing selection that
+would otherwise change only bundle metadata. The registry is the common composition receipt and
+future capability-discovery seam, not an optional UI feature. The staging catalog applies behavior
+patches first and the registry last, so its declarations describe the completed selected tree.
+When working on an extracted tree directly, follow that same order and reapply the registry after
+adding or removing a patch.
 
 ```sh
 node bin/toolkit.mjs patch renderer-patch-registry check /path/to/extracted-asar

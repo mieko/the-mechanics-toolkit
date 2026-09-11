@@ -195,10 +195,10 @@ function selectedPatches(names) {
   const unknown = names.filter(name => patchDefinition(name) == null);
   if (unknown.length > 0) throw new Error(`Unknown enabled patches: ${unknown.join(", ")}`);
   const selected = patchDefinitions.filter(definition => names.includes(definition.name));
-  const rendererRegistry = "renderer-patch-registry";
-  if (selected.some(definition => definition.scope === "asar" && definition.name !== rendererRegistry) &&
-      !names.includes(rendererRegistry)) {
-    throw new Error(`ASAR patch fleets must include ${rendererRegistry}`);
+  for (const infrastructure of ["renderer-patch-registry", "safe-start-readiness"]) {
+    if (!names.includes(infrastructure)) {
+      throw new Error(`Staged patch fleets must include ${infrastructure}`);
+    }
   }
   for (const definition of selected) {
     const missing = definition.requires.filter(name => !names.includes(name));

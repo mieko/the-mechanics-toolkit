@@ -79,7 +79,10 @@ It recovers the invoking task's stored project directory from Codex's local task
 the subprocess `PWD`, and opens the same task in a terminal if the application exits before healthy
 renderer readiness or stays unready through the configured grace period. See
 [safe restart and rescue](safe-start.md) for lifecycle, fallback configuration, private diagnostics,
-and `bin/did-codex-launch`.
+and `node bin/did-codex-launch.mjs`.
+
+After Desktop returns, the task's project directory may not be the TMTK checkout. Run the status
+command through its absolute retained-checkout path rather than assuming the current directory.
 
 After three unsuccessful repair-and-relaunch turns, the supervisor offers **Restore
 Known-Working** and **Open Terminal Line with Agent**. Restore copies the exact pre-adoption app
@@ -99,9 +102,9 @@ That form detects and rescues launch failure but has no pre-adoption app to rest
 Copy [`toolkit.example.json`](../toolkit.example.json) to the ignored `toolkit.local.json`, or use
 another private path. The example contains fictional absolute paths and is not runnable until the
 agent replaces the applicable values. `enabledPatches` selects the staged fleet; the catalog
-applies it in dependency-safe order regardless of array order. Any selection containing an ASAR
-patch must also include `renderer-patch-registry`, which publishes the installed patch inventory
-and optional cross-patch capabilities after the other transforms run.
+applies it in dependency-safe order regardless of array order. Every staged fleet must include
+`safe-start-readiness` for supervised adoption and `renderer-patch-registry`, which publishes the
+installed patch inventory and optional cross-patch capabilities after the other transforms run.
 
 Configuration-backed patches use these values:
 

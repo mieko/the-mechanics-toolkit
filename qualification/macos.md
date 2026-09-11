@@ -21,17 +21,19 @@ must not run section 2 merely to reproduce the maintainer's evidence. Section 2 
 authority to replace and deliberately break the canonical application, a verified restoration
 source, a technical operator present, and a current reason from its invalidation list.
 
-Run from the toolkit repository. Keep an untouched vendor application as `SOURCE_APP`, stage to a
-new path outside `/Applications` as `CANDIDATE_APP`, and use the private toolkit configuration as
-`CONFIG`. Record the exact source URL or installer provenance, toolkit commit, source-patch commit,
-version, build, hashes, commands, and outputs in one dated qualification receipt under ignored
-`.work/qualifications/` state. After acceptance, summarize the qualification in the tracked
+Run from the toolkit repository and record its absolute path as `TMTK_ROOT` before any restart.
+Keep an untouched vendor application as `SOURCE_APP`, stage to a new path outside `/Applications`
+as `CANDIDATE_APP`, and use the private toolkit configuration as `CONFIG`. Record the exact source
+URL or installer provenance, toolkit commit, source-patch commit, version, build, hashes, commands,
+and outputs in one dated qualification receipt under ignored `.work/qualifications/` state. After
+acceptance, summarize the qualification in the tracked
 [`extraction ledger`](../docs/extraction-ledger.md) and a qualification-bearing commit; adopters do
 not depend on the ignored raw receipt.
 
 ## 1. Prove the complete candidate statically
 
 ```sh
+TMTK_ROOT="$(pwd -P)"
 npm install
 npm run check
 npm test
@@ -199,11 +201,12 @@ bin/tmtk-restart --candidate "$CANDIDATE_APP" /Applications/ChatGPT.app
 ```
 
 Wait for the invoking response to finish, then click **Relaunch Codex** in the confirmation dialog.
-After Codex returns, require `bin/did-codex-launch` to report `launched: true`, `phase: ready`, the exact
-current version/build, and the same task ID, directory, model, and reasoning effort. Confirm that no
-rescue Terminal opened. A freshly signed app may wait at a Keychain prompt; entering the prompt and
-then reaching renderer readiness is a pass. Any rescue activation means this patchset failed the
-healthy-launch gate, even if the supervisor successfully repairs or restores the application.
+After Codex returns, require `node "$TMTK_ROOT/bin/did-codex-launch.mjs"` to report `launched: true`,
+`phase: ready`, the exact current version/build, and the same task ID, directory, model, and
+reasoning effort. Confirm that no rescue Terminal opened. A freshly signed app may wait at a
+Keychain prompt; entering the prompt and then reaching renderer readiness is a pass. Any rescue
+activation means this patchset failed the healthy-launch gate, even if the supervisor successfully
+repairs or restores the application.
 
 ## 4. Exercise every selected patch
 

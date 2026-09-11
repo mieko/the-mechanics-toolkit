@@ -154,7 +154,7 @@ not contend for the task writer.
 Inspect the last attempt at any time:
 
 ```sh
-bin/did-codex-launch
+node /absolute/path/to/the-mechanics-toolkit/bin/did-codex-launch.mjs
 ```
 
 Its exit status is zero when the last attempt reached renderer readiness, or when an exact restored
@@ -162,6 +162,37 @@ known-working app that predates the marker remained alive through the documented
 fallback. The JSON distinguishes those outcomes. Private launch state, supervisor output,
 application standard output, and a bounded failure diagnostic live under `~/.codex/tmtk-rescue/`.
 No report is uploaded.
+
+Choosing **Open Terminal Line with Agent** deliberately defers rollback and leaves the known-working
+application in the incident directory. If the person later wants that rollback, finish and exit the
+interactive Codex CLI first so the task has no active writer. From the retained TMTK checkout, find
+the incident state named by `latest.json`, reopen the existing fallback choice, and choose
+**Restore Known-Working**:
+
+```sh
+state_file="$(node <<'NODE'
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const latest = JSON.parse(fs.readFileSync(
+  path.join(os.homedir(), ".codex/tmtk-rescue/latest.json"), "utf8"
+));
+if (latest.repairAttemptsUsed !== 3 || latest.knownGoodRestoreAttempted === true ||
+    typeof latest.configuration?.knownGood?.app !== "string") {
+  throw new Error("latest TMTK incident is not an exhausted rescue with an unused rollback");
+}
+const stateFile = path.join(latest.incidentDirectory, "state.json");
+if (!fs.existsSync(stateFile)) throw new Error("latest TMTK incident state is missing");
+process.stdout.write(stateFile);
+NODE
+)"
+node bin/rescue-agent.mjs "$state_file"
+```
+
+Do not pass `known-good.app` back through `tmtk-restart --candidate`: candidate adoption captures
+the current canonical app as a new rollback and is the wrong lifecycle for restoring an existing
+incident. The re-entry above reuses the frozen receipt, performs the normal verified replacement,
+and returns through the supervisor's strict CLI-exit and terminal-close handoff.
 
 ## Plumbing probe
 

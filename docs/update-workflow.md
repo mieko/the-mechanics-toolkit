@@ -22,6 +22,27 @@ Do not discard tracked work to make the pull succeed. Current `main` is the firs
 source to inspect; an older qualification-bearing commit is usable only as that exact historical
 toolkit source, after its patch selection and evidence have been checked.
 
+If the retained checkout has tracked work, or if the matching qualification is historical, do not
+reset, stash, rebase, or mix files from two toolkit revisions. Fetch the published history and put
+the selected exact commit in a separate worktree:
+
+```sh
+git fetch origin
+selected_commit="$(git log origin/main --first-parent --format='%H' \
+  --grep='Codex 26.903.71938 build 8576' -1)"
+test -n "$selected_commit"
+git worktree add --detach ../the-mechanics-toolkit-build-8576 "$selected_commit"
+cd ../the-mechanics-toolkit-build-8576
+npm install
+npm run check
+npm test
+```
+
+Replace the example version, build, and worktree name. This leaves the retained checkout and its
+private ignored configuration untouched; copy only the required private configuration into the
+temporary worktree, never tracked source. Remove the temporary worktree with `git worktree remove`
+after acceptance and after preserving any evidence that still matters.
+
 Do not begin by patching whatever happens to be installed. On macOS, first use **Codex > Check for
 Updates...** or inspect an update indicator already visible in the app. If Codex offers an update,
 identify that release before choosing the toolkit source. Prefer the newest offered release already
@@ -47,10 +68,16 @@ https://persistent.oaistatic.com/codex-app-prod/ChatGPT-darwin-arm64-VERSION.zip
 ```
 
 Treat the appcast's exact enclosure as authoritative instead of constructing the URL when possible.
-Download to a partial filename, preserve the completed archive as the untouched vendor artifact,
-and unpack a staging copy:
+On macOS, extract the full-archive enclosure for the exact offered version, download to a partial
+filename, preserve the completed archive as the untouched vendor artifact, and unpack a staging
+copy:
 
 ```sh
+offered_version="26.903.71938"
+curl -fsSL https://persistent.oaistatic.com/codex-app-prod/appcast.xml -o appcast.xml
+enclosure_url="$(/usr/bin/xmllint --xpath \
+  "string(/rss/channel/item[title='$offered_version']/enclosure/@url)" appcast.xml)"
+test -n "$enclosure_url"
 curl -fL --progress-bar "$enclosure_url" -o ChatGPT-update.zip.part
 mv ChatGPT-update.zip.part ChatGPT-update.zip
 ditto -x -k ChatGPT-update.zip pristine-update
@@ -65,15 +92,22 @@ Use three pieces of evidence:
 1. The root README names the build qualified by the current desktop package and source fleets.
 2. [`extraction-ledger.md`](extraction-ledger.md) distinguishes static qualification from live
    acceptance and records remaining checks.
-3. Qualification-bearing commit subjects preserve earlier exact build references:
+3. Qualification-bearing commit subjects preserve earlier exact build references. Search the
+   first-parent history of published `origin/main`, include the exact offered version and build,
+   and select the newest matching commit:
 
    ```sh
-   git log --all --oneline --grep='Codex .*build'
+   git log origin/main --first-parent --format='%H %s' \
+     --grep='Codex 26.903.71938 build 8576'
    ```
 
-An earlier qualification commit is a source reference, not proof that current `main` or every patch
-still supports that build. Inspect the selected commit and each chosen patch's README before using
-it. Never obtain Codex from an unofficial mirror merely to match the toolkit.
+Replace the example version/build with the offered artifact's exact identity. Several incremental
+commits may name one build; the newest match on published first-parent history is the final accepted
+source for that build. Do not choose an arbitrary result from `--all`, where an abandoned branch or
+older incremental snapshot may also match. An earlier qualification commit is a source reference,
+not proof that current `main` or every patch still supports that build. Inspect the selected commit
+and each chosen patch's README before using it. Never obtain Codex from an unofficial mirror merely
+to match the toolkit.
 
 Once the official bundle has been acquired without launching it, establish its exact identity
 rather than trusting the feed title, filename, or marketing version:

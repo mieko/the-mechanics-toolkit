@@ -24,7 +24,12 @@ try {
   const config = path.join(scratch, "toolkit.json");
   makeSourceApp(source, terminalFixture());
   fs.writeFileSync(config, JSON.stringify({
-    enabledPatches: ["terminal-toggle", "macos-menu-title", "renderer-patch-registry"],
+    enabledPatches: [
+      "terminal-toggle",
+      "macos-menu-title",
+      "safe-start-readiness",
+      "renderer-patch-registry"
+    ],
     signingIdentity: "-"
   }));
   const sourceBefore = inspectAppBundle(source);
@@ -32,10 +37,23 @@ try {
   for (const [label, enabledPatches, expected] of [
     ["unknown patch", ["imaginary-patch"], /Unknown enabled patches/],
     ["duplicate patch", ["terminal-toggle", "terminal-toggle"], /contains duplicates/],
-    ["missing renderer registry", ["terminal-toggle"], /must include renderer-patch-registry/],
-    ["missing palette dependency", ["task-visual-palette", "renderer-patch-registry"], /requires: cross-task-attribution/],
-    ["missing reasoning dependency", ["reasoning-retention", "renderer-patch-registry"], /requires: task-visual-palette/],
-    ["missing model guard dependency", ["model-identity-guard", "renderer-patch-registry"], /requires: task-visual-palette/]
+    ["app-only fleet missing renderer registry", ["macos-menu-title"], /must include renderer-patch-registry/],
+    ["missing safe-start readiness", ["macos-menu-title", "renderer-patch-registry"], /must include safe-start-readiness/],
+    [
+      "missing palette dependency",
+      ["task-visual-palette", "safe-start-readiness", "renderer-patch-registry"],
+      /requires: cross-task-attribution/
+    ],
+    [
+      "missing reasoning dependency",
+      ["reasoning-retention", "safe-start-readiness", "renderer-patch-registry"],
+      /requires: task-visual-palette/
+    ],
+    [
+      "missing model guard dependency",
+      ["model-identity-guard", "safe-start-readiness", "renderer-patch-registry"],
+      /requires: task-visual-palette/
+    ]
   ]) {
     const rejectedConfig = path.join(scratch, `${label}.json`);
     fs.writeFileSync(rejectedConfig, JSON.stringify({enabledPatches}));
@@ -67,8 +85,17 @@ try {
 
   const result = runToolkit(["stage", source, destination, "--config", config]);
   assert.equal(result.state, "staged-static-proof-green");
-  assert.deepEqual(result.patches, ["macos-menu-title", "terminal-toggle", "renderer-patch-registry"]);
-  assert.deepEqual(result.changedTargets, ["Contents/Info.plist", "webview/assets/app-initial-fixture.js"]);
+  assert.deepEqual(result.patches, [
+    "macos-menu-title",
+    "terminal-toggle",
+    "safe-start-readiness",
+    "renderer-patch-registry"
+  ]);
+  assert.deepEqual(result.changedTargets, [
+    ".vite/build/main-fixture.js",
+    "Contents/Info.plist",
+    "webview/assets/app-initial-fixture.js"
+  ]);
   assert.equal(result.secondApplyByteIdentical, true);
   assert.equal(result.probesPassedAfterRepack, true);
   assert.equal(result.signatureValid, true);
@@ -98,25 +125,6 @@ try {
   run(asar, ["extract", staged.archive.path, verified]);
   const probe = spawnSync(process.execPath, [terminalProbe, verified], {encoding: "utf8"});
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
-
-  const bundleOnlyDestination = path.join(scratch, "Bundle-only ChatGPT.app");
-  const bundleOnlyConfig = path.join(scratch, "bundle-only.json");
-  fs.writeFileSync(bundleOnlyConfig, JSON.stringify({enabledPatches: ["macos-menu-title"]}));
-  const bundleOnlyResult = runToolkit([
-    "stage",
-    source,
-    bundleOnlyDestination,
-    "--config",
-    bundleOnlyConfig
-  ]);
-  assert.deepEqual(bundleOnlyResult.patches, ["macos-menu-title"]);
-  assert.deepEqual(bundleOnlyResult.changedTargets, ["Contents/Info.plist"]);
-  assert.equal(
-    inspectAppBundle(bundleOnlyDestination).archive.sha256,
-    sourceBefore.archive.sha256,
-    "a bundle-only patch preserves the ASAR bytes"
-  );
-  assert.equal(plist(bundleOnlyDestination, "CFBundleName"), "Codex");
 
   const existing = runToolkitRaw(["stage", source, destination, "--config", config]);
   assert.notEqual(existing.status, 0);
@@ -179,7 +187,10 @@ function makeSourceApp(app, rendererSource) {
   fs.mkdirSync(path.join(contents, "MacOS"), {recursive: true});
   fs.mkdirSync(resources, {recursive: true});
   fs.writeFileSync(path.join(assets, "app-initial-fixture.js"), rendererSource);
-  fs.writeFileSync(path.join(build, "main-fixture.js"), "export const fixture=true;\n");
+  fs.writeFileSync(path.join(build, "main-fixture.js"),
+    "var Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`;" +
+    "function Aie(){}function owner(e){let{requestDevRelaunch:P=Aie}=e,N=()=>true,r={lt:1},l={ipcMain:{handle(){}}};" +
+    "l.ipcMain.handle(r.lt,async(t,s)=>{if(!N(t))return;if(s.type===`electron-avatar-overlay-restore-ready`)return})}\n");
   fs.writeFileSync(helper, "fixture helper\n", {mode: 0o755});
   const unpackedFixtures = [helper];
   for (const packageName of ["@worklouder/device-kit-oai", "better-sqlite3", "objc-js"]) {
@@ -249,6 +260,7 @@ pxi=()=>{d1t.run({action:{type:\`windows.terminal.toggle\`,windowId:Ux}})
 [\`toggleTerminal\`,pxi]
 defaultKeybindings:[{key:"Control+\`"}]
 */
+const H={dispatchMessage(){}};function MHs(){H.dispatchMessage(\`ready\`,{persistedStateResponsePriority:W7?\`critical\`:void 0})}
 export const fixture = true;
 `;
 }
