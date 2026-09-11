@@ -246,7 +246,9 @@ for (const [label, candidate] of [
 ]) assert.equal(rendererApi.acceptance(candidate, localShip), null, label);
 
 const activityStart = activitySource.indexOf("const MTKtinrelayOutgoingLocalShip=");
-const activityEnd = activitySource.indexOf("function ln(", activityStart);
+const activityEnd = ["function an(", "function ln("]
+  .map(marker => activitySource.indexOf(marker, activityStart))
+  .find(index => index >= 0) ?? -1;
 assert.ok(activityStart >= 0 && activityEnd > activityStart, "outgoing activity parser is localized");
 const activityApi = Function(`${activitySource.slice(activityStart, activityEnd)};return MTKtinrelayOutgoingAcceptance`)();
 assert.deepEqual(activityApi(item, localShip), acceptance, "activity classifier recognizes ordinary Tinrelay acceptance");
@@ -288,7 +290,8 @@ for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "markdown", "ev
   assert.ok(!helper.includes(forbidden), `renderer omits ${forbidden}`);
 
 const mainStart = mainSource.indexOf("const MTKtinrelayOutgoingContract=");
-const mainEnd = [mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart),
+const mainEnd = [mainSource.indexOf("var dQ=i.i(`electron-message-handler`)", mainStart),
+  mainSource.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart),
   mainSource.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart),
   mainSource.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)].find(index => index >= 0);
 assert.ok(mainStart >= 0 && mainEnd > mainStart, "outgoing main helpers are localized");

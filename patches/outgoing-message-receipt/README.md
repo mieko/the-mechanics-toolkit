@@ -2,9 +2,10 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer family
-- **Patch-specific evidence:** Build `8576` full-fleet staging and current-family causal-order probe
-  green; build `8109` live mounted behavior and disposable acknowledged persistence/restart probes
-  green. Build `8576` task-message restart reconstruction remains pending, 2026-09-10
+- **Patch-specific evidence:** Build `8690` full-fleet staging, current-family causal-order probe,
+  and live task-message rendering green; build `8576` live task-message ordering and restart
+  reconstruction green; build `8109` live mounted behavior and disposable acknowledged
+  persistence/restart probes green. Build `8690` restart reconstruction remains pending, 2026-09-11
 
 ## Why it exists
 

@@ -7,7 +7,7 @@ const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: runtime-json-reload.test.mjs EXTRACTED_ASAR_ROOT");
 const assets = path.join(root, "webview/assets");
 const mainDirectory = path.join(root, ".vite/build");
-const renderer = uniqueFile(/^app-initial-.*\.js$/, assets);
+const renderer = rendererFile(assets);
 const main = uniqueFile(/^main-.*\.js$/, mainDirectory);
 const rendererSource = fs.readFileSync(renderer, "utf8");
 const mainSource = fs.readFileSync(main, "utf8");
@@ -170,6 +170,13 @@ function uniqueFile(pattern, directory) {
   const matches = fs.readdirSync(directory).filter(name => pattern.test(name));
   assert.equal(matches.length, 1, `unique file ${pattern}`);
   return path.join(directory, matches[0]);
+}
+
+function rendererFile(directory) {
+  const messageBus = fs.readdirSync(directory).filter(name => /^message-bus-.*\.js$/.test(name));
+  if (messageBus.length === 1) return path.join(directory, messageBus[0]);
+  assert.equal(messageBus.length, 0, "unique renderer message-bus owner");
+  return uniqueFile(/^app-initial-.*\.js$/, directory);
 }
 
 async function drainMicrotasks() {

@@ -56,7 +56,10 @@ function findOwner() {
     if (source.includes("localConversation.codexDelegationUserMessage.app") &&
         source.includes("defaultMessage:`Sent by {appName} from another task`") &&
         source.includes("sourceThreadId")) {
-      candidates.push({ file, source });
+      const labelAt = source.indexOf("localConversation.codexDelegationUserMessage.app");
+      if (containingFunction(source, labelAt).text.includes("sourceThreadId")) {
+        candidates.push({ file, source });
+      }
     }
   }
   if (candidates.length !== 1) {
@@ -120,6 +123,24 @@ function inspectPristine(source) {
         "t[41]=J,t[42]=fe,t[43]=se,t[44]=ye,t[45]=be",
         "t[41]=J,t[42]=fe,t[43]=se,t[44]=ye,t[127]=MTKbubbleStyleOverride,t[45]=be"
       ]
+    },
+    {
+      delegation: "rz", delegationCache: "iz", delegationJsx: "az",
+      wrapper: "JR", wrapperCache: "YR", wrapperJsx: "XR",
+      bubble: "l_", bubbleCache: "d_", collapsedLines: "ZR",
+      bubbleCacheSize: 135,
+      bubbleOwner: [
+        "turnId:O,cwd:k,hostId:A}=e,",
+        "turnId:O,cwd:k,hostId:A,messageBubbleStyle:MTKbubbleStyleOverride}=e,"
+      ],
+      bubbleDependency: [
+        "t[43]!==_e||t[44]!==de||t[45]!==Ce){",
+        "t[43]!==_e||t[44]!==de||t[45]!==Ce||t[135]!==MTKbubbleStyleOverride){"
+      ],
+      bubbleStorage: [
+        "t[43]=_e,t[44]=de,t[45]=Ce,t[46]=we",
+        "t[43]=_e,t[44]=de,t[45]=Ce,t[135]=MTKbubbleStyleOverride,t[46]=we"
+      ]
     }
   ].find(candidate => delegation.text.startsWith(`function ${candidate.delegation}(`));
   if (profile == null) throw new Error("Upstream changed: attribution component family is unknown");
@@ -130,7 +151,7 @@ function inspectPristine(source) {
     `h=(0,${profile.delegationJsx}.jsx)(${profile.wrapper},{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:m})`,
     `function ${profile.wrapper}(e){let t=(0,${profile.wrapperCache}.c)(16),{label:n,conversationId:r,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:c,onLabelClick:l}=e,`,
     `m=f?(0,${profile.wrapperJsx}.jsx)(${profile.bubble},{message:i,sentAtMs:a,collapsedLineCount:${profile.collapsedLines},compactActions:u,cwd:o,hostId:s,threadId:r}):null`,
-    `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(127),`,
+    `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(${profile.bubbleCacheSize ?? 127}),`,
     '"data-user-message-bubble":!0,className:'
   ]) {
     if (!source.includes(contract)) throw new Error(`Upstream changed: attribution contract ${contract}`);
@@ -178,10 +199,11 @@ function patchAttribution(source, ownerFile, details) {
   );
   wrapper = replaceOnce(wrapper, "t[10]=a,t[11]=f,t[12]=m)", "t[10]=a,t[11]=f,t[16]=MTKbubbleStyleOverride,t[12]=m)", "wrapper style storage");
 
-  bubble = replaceOnce(bubble, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(127),`, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(128),`, "bubble cache size");
-  const bubbleOwner = bubble.includes("cwd:D,hostId:O}=e,") ?
+  const bubbleCacheSize = profile.bubbleCacheSize ?? 127;
+  bubble = replaceOnce(bubble, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(${bubbleCacheSize}),`, `function ${profile.bubble}(e){let t=(0,${profile.bubbleCache}.c)(${bubbleCacheSize + 1}),`, "bubble cache size");
+  const bubbleOwner = profile.bubbleOwner ?? (bubble.includes("cwd:D,hostId:O}=e,") ?
     ["cwd:D,hostId:O}=e,", "cwd:D,hostId:O,messageBubbleStyle:MTKbubbleStyleOverride}=e,"] :
-    ["cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,"];
+    ["cwd:E,hostId:D}=e,", "cwd:E,hostId:D,messageBubbleStyle:MTKbubbleStyleOverride}=e,"]);
   bubble = replaceOnce(bubble, ...bubbleOwner, "bubble style destructuring");
   const bubbleDependency = profile.bubbleDependency ?? (bubble.includes("t[42]!==de||t[43]!==ae||t[44]!==_e){") ?
     ["t[42]!==de||t[43]!==ae||t[44]!==_e){", "t[42]!==de||t[43]!==ae||t[44]!==_e||t[127]!==MTKbubbleStyleOverride){"] :
@@ -254,7 +276,7 @@ function resolveImports(ownerSource, ownerFile) {
   const titleMarker = appPrimary.indexOf("localTitle:r})})}));");
   if (titleMarker >= 0) {
     const beforeTitle = appPrimary.slice(Math.max(0, titleMarker - 1600), titleMarker);
-    const candidates = [...beforeTitle.matchAll(new RegExp(`(?<atom>${id})=iS\\((?<scope>${id}),`, "g"))];
+    const candidates = [...beforeTitle.matchAll(new RegExp(`(?<atom>${id})=(?:iS|wx)\\((?<scope>${id}),`, "g"))];
     const titleSelector = candidates.at(-1);
     if (titleSelector == null || !beforeTitle.slice(titleSelector.index).includes("hasConversation")) {
       throw new Error("Upstream changed: current task-title selector owner is ambiguous");

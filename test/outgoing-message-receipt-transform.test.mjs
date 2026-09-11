@@ -45,6 +45,10 @@ try {
   assert.equal(applied.collapseOwner, "webview/assets/activity-fixture.js");
   assert.equal(applied.formatterOwner, "webview/assets/message-fixture.js");
   const once = fs.readFileSync(ownerTarget);
+  assert.match(once.toString(), /q as MTKoutboundStoreScope/,
+    "build 8690 imports the task selector's Q scope, not an unrelated BR export");
+  assert.doesNotMatch(once.toString(), /BR as MTKoutboundStoreScope/,
+    "build 8690 does not confuse the export named BR with internal scope Q");
   const conversationOnce = fs.readFileSync(conversationTarget);
   const mainOnce = fs.readFileSync(mainTarget);
 
@@ -116,16 +120,16 @@ function sourceBetween(value, startMarker, endMarker) {
 
 function initialFixture() {
   return [
-    "const x=0,Q=Symbol(`scope`);",
+    "const x=0,Q=Symbol(`scope`),LQ=Symbol(`unrelated`);",
     "const U={subscribe(){return()=>{}},dispatchMessage(){}};",
-    "function hb(e){return e}",
-    "function ZP(e){return `local:${e}`}",
-    "function QP(e){return `remote:${e}`}",
-    "const zy=(...e)=>e,XU=zy(Q,0),Delay=800,J={jsx(){}};",
-    "function Oks(){}",
+    "function vm(e){return e}",
+    "function yk(e){return `local:${e}`}",
+    "function bk(e){return `remote:${e}`}",
+    "const am=(...e)=>e,KB=am(Q,0),Delay=800,J={jsx(){}};",
+    "function Ocs(){}",
     "function Hover(e){return e}",
     "const preview=(0,J.jsx)(Hover,{align:`center`,closeOnTriggerBlur:!1,delayDuration:Delay,children:0,interactive:!0,skipDelayKey:`diff-preview`,tooltipContent:0,variant:`unstyled`});",
-    "export{x as x,hb as h,Q as q,XU as task,ZP as local,QP as remote,Hover as hover,U as bus};"
+    "export{x as x,vm as h,Q as q,LQ as BR,KB as task,yk as local,bk as remote,Hover as hover,U as bus};"
   ].join("");
 }
 

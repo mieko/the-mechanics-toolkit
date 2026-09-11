@@ -275,7 +275,8 @@ function inspectPristineMain(source) {
   if (count(source, "case`electron-add-new-workspace-root-option`:") !== 1) {
     throw new Error("Upstream changed: Tinrelay outgoing main message seam is not unique");
   }
-  if (count(source, "var mQ=i.i(`electron-message-handler`)") +
+  if (count(source, "var dQ=i.i(`electron-message-handler`)") +
+      count(source, "var mQ=i.i(`electron-message-handler`)") +
       count(source, "var pQ=i.i(`electron-message-handler`)") +
       count(source, "var fQ=i.i(`electron-message-handler`)") !== 1) {
     throw new Error("Upstream changed: Tinrelay outgoing main helper owner is not unique");
@@ -474,13 +475,14 @@ function patchActivity(value, ship) {
   );
   const replacement = `case\`exec\`:return ${match.groups.wrap}(${match.groups.clean}(e),MTKtinrelayOutgoingAcceptance(e,MTKtinrelayOutgoingLocalShip)!=null?\`standalone\`:${match.groups.standalone}(e)?\`standalone\`:\`groupable\`);case\`patch\`:return ${match.groups.wrap}(${match.groups.clean}(e),${match.groups.standalone}(e)?\`standalone\`:\`groupable\`);`;
   let patched = replaceOnce(value, match[0], replacement, "Tinrelay outgoing activity classifier");
-  const insertion = patched.indexOf("function ln(");
+  const boundary = activityBoundary(patched);
+  const insertion = patched.indexOf(boundary);
   if (insertion < 0) throw new Error("Upstream changed: activity classifier owner is missing");
   return patched.slice(0, insertion) + `const MTKtinrelayOutgoingLocalShip=${JSON.stringify(ship)};${acceptanceParser()}` + patched.slice(insertion);
 }
 
 function patchMain(value, ship) {
-  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)", "var fQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
+  const helperOwner = ["var dQ=i.i(`electron-message-handler`)", "var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)", "var fQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
   if (helperOwner == null) throw new Error("Upstream changed: Tinrelay outgoing main helper owner is not recognized");
   let patched = replaceOnce(value, helperOwner, `${mainHelpers(ship)}${helperOwner}`, "Tinrelay outgoing main helper owner");
   patched = replaceOnce(
@@ -555,7 +557,7 @@ function legacyAnchorOutgoingExec(hostBus) {
 }
 
 function currentOutgoingExec(hostBus) {
-  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,c]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;c(s&&a==null?null:n),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(t,{item:n,...a})}`;
+  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,MTKsetTinrelayOutgoingEvent]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;MTKsetTinrelayOutgoingEvent(s&&a==null?null:n),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(t,{item:n,...a})}`;
 }
 
 function previousAcknowledgedOutgoingExec(hostBus) {
@@ -772,19 +774,26 @@ function helperSlice(source) {
 
 function activityHelperSlice(source) {
   const start = source.indexOf("const MTKtinrelayOutgoingLocalShip=");
-  const end = source.indexOf("function ln(", start);
+  const end = source.indexOf(activityBoundary(source), start);
   if (start < 0 || end <= start) throw new Error("Tinrelay outgoing activity helper is not localized");
   return source.slice(start, end);
 }
 
 function mainHelperSlice(source) {
   const start = source.indexOf("const MTKtinrelayOutgoingContract=");
-  const owners = [source.indexOf("var mQ=i.i(`electron-message-handler`)", start), source.indexOf("var pQ=i.i(`electron-message-handler`)", start), source.indexOf("var fQ=i.i(`electron-message-handler`)", start)].filter(index => index >= 0);
+  const owners = [source.indexOf("var dQ=i.i(`electron-message-handler`)", start), source.indexOf("var mQ=i.i(`electron-message-handler`)", start), source.indexOf("var pQ=i.i(`electron-message-handler`)", start), source.indexOf("var fQ=i.i(`electron-message-handler`)", start)].filter(index => index >= 0);
   if (start < 0 || owners.length !== 1 || owners[0] <= start) throw new Error("Tinrelay outgoing main helper is not localized");
   return source.slice(start, owners[0]);
 }
 
 function resolveHostBus(source) {
+  const busImports = [...source.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/message-bus-[^"]+\.js)";/g)];
+  if (busImports.length === 1) {
+    const busSource = fs.readFileSync(path.resolve(path.dirname(renderer), busImports[0].groups.relative), "utf8");
+    const singleton = uniqueMatch(busSource, /,(?<internal>[$A-Z_a-z][$\w]*)=[$A-Z_a-z][$\w]*\.getInstance\(\),/g, "message bus singleton").groups.internal;
+    const exported = exportedAs(busSource, singleton);
+    return uniqueMatch(busImports[0].groups.specifiers, new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"), "renderer message-bus import").groups.local;
+  }
   const imported = uniqueMatch(source, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-initial import");
   const appInitial = fs.readFileSync(path.resolve(path.dirname(renderer), imported.groups.relative), "utf8");
   const exported = exportedAs(appInitial, appInitial.includes("function ALs(){") || appInitial.includes("function zLs(){") ? "H" : "U");
@@ -793,6 +802,9 @@ function resolveHostBus(source) {
 }
 
 function rendererProfile(source) {
+  if (source.includes("function JR(") && source.includes("function rz(") && source.includes("MTKtinrelayReact=t(r(),1)")) {
+    return {jsx: "XR", boundary: "function rz(", splitTurn: turnRenderer != null};
+  }
   if (source.includes("function Xb(") && source.includes("MTKtinrelayReact=t(x(),1)")) {
     return {jsx: "qb", boundary: "function Xb(", splitTurn: turnRenderer != null};
   }
@@ -801,6 +813,12 @@ function rendererProfile(source) {
   }
   if (source.includes("function Cb(")) return {jsx: "Tb", boundary: "function Cb(", splitTurn: false};
   throw new Error("Upstream changed: Tinrelay renderer profile is not recognized");
+}
+
+function activityBoundary(source) {
+  if (source.includes("function an(")) return "function an(";
+  if (source.includes("function ln(")) return "function ln(";
+  throw new Error("Upstream changed: activity classifier owner is missing");
 }
 
 function jsxDialect(value, jsx) {

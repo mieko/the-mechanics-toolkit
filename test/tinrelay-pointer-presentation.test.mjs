@@ -40,6 +40,11 @@ const incomingHostBus = uniqueMatch(
   /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-pointer-result"/g,
   "incoming renderer host bus"
 ).groups.bus;
+const incomingHostBusOwner = uniqueMatch(
+  rendererSource.slice(rendererStart, outgoingHelpersStart),
+  /const MTKtinrelayHostBus=(?<bus>[$A-Z_a-z][$\w]*);/g,
+  "incoming renderer host bus capture"
+).groups.bus;
 const parsePointer = Function(`${rendererSource.slice(rendererStart, rendererEnd)};return MTKtinrelayPointerFromMessage`)();
 
 const pointer = {
@@ -191,7 +196,9 @@ const rendererHelpers = rendererSource.slice(rendererStart, rendererHelpersEnd);
 const outgoingHostBus = unique([...new Set([...rendererHelpers.matchAll(
   /(?<bus>[$A-Z_a-z][$\w]*)\.subscribe\("mtk-tinrelay-outgoing-result"/g
 )].map(match => match.groups.bus))], "outgoing renderer host bus");
-assert.equal(outgoingHostBus, incomingHostBus,
+assert.equal(incomingHostBus, "MTKtinrelayHostBus",
+  "incoming renderer reads the captured host bus rather than a component-local minified binding");
+assert.equal(outgoingHostBus, incomingHostBusOwner,
   "incoming and outgoing Tinrelay presentation share Codex's renderer host bridge");
 const scrollHelpersEnd = rendererHelpers.indexOf("function MTKtinrelayEnsureStyle(");
 assert.ok(scrollHelpersEnd > 0, "localized Tinrelay scroll helpers");
@@ -207,10 +214,12 @@ const hiddenScroller = {...nearScroller, clientHeight: 0, getClientRects: () => 
 const scrollApi = Function(
   "document",
   "setTimeout",
+  incomingHostBusOwner,
   `${rendererHelpers.slice(0, scrollHelpersEnd)};return {snapshot:MTKtinrelayScrollSnapshot,schedule:MTKtinrelayScheduleScroll}`
 )(
   {querySelectorAll: () => [hiddenScroller, nearScroller]},
-  (callback, delay) => { queuedScroll = {callback, delay}; }
+  (callback, delay) => { queuedScroll = {callback, delay}; },
+  {}
 );
 const nearSnapshot = scrollApi.snapshot();
 assert.equal(nearSnapshot.follow, true, "one viewport from the bottom remains eligible for settled scrolling");

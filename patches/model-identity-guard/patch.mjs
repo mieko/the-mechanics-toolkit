@@ -13,7 +13,8 @@ const assets = path.join(root, "webview/assets");
 const owner = uniqueOwner(source =>
   ((source.includes("function _Lr(e){let t=(0,DLr.c)(231),") && source.includes("Ie=aor(I.reasoningEffort,Me)")) ||
    (source.includes("function Pqr(e){let t=(0,Wqr.c)(232),") && source.includes("Le=wgr(R.reasoningEffort,Ne)")) ||
-   (source.includes("function Rqr(e){let t=(0,Jqr.c)(232),") && source.includes("Re=Ogr(R.reasoningEffort,Pe)"))) &&
+   (source.includes("function Rqr(e){let t=(0,Jqr.c)(232),") && source.includes("Re=Ogr(R.reasoningEffort,Pe)")) ||
+   (source.includes("function Onr(e){let t=(0,znr.c)(240),") && source.includes("Ye=I1(ee.reasoningEffort,Ge)"))) &&
   source.includes('"data-codex-intelligence-trigger"'),
   "build-8109 composer model owner"
 );
@@ -38,7 +39,7 @@ function inspectState() {
   const markers = [
     source.includes("function MTKinstallModelIdentityGuard("),
     source.includes("function MTKuseModelIdentityGuard("),
-    source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,U,Ie)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Le)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Re)"),
+    source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,U,Ie)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Le)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Re)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,ye,Ye)"),
     source.includes('data-mtk-model-guard-mismatch'),
     source.includes('content:"BAD MODEL"'),
     source.includes('data-mtk-model-guard-message'),
@@ -56,7 +57,8 @@ function inspectState() {
   const build8109 = source.includes("function _Lr(e){let t=(0,DLr.c)(231),") && source.includes("Ie=aor(I.reasoningEffort,Me),Le=");
   const build8378 = source.includes("function Pqr(e){let t=(0,Wqr.c)(232),") && source.includes("Le=wgr(R.reasoningEffort,Ne),Re=");
   const build8576 = source.includes("function Rqr(e){let t=(0,Jqr.c)(232),") && source.includes("Re=Ogr(R.reasoningEffort,Pe),ze=");
-  if (!build8109 && !build8378 && !build8576) {
+  const build8690 = source.includes("function Onr(e){let t=(0,znr.c)(240),") && source.includes("Ye=I1(ee.reasoningEffort,Ge),Xe=");
+  if (!build8109 && !build8378 && !build8576 && !build8690) {
     throw new Error("Upstream changed: missing build-8109 model selector contract");
   }
   return "needs-apply";
@@ -101,7 +103,21 @@ function patchOwner(file, state) {
     if (start < 0 || end < 0) throw new Error("Unrecognized model identity guard patch: missing upgrade boundary");
     source = source.slice(0, start) + modelGuardHelper() + source.slice(end);
   } else {
-    if (source.includes("function Rqr(e){let t=(0,Jqr.c)(232),")) {
+    if (source.includes("function Onr(e){let t=(0,znr.c)(240),")) {
+      const helper = modelGuardHelper().replace("S7.useEffect", "N8.useEffect");
+      source = replaceOnce(
+        source,
+        "function Onr(e){let t=(0,znr.c)(240),",
+        `${helper}function Onr(e){let t=(0,znr.c)(240),`,
+        "build-8690 composer model guard helper"
+      );
+      source = replaceOnce(
+        source,
+        "Ye=I1(ee.reasoningEffort,Ge),Xe=",
+        "Ye=I1(ee.reasoningEffort,Ge),MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,ye,Ye),Xe=",
+        "build-8690 live model and effort publication"
+      );
+    } else if (source.includes("function Rqr(e){let t=(0,Jqr.c)(232),")) {
       source = replaceOnce(
         source,
         "function Rqr(e){let t=(0,Jqr.c)(232),",

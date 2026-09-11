@@ -159,7 +159,7 @@ function inspectState() {
   const ownerApplied = ownerMarkers.every(marker => source.includes(marker));
   const conversationApplied = conversationMarkers.every(marker => combinedConversationSource.includes(marker)) &&
     (conversationSource.includes("sourceTurnId:S") || conversationSource.includes("sourceTurnId:w") ||
-     conversationSource.includes("sourceTurnId:T"));
+     conversationSource.includes("sourceTurnId:T") || conversationSource.includes("sourceTurnId:C"));
   const mainApplied = mainMarkers.every(marker => mainSource.includes(marker));
   const conversationCacheStart = conversationSource.indexOf("const MTKoutboundReceiptContract=");
   const conversationCacheEnd = conversationSource.indexOf(conversationHelperBoundary(conversationSource), conversationCacheStart);
@@ -292,7 +292,8 @@ function inspectPristineMain(value) {
   if (count(value, "case`electron-add-new-workspace-root-option`:") !== 1) {
     throw new Error("Upstream changed: outgoing receipt main message seam is not unique");
   }
-  if (count(value, "var mQ=i.i(`electron-message-handler`)") +
+  if (count(value, "var dQ=i.i(`electron-message-handler`)") +
+      count(value, "var mQ=i.i(`electron-message-handler`)") +
       count(value, "var pQ=i.i(`electron-message-handler`)") +
       count(value, "var fQ=i.i(`electron-message-handler`)") !== 1) {
     throw new Error("Upstream changed: outgoing receipt main helper owner is not unique");
@@ -366,6 +367,7 @@ function upgradeConversationCache(value) {
 function upgradeMainCache(value) {
   const start = value.indexOf("const MTKoutboundReceiptContract=");
   const ends = [
+    value.indexOf("var dQ=i.i(`electron-message-handler`)", start),
     value.indexOf("var mQ=i.i(`electron-message-handler`)", start),
     value.indexOf("var pQ=i.i(`electron-message-handler`)", start),
     value.indexOf("var fQ=i.i(`electron-message-handler`)", start)
@@ -390,6 +392,45 @@ function ownerImportProfile(value) {
 }
 
 function dynamicRendererProfile(value) {
+  if (value.includes("function Cz(") && value.includes("wh(o)?.render?.(o,l,i,c)")) {
+    const start = value.indexOf("function Cz(");
+    const owner = functionAt(value, start);
+    const patchedFunction = replaceOnce(
+      owner.text,
+      "function Cz(e){let t=(0,wz.c)(16),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s;if(Ut(`off`,n)===`stopped`)return null;let u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=wh(o)?.render?.(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4]",
+      "function Cz(e){let t=(0,wz.c)(17),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s,sourceTurnId:h}=e,c=a===void 0||a,l=s===void 0?`row`:s;if(Ut(`off`,n)===`stopped`)return null;let u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l||t[16]!==h?(u=wh(o)?.render?.(o,l,i,c,{conversationId:n,turnId:h}),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[16]=h,t[4]=u):u=t[4]",
+      "build-8690 split dynamic renderer context body"
+    );
+    const call = uniqueMatch(
+      value,
+      /\(e=\(0,\$\.jsx\)\(Cz,\{agentActivityIcon:Ie,conversationId:d,enableTimelineTargets:Ce,item:n\}\),t\[354\]=Ie,t\[355\]=d,t\[356\]=Ce,t\[357\]=n,t\[358\]=e\)/g,
+      "build-8690 split conversation dynamic renderer call"
+    );
+    const parent = containingFunction(value, call.index);
+    if (!parent.text.startsWith("function FW(e){let t=(0,XW.c)(371),") || !parent.text.includes("turnId:C,")) {
+      throw new Error("Upstream changed: build-8690 source-turn owner is ambiguous");
+    }
+    const patchedParent = replaceOnce(
+      parent.text,
+      "function FW(e){let t=(0,XW.c)(371),",
+      "function FW(e){let t=(0,XW.c)(372),",
+      "build-8690 source-turn cache size"
+    );
+    const patchedCall = call[0]
+      .replace("t[357]!==n?", "t[357]!==n||t[371]!==C?")
+      .replace("enableTimelineTargets:Ce,item:n}", "enableTimelineTargets:Ce,item:n,sourceTurnId:C}")
+      .replace("t[357]=n,t[358]=e", "t[357]=n,t[371]=C,t[358]=e");
+    return {
+      variant: "split-8690",
+      functionText: owner.text,
+      patchedFunction,
+      callText: parent.text,
+      patchedCallText: replaceOnce(patchedParent, call[0], patchedCall, "build-8690 source-turn call"),
+      helperBoundary: "function Cz(",
+      react: "t(r(),1)",
+      jsx: "Tz"
+    };
+  }
   if (value.includes("function gx(") && value.includes("Nh(o)?.render?.(o,l,i,c)")) {
     const start = value.indexOf("function gx(");
     const owner = functionAt(value, start);
@@ -487,6 +528,15 @@ function splitTurnProfile(value) {
     "split conversation renderer import"
   );
   if (!value.includes("function _i(") || !value.includes("{conversationId:s")) {
+    if (value.includes("function bi(e){let t=(0,Ki.c)(216),") && value.includes("conversationId:o") &&
+        value.includes("turnId:p") && value.includes("let Ha=za.length,Ua={")) {
+      const before = "let Ha=za.length,Ua={";
+      return {
+        importText: imported[0], specifiers: imported.groups.specifiers, relative,
+        before,
+        after: '$(`mtk-outbound-turn-receipts`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:o,turnId:p}),{canOwnLatestTurnFollowContent:!1});let Ha=za.length,Ua={'
+      };
+    }
     throw new Error("Upstream changed: split turn renderer ownership is missing");
   }
   if (value.includes("function _i(e){let t=(0,Hi.c)(208),") && value.includes("turnId:f,")) {
@@ -520,6 +570,7 @@ function assistantProfile(value) {
 }
 
 function conversationHelperBoundary(value) {
+  if (value.includes("function Cz(")) return "function Cz(";
   if (value.includes("function gx(")) return "function gx(";
   if (value.includes("function hx(")) return "function hx(";
   if (value.includes("function Oy(")) return "function Oy(";
@@ -527,6 +578,17 @@ function conversationHelperBoundary(value) {
 }
 
 function resolveHostBus(value) {
+  const busImports = [...value.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/message-bus-[^"]+\.js)";/g)];
+  if (busImports.length === 1) {
+    const busSource = fs.readFileSync(path.resolve(path.dirname(conversationTarget), busImports[0].groups.relative), "utf8");
+    const singleton = uniqueMatch(busSource, new RegExp(`,(?<internal>${id})=${id}\\.getInstance\\(\\),`, "g"), "message bus singleton").groups.internal;
+    const exported = exportedAs(busSource, singleton);
+    return uniqueMatch(
+      busImports[0].groups.specifiers,
+      new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"),
+      "conversation message bus import"
+    ).groups.local;
+  }
   const imported = uniqueMatch(value, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "conversation app-initial import");
   const appInitial = fs.readFileSync(path.resolve(path.dirname(conversationTarget), imported.groups.relative), "utf8");
   const internal = appInitial.includes("function ALs(){") || appInitial.includes("function zLs(){") ? "H" : "U";
@@ -576,6 +638,7 @@ function upgradeConversationAcknowledgment(value) {
 function patchMain(value) {
   const electron = uniqueMatch(value, new RegExp(`await (?<electron>${id})\\.app\\.whenReady\\(\\)`, "g"), "Electron app owner").groups.electron;
   const helperOwner = [
+    "var dQ=i.i(`electron-message-handler`)",
     "var mQ=i.i(`electron-message-handler`)",
     "var pQ=i.i(`electron-message-handler`)",
     "var fQ=i.i(`electron-message-handler`)"
@@ -772,11 +835,12 @@ function MTKoutboundReceiptList(e){
 }
 
 function sendProfile(value) {
-  const sendCase = uniqueMatch(
-    value,
-    /case (?<sendTool>[$A-Z_a-z][$\w]*):return e\.completed\?`threadsSendMessageCompleted`:`threadsSendMessageActive`/g,
-    "send-message status owner"
-  ).groups;
+  const statusOwners = [...value.matchAll(
+    /case (?<sendTool>[$A-Z_a-z][$\w]*):return e\.completed\?`threadsSendMessageCompleted`:`threadsSendMessageActive`/g
+  )];
+  const sendTool = statusOwners.length === 1
+    ? statusOwners[0].groups.sendTool
+    : importedToolConstant(value, "send_message_to_thread");
   const functionAt = value.indexOf('e.tool===`send_message_to_thread`');
   const owner = containingFunction(value, functionAt);
   const header = uniqueMatch(
@@ -795,12 +859,29 @@ function sendProfile(value) {
     value,
     new RegExp(
       `\\{namespace:(?<namespace>[$A-Z_a-z][$\\w]*),(?:persistentInCollapsedConversation:!0,)?render:(?:${header.genericRender}|MTKrenderOutboundMessage),` +
-        `renderAgentActivityIcon:(?<icon>[$A-Z_a-z][$\\w]*),(?:standaloneInConversation:!0,)?tool:${sendCase.sendTool}\\}`,
+        `renderAgentActivityIcon:(?<icon>[$A-Z_a-z][$\\w]*),(?:standaloneInConversation:!0,)?tool:${sendTool}\\}`,
       "g"
     ),
     "send-message registry entry"
   ).groups;
-  return {...sendCase, ...header, ...render, ...registry, functionText: owner.text};
+  return {sendTool, ...header, ...render, ...registry, functionText: owner.text};
+}
+
+function importedToolConstant(value, toolName) {
+  const imports = [...value.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g)];
+  if (imports.length !== 1) throw new Error("Upstream changed: app-initial tool import is not unique");
+  const moduleSource = fs.readFileSync(path.resolve(path.dirname(target), imports[0].groups.relative), "utf8");
+  const internal = uniqueMatch(
+    moduleSource,
+    new RegExp("(?<internal>" + id + ")=`" + escapeRegExp(toolName) + "`", "g"),
+    `${toolName} constant`
+  ).groups.internal;
+  const exported = exportedAs(moduleSource, internal);
+  return uniqueMatch(
+    imports[0].groups.specifiers,
+    new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"),
+    `${toolName} imported binding`
+  ).groups.local;
 }
 
 function assertPersistentActivityContract(activitySource) {
@@ -864,6 +945,21 @@ function resolveTaskImports(ownerSource) {
   const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appInitial.includes("function Ocs(){") && appInitial.includes("KB=am(Q,")) {
+    const additions = [
+      `${exportedAs(appInitial, "vm")} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, "Q")} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, "KB")} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, "yk")} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, "bk")} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
   if (appInitial.includes("function zLs(){") && appInitial.includes("kW=Ny(Q,")) {
     const additions = [
       `${exportedAs(appInitial, "ub")} as MTKoutboundStoreHook`,
@@ -1065,7 +1161,10 @@ function resolvePresentationOwners(ownerSource) {
     ),
     "recipient user-message formatter"
   ).groups.formatter;
-  const formatterExport = exportedAs(formatterSource, formatterInternal);
+  const formatterExports = [...uniqueMatch(formatterSource, /export\{(?<specifiers>[^}]+)\}/g, "formatter export list")
+    .groups.specifiers.matchAll(new RegExp(`(?:^|,)${escapeRegExp(formatterInternal)} as (?<export>${id})(?=,|$)`, "g"))]
+    .map(match => match.groups.export);
+  if (formatterExports.length === 0) throw new Error("Upstream changed: recipient formatter is not exported");
   const formatterBasename = path.basename(formatterFile);
   const consumers = assetFiles().filter(file => {
     if (file === formatterFile) return false;
@@ -1082,11 +1181,13 @@ function resolvePresentationOwners(ownerSource) {
     new RegExp(`import\\{(?<specifiers>[^}]+)\\}from"\\./${escapeRegExp(formatterBasename)}";`, "g"),
     "recipient formatter import"
   ).groups.specifiers;
-  const formatterLocal = uniqueMatch(
+  const formatterBinding = uniqueMatch(
     consumerImport,
-    new RegExp(`(?:^|,)${escapeRegExp(formatterExport)} as (?<local>${id})(?=,|$)`, "g"),
+    new RegExp(`(?:^|,)(?<export>${formatterExports.map(escapeRegExp).join("|")}) as (?<local>${id})(?=,|$)`, "g"),
     "recipient formatter local binding"
-  ).groups.local;
+  ).groups;
+  const formatterExport = formatterBinding.export;
+  const formatterLocal = formatterBinding.local;
   uniqueMatch(
     consumerSource,
     new RegExp(
@@ -1131,8 +1232,9 @@ function uniqueOwner() {
   const matches = fs.readdirSync(assets).filter(name => {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
-    return value.includes("localConversation.appControlToolCall.threadsSendMessage.active") &&
-      value.includes('e.tool===`send_message_to_thread`');
+    return value.includes('e.tool===`send_message_to_thread`') &&
+      (value.includes("localConversation.appControlToolCall.threadsSendMessage.active") ||
+       value.includes("standaloneInConversation:!0") && value.includes("renderAgentActivityIcon:"));
   });
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} outbound-message owners`);
   return path.join(assets, matches[0]);
@@ -1143,7 +1245,8 @@ function uniqueConversationOwner() {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
     const combined = value.includes("function Ub(") && value.includes("function Oy(");
-    const split = (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) ||
+    const split = (value.includes("function Cz(") && value.includes("wh(o)?.render?.(o,l,i,c)")) ||
+      (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) ||
       (value.includes("function gx(") && value.includes("Nh(o)?.render?.(o,l,i,c)")) ||
       value.includes("function MTKOutboundTurnReceipts(");
     return (combined || split) && value.includes("toolActivityTurnKey") &&
@@ -1160,8 +1263,9 @@ function uniqueConversationTurnOwner(owner) {
   const matches = fs.readdirSync(assets).filter(name => {
     if (!name.endsWith(".js") || name === basename) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
-    return value.includes("function _i(") &&
+    return (value.includes("function _i(") || value.includes("function bi(e){let t=(0,Ki.c)(216),")) &&
       (value.includes("children:[qt,Va,Ha,Ua]") || value.includes("children:[Jt,Va,Ha,Ua]") ||
+       value.includes("let Ha=za.length,Ua={") ||
        value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:d}") ||
        value.includes("MTKOutboundTurnReceipts,{conversationId:s,turnId:f}")) &&
       value.includes(`from"./${basename}"`);
@@ -1223,7 +1327,12 @@ function functionAt(value, start) {
 }
 
 function exportedAs(value, internal) {
-  return uniqueMatch(value, new RegExp(`(?:^|,)${escapeRegExp(internal)} as (?<export>${id})(?=,|\\})`, "g"), `export for ${internal}`).groups.export;
+  const specifiers = uniqueMatch(value, /export\{(?<specifiers>[^}]+)\}/g, "module export list").groups.specifiers;
+  return uniqueMatch(
+    specifiers,
+    new RegExp(`(?:^|,)${escapeRegExp(internal)} as (?<export>${id})(?=,|$)`, "g"),
+    `export for ${internal}`
+  ).groups.export;
 }
 
 function uniqueMatch(value, pattern, label) {

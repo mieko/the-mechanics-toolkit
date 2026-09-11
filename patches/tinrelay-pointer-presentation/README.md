@@ -2,10 +2,11 @@
 
 - **Current state:** Active
 - **Public extraction:** Complete for the current renderer and main-process families
-- **Patch-specific evidence:** Build `8576` full-fleet stage and launch green, including causal probes
-  for the shared renderer host bus and outgoing hoist order; outgoing causal order and restart
-  reconstruction live-accepted. Build `8109` live incoming/outgoing presentation green. Build `8576`
-  later-pagination reconstruction remains pending live acceptance, 2026-09-10
+- **Patch-specific evidence:** Build `8690` full-fleet stage and live incoming/outgoing loopback
+  presentation green, including causal probes for the split renderer host bus, outgoing hoist
+  order, and restart/pagination persistence; build `8576` launch, outgoing causal order, and restart
+  reconstruction live-accepted. Build `8690` later-pagination reconstruction remains pending,
+  2026-09-11
 
 ## Why it exists
 

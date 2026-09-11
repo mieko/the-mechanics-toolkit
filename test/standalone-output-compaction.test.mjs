@@ -9,7 +9,7 @@ assert.ok(fs.statSync(binary).isFile(), "Codex replacement is a file");
 fs.accessSync(binary, fs.constants.X_OK);
 const result = spawnSync(binary, ["--version"], {encoding: "utf8"});
 assert.equal(result.status, 0, "Codex replacement starts and reports its version");
-assert.match(result.stdout.trim(), /^codex-cli \d+\.\d+\.\d+$/);
+assert.match(result.stdout.trim(), /^codex-cli \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
 
 process.stdout.write(`${JSON.stringify({
   patch: "standalone-output-compaction",

@@ -57,6 +57,10 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
   } else if (titleOwner.includes(`${titleInternal}=iS(`)) {
     assert.ok(titleOwner.includes("hasConversation") && titleOwner.includes("localTitle:r") &&
       titleOwner.includes("summaryTitle"), "split title atom retains its stock task-title selector owner");
+  } else if (titleInternal === "L0t") {
+    assert.ok(titleOwner.includes("L0t=wx(Vv,") && titleOwner.includes("hasConversation") &&
+      titleOwner.includes("liveTitle") && titleOwner.includes("localTitle:r"),
+    "current split title atom retains its stock live-title selector owner");
   } else {
     assert.ok(["SOn", "EI", "xNn"].includes(titleInternal), "title atom retains its stock ESM export owner");
   }

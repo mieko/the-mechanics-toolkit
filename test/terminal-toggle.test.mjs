@@ -28,7 +28,8 @@ const build7942 = source.includes("pxi=()=>{d1t.run({action:{type:`windows.termi
 const build8109 = source.includes("lxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})");
 const build8378 = source.includes("qTi=()=>{C1t.run({action:{type:`windows.terminal.toggle`,windowId:Hx}})");
 const build8576 = source.includes("rEi=()=>{w1t.run({action:{type:`windows.terminal.toggle`,windowId:Vx}})");
-if (!build7345 && !build7746 && !build7942 && !build8109 && !build8378 && !build8576) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
+const build8690 = source.includes("YXr=()=>{jAt.run({action:{type:`windows.terminal.toggle`,windowId:Eh}})");
+if (!build7345 && !build7746 && !build7942 && !build8109 && !build8378 && !build8576 && !build8690) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
 assert.equal(
   count(source, "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u"),
   1,
@@ -39,7 +40,12 @@ assert.equal(
   1,
   "editable permission reaches the existing hotkey hook"
 );
-if (build8576) {
+if (build8690) {
+  assert.equal(count(source, "YXr=()=>{jAt.run({action:{type:`windows.terminal.toggle`,windowId:Eh}})"), 1,
+    "the command keeps the stock terminal action owner");
+  assert.equal(count(source, "[`toggleTerminal`,YXr]"), 1,
+    "the configurable command remains routed through the stock terminal toggle action");
+} else if (build8576) {
   assert.equal(count(source, "rEi=()=>{w1t.run({action:{type:`windows.terminal.toggle`,windowId:Vx}})"), 1,
     "the command keeps the stock terminal action owner");
   assert.equal(count(source, "[`toggleTerminal`,rEi]"), 1,
@@ -92,7 +98,7 @@ process.stdout.write(`${JSON.stringify({
   command: "toggleTerminal",
   acceleratorOwner: "configured-keymap",
   composerFocused: "opens-terminal",
-  terminalFocused: build7746 || build7942 || build8109 || build8378 || build8576 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
+  terminalFocused: build7746 || build7942 || build8109 || build8378 || build8576 || build8690 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
   hardcodedShortcutAdded: false
 }, null, 2)}\n`);
 

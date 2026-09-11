@@ -168,8 +168,9 @@ and live acceptance remain separate actions.
 
 ## Codex Desktop package patches
 
-The desktop package fleet is currently qualified on **macOS ARM64** against **Codex Desktop
-`26.903.71938` (`8576`)**.
+The desktop package fleet is currently qualified on **macOS ARM64** against
+**Codex Desktop `26.908.31457` (`8690`)**. That exact fleet passed static proof, supervised
+installation, real renderer readiness, and selected live message-path checks.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
 and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
 evidence. Qualification may carry a previous live result only when the patch's current owner and
@@ -205,7 +206,7 @@ desktop-package transforms above.
 
 | Source patch | Qualified source | What it repairs |
 | --- | --- | --- |
-| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.153.4` / Desktop `26.903.71938` (`8576`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
+| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.154.0-alpha.6.1` / Desktop `26.908.31457` (`8690`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
 
 ## See the patches
 

@@ -54,7 +54,7 @@ function version(binary) {
   const result = spawnSync(binary, ["--version"], {encoding: "utf8"});
   if (result.status !== 0) throw new Error(`${binary} --version failed: ${(result.stderr || result.stdout).trim()}`);
   const output = result.stdout.trim();
-  if (!/^codex-cli \d+\.\d+\.\d+$/.test(output)) throw new Error(`Unexpected Codex version output: ${JSON.stringify(output)}`);
+  if (!/^codex-cli \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(output)) throw new Error(`Unexpected Codex version output: ${JSON.stringify(output)}`);
   return output;
 }
 

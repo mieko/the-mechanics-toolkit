@@ -52,7 +52,11 @@ function activePackages() {
   addIf(packages, appSource.includes("function MTKsidebarActionDisclosure(") ||
     appSource.includes("function MTKsidebarActionDisclosure7345(") ||
     appSource.includes("function MTKsidebarActionDisclosure7746(") ||
-    appSource.includes("function MTKsidebarActionDisclosure7942("), {
+    appSource.includes("function MTKsidebarActionDisclosure7942(") ||
+    appSource.includes("function MTKsidebarActionDisclosure8109(") ||
+    appSource.includes("function MTKsidebarActionDisclosure8378(") ||
+    appSource.includes("function MTKsidebarActionDisclosure8576(") ||
+    appSource.includes("function MTKsidebarActionDisclosure8690("), {
     name: "sidebarActionCollapse",
     file: appInitial,
     call: `MTKpatchRegistry?.register("sidebarActionCollapse",{version:1});`
@@ -61,7 +65,10 @@ function activePackages() {
     appSource.includes("function MTKattentionIgnoredThread7345(") ||
     appSource.includes("function MTKattentionIgnoredThread7746(") ||
     appSource.includes("function MTKattentionIgnoredThread7942(") ||
-    appSource.includes("function MTKattentionIgnoredThread8378("), {
+    appSource.includes("function MTKattentionIgnoredThread8109(") ||
+    appSource.includes("function MTKattentionIgnoredThread8378(") ||
+    appSource.includes("function MTKattentionIgnoredThread8576(") ||
+    appSource.includes("function MTKattentionIgnoredThread8690("), {
     name: "taskAttentionPolicy",
     file: appInitial,
     call: `MTKpatchRegistry?.register("taskAttentionPolicy",{version:1});`
@@ -85,16 +92,19 @@ function activePackages() {
   for (const file of assetFiles()) {
     if (file === appInitial) continue;
     const source = fs.readFileSync(file, "utf8");
-    addIf(packages, source.includes("function MTKsidebarActionDisclosure7746(") ||
-      source.includes("function MTKsidebarActionDisclosure7942(") ||
-      source.includes("function MTKsidebarActionDisclosure8378("), {
+    addIf(packages, source.includes("function MTKinstallRuntimeJsonReload("), {
+      name: "runtimeJsonReload",
+      file,
+      anchor: "function MTKinstallRuntimeJsonReload(",
+      call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("runtimeJsonReload",{version:1,files:["task-attention-policy.json","task-visual-palette.json"]});`
+    });
+    const sidebarAnchor = ["8690", "8576", "8378", "8109", "7942", "7746"]
+      .map(build => `function MTKsidebarActionDisclosure${build}(`)
+      .find(anchor => source.includes(anchor));
+    addIf(packages, sidebarAnchor != null, {
       name: "sidebarActionCollapse",
       file,
-      anchor: source.includes("function MTKsidebarActionDisclosure8378(")
-        ? "function MTKsidebarActionDisclosure8378("
-        : source.includes("function MTKsidebarActionDisclosure7942(")
-          ? "function MTKsidebarActionDisclosure7942("
-          : "function MTKsidebarActionDisclosure7746(",
+      anchor: sidebarAnchor,
       call: `globalThis.__MTK_PATCH_REGISTRY__?.register?.("sidebarActionCollapse",{version:1});`
     });
     addIf(packages, source.includes("function MTKinstallModelIdentityGuard(") &&

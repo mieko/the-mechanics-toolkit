@@ -14,8 +14,8 @@ const require = createRequire(import.meta.url);
 const owners = fs.readdirSync(assets).filter(name => {
   if (!name.endsWith(".js")) return false;
   const source = fs.readFileSync(path.join(assets, name), "utf8");
-  return source.includes("localConversation.appControlToolCall.threadsSendMessage.active") &&
-    source.includes("function MTKOutboundMessageReceipt(");
+  return source.includes("function MTKOutboundMessageReceipt(") &&
+    source.includes("function MTKrenderOutboundMessage(");
 });
 assert.equal(owners.length, 1, "unique outgoing receipt owner");
 const owner = fs.readFileSync(path.join(assets, owners[0]), "utf8");
@@ -261,7 +261,9 @@ if (presentation.includes('$(`mtk-outbound-turn-receipts`')) {
   const userPresentation = presentation.indexOf('$(`user-item-');
   const taskPresentation = presentation.indexOf('$(`mtk-outbound-turn-receipts`');
   const tinrelayPresentation = presentation.indexOf('$(`mtk-tinrelay-outgoing-turn`');
-  const activityBoundary = presentation.indexOf("let Ra=Fa.length");
+  const activityBoundary = ["let Ha=za.length", "let Ra=Fa.length"]
+    .map(marker => presentation.indexOf(marker, taskPresentation))
+    .find(index => index >= 0) ?? -1;
   assert.ok(userPresentation >= 0 && taskPresentation > userPresentation && taskPresentation < activityBoundary,
     "durable receipts follow the initiating user request and precede activity");
   if (tinrelayPresentation >= 0) assert.ok(tinrelayPresentation > taskPresentation && tinrelayPresentation < activityBoundary,
@@ -298,9 +300,9 @@ const receiptJsx = {jsx() { return null; }};
 const receiptReactBinding = conversation.match(
   /const MTKOutboundReceiptReact=(?<expression>[^;]+);const MTKoutboundReceiptContract=/
 );
-const boundReceiptReact = receiptReactBinding == null ? receiptReact : Function(
-  "gS", "t", "x", `return (${receiptReactBinding.groups.expression})`
-)(receiptReact, value => value, () => receiptReact);
+const boundReceiptReact = receiptReactBinding == null
+  ? receiptReact
+  : evaluateReceiptReactBinding(receiptReactBinding.groups.expression);
 const conversationApi = Function(
   hostBusName, "Jy", "Yy", "gS", "_x", "t", "x", "$", "MTKOutboundReceiptReact", "MTKoutboundReceipt",
   `${conversationHelper};return {component:MTKOutboundTurnReceipts,remember:MTKoutboundRemember,state:MTKoutboundReceiptState,values:MTKoutboundReceiptValues}`
@@ -320,9 +322,14 @@ const mainOwners = fs.readdirSync(mainDirectory).filter(name => {
 assert.equal(mainOwners.length, 1, "unique durable receipt cache owner");
 const main = fs.readFileSync(path.join(mainDirectory, mainOwners[0]), "utf8");
 const mainStart = main.indexOf('const MTKoutboundReceiptContract=');
-const mainEnds = [main.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart), main.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)].filter(index => index > mainStart);
-assert.equal(mainEnds.length, 1, "localized durable receipt main helper");
-const mainHelper = main.slice(mainStart, mainEnds[0]);
+const mainEnds = [
+  main.indexOf("const MTKtinrelayClient=", mainStart),
+  main.indexOf("var mQ=i.i(`electron-message-handler`)", mainStart),
+  main.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart),
+  main.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)
+].filter(index => index > mainStart);
+assert.ok(mainEnds.length >= 1, "localized durable receipt main helper");
+const mainHelper = main.slice(mainStart, Math.min(...mainEnds));
 const mainHandlerStart = main.indexOf("case`mtk-outbound-receipt-remember`:");
 const mainListHandlerStart = main.indexOf("case`mtk-outbound-receipts-list`:", mainHandlerStart);
 const mainHandlerEnd = main.indexOf("case`", mainListHandlerStart + 5);
@@ -439,6 +446,17 @@ process.stdout.write(`${JSON.stringify({
   clickThrough: "stock-task-route",
   messageRendering: "stock-recipient-user-message-formatter"
 }, null, 2)}\n`);
+
+function evaluateReceiptReactBinding(expression) {
+  const wrapped = expression.match(/^(?<wrap>[$A-Z_a-z][$\w]*)\((?<factory>[$A-Z_a-z][$\w]*)\(\),1\)$/);
+  if (wrapped) {
+    return Function(wrapped.groups.wrap, wrapped.groups.factory, `return (${expression})`)(
+      value => value,
+      () => receiptReact
+    );
+  }
+  return Function("gS", "t", "x", `return (${expression})`)(receiptReact, value => value, () => receiptReact);
+}
 
 function unique(value, pattern, label) {
   const matches = [...value.matchAll(pattern)];

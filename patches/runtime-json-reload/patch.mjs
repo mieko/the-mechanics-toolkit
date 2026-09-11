@@ -11,7 +11,7 @@ if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
 }
 
 const assets = path.join(root, "webview/assets");
-const renderer = uniqueFile(/^app-initial-.*\.js$/, assets);
+const renderer = rendererFile(assets);
 const main = uniqueFile(/^main-.*\.js$/, path.join(root, ".vite/build"));
 const runtimeFiles = Object.freeze([
   "task-attention-policy.json",
@@ -166,6 +166,15 @@ function uniqueFile(pattern, directory) {
   const matches = fs.readdirSync(directory).filter(name => pattern.test(name));
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} files matching ${pattern}`);
   return path.join(directory, matches[0]);
+}
+
+function rendererFile(directory) {
+  const messageBus = fs.readdirSync(directory).filter(name => /^message-bus-.*\.js$/.test(name));
+  if (messageBus.length === 1) return path.join(directory, messageBus[0]);
+  if (messageBus.length > 1) {
+    throw new Error("Upstream changed: renderer message-bus owner is not unique");
+  }
+  return uniqueFile(/^app-initial-.*\.js$/, directory);
 }
 
 function replaceOnce(value, before, after, label) {

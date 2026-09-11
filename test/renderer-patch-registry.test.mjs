@@ -58,10 +58,14 @@ const expectedNames = [
     source.includes("data-mtk-model-guard-mismatch")],
   ["sidebarActionCollapse", source => source.includes("function MTKsidebarActionDisclosure(") ||
     source.includes("function MTKsidebarActionDisclosure7345(") || source.includes("function MTKsidebarActionDisclosure7746(") ||
-    source.includes("function MTKsidebarActionDisclosure7942(") || source.includes("function MTKsidebarActionDisclosure8378(")],
+    source.includes("function MTKsidebarActionDisclosure7942(") || source.includes("function MTKsidebarActionDisclosure8109(") ||
+    source.includes("function MTKsidebarActionDisclosure8378(") || source.includes("function MTKsidebarActionDisclosure8576(") ||
+    source.includes("function MTKsidebarActionDisclosure8690(")],
   ["taskAttentionPolicy", source => source.includes("function MTKattentionIgnoredThread(") ||
     source.includes("function MTKattentionIgnoredThread7345(") || source.includes("function MTKattentionIgnoredThread7746(") ||
-    source.includes("function MTKattentionIgnoredThread7942(") || source.includes("function MTKattentionIgnoredThread8378(")],
+    source.includes("function MTKattentionIgnoredThread7942(") || source.includes("function MTKattentionIgnoredThread8109(") ||
+    source.includes("function MTKattentionIgnoredThread8378(") || source.includes("function MTKattentionIgnoredThread8576(") ||
+    source.includes("function MTKattentionIgnoredThread8690(")],
   ["taskVisualPalette", source => source.includes("function MTKusePaletteBootstrap(")],
   ["tinrelayPointerPresentation", source => source.includes("function MTKtinrelayPointerFromMessage(") &&
     source.includes("data-mtk-tinrelay-pointer")],

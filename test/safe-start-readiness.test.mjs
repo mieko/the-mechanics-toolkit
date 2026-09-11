@@ -12,11 +12,15 @@ const main = fs.readFileSync(uniqueAsset(build, /^main-.*\.js$/), "utf8");
 
 assert.ok(main.includes("if(!N(t))return;s.type===`ready`&&P();"),
   "the trusted stock ready message invokes Codex's existing relaunch-marker writer");
-assert.ok(main.includes("Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"),
+assert.ok([
+  "Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`",
+  "Doe=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"
+].some(contract => main.includes(contract)),
   "readiness uses the existing per-launch marker path environment boundary");
 assert.equal([
   "H.dispatchMessage(`ready`,{persistedStateResponsePriority:G7?`critical`:void 0})",
-  "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})"
+  "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})",
+  "h.dispatchMessage(`ready`,{persistedStateResponsePriority:i7?`critical`:void 0})"
 ].filter(contract => count(renderer, contract) === 1).length, 1,
 "the renderer retains its unique stock AppRoutes-mount readiness event");
 assert.equal(renderer.includes("mtk-safe-start-ready"), false, "the patch does not invent a second renderer lifecycle");

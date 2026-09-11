@@ -1,31 +1,31 @@
 const definitions = [
   {
     name: "standalone-output-compaction",
-    patch: "source-patches/standalone-output-compaction/codex-0.153.4.patch",
+    patch: "source-patches/standalone-output-compaction/codex-0.154.0-alpha.6.1.patch",
     upstream: "https://github.com/openai/codex",
-    tag: "rust-v0.153.4",
-    commit: "3d2ee51ca2d5db578f328aa75e20aa22c0197c9a",
-    desktop: {version: "26.903.61454", build: "8378"},
+    tag: "rust-v0.154.0-alpha.6.1",
+    commit: "9db71b9871a5a63c3d1eae16184d872ea388bfdf",
+    desktop: {version: "26.908.31457", build: "8690"},
     files: {
       "codex-rs/core/src/compact.rs": {
-        before: "3f3324a1073d6896805c446ea6ebd2983200f0c04eef2188147bfb51b3486567",
-        after: "77e2ad42bc4cd004a4c68bfbf9adcccaa2f1d8d038227102db6b07824c182465"
+        before: "67c16bf477530a1cad9e4f0643b9fe797fe66f05ca0c4154dec06e6f18277383",
+        after: "a26c6c01f5f5d59b885bd895b4fa4ffc05062b6300920d52a840fd0f52e72054"
       },
       "codex-rs/core/src/compact_remote.rs": {
-        before: "5a51af2ac0a0d083a3e31ff7de5ac1607a91ac20ee904c807faa059dd92bff96",
-        after: "ccc0ba17d5c8cf9e1030beeca365722546318c096781b822e268e95b90d9ce62"
+        before: "f309fd541d8399696c6f75bb40d9f76a8be6d0b49a12630efadf8d07352f71c5",
+        after: "3215dd11fbb57273f5be612be075e0b5edc48f7864951b97810decf4fd9421fc"
       },
       "codex-rs/core/src/compact_remote_metadata_tests.rs": {
         before: "36eb1f76ab4ee09e013851a03490cbfc3335c419d4c6c0fffc709cd1ce4ae480",
         after: "324ef81fcbafc2b8d5e8b73a438c415afec10f15e617689fe02a7ad3dd10867c"
       },
       "codex-rs/core/src/compact_remote_v2.rs": {
-        before: "080a7c3ff1dc0de3c0f7f83b9887609882a4fa7374f24ef48e0fe423f04e5eed",
-        after: "4355c04578a12cb9aa127ffc331908429e193416804190513efd1bd7886370a9"
+        before: "12adeab8d1e307c6cf35dea979a891a7bcd027ea3eac2e7728751f8f1887da61",
+        after: "b04531ef34a2aa25030bdf61588d1a82271fb5ce317389ad0f992240f24b07ea"
       },
       "codex-rs/core/src/compact_tests.rs": {
-        before: "1f89e4537a34a1876c9ce99e4fa3012b5465d5e8359440bf442363e3d8d03ae2",
-        after: "b821163962bcaae71420fbe30a243ba8e3359019ea075bc84dc845a864029786"
+        before: "b80f08be1d21be450bde096522704c17fa181b13045a93e2913cb2794e4eff23",
+        after: "af40a0a2a6f603408771af90986ff537a3ca818d31409dc9f1bcfb679f6edaf7"
       }
     }
   }

@@ -100,8 +100,8 @@ function inspectPristine(value) {
   if (value.includes("wait_threads") || value.includes("tool:`wait_threads`")) {
     throw new Error("Upstream changed: wait_threads already has renderer-local ownership");
   }
-  if (!value.includes("threadsReadActive") || !value.includes("threadsSendMessageActive")) {
-    throw new Error("Upstream changed: app-control renderer status family is incomplete");
+  if (!value.includes('e.tool===`read_thread`') || !value.includes('e.tool===`send_message_to_thread`')) {
+    throw new Error("Upstream changed: app-control renderer tool family is incomplete");
   }
   resolveTaskImports(value);
 }
@@ -128,11 +128,12 @@ function MTKwaitTargets(e){if(e==null||typeof e!=="object"||Array.isArray(e)||!A
 }
 
 function rendererProfile(value) {
-  const sendCase = uniqueMatch(
-    value,
-    /case (?<sendTool>[$A-Z_a-z][$\w]*):return e\.completed\?`threadsSendMessageCompleted`:`threadsSendMessageActive`/g,
-    "send-message status owner"
-  ).groups;
+  const statusOwners = [...value.matchAll(
+    /case (?<sendTool>[$A-Z_a-z][$\w]*):return e\.completed\?`threadsSendMessageCompleted`:`threadsSendMessageActive`/g
+  )];
+  const sendTool = statusOwners.length === 1
+    ? statusOwners[0].groups.sendTool
+    : importedToolConstant(value, "send_message_to_thread");
   const position = value.indexOf('e.tool===`create_thread`&&e.completed&&e.success===!0&&t===`row`');
   const owner = containingFunction(value, position);
   const header = uniqueMatch(
@@ -162,12 +163,28 @@ function rendererProfile(value) {
     value,
     new RegExp(
       `(?<sendEntry>\\{namespace:(?<namespace>${id}),(?:persistentInCollapsedConversation:!0,)?render:(?:${header.genericRender}|MTKrenderOutboundMessage),` +
-        `renderAgentActivityIcon:(?<icon>${id}),(?:standaloneInConversation:!0,)?tool:${sendCase.sendTool}\\})`,
+        `renderAgentActivityIcon:(?<icon>${id}),(?:standaloneInConversation:!0,)?tool:${sendTool}\\})`,
       "g"
     ),
     "send-message registry entry"
   ).groups;
-  return {...header, ...render, ...navigation, ...registry, ...sendCase, functionText: owner.text};
+  return {...header, ...render, ...navigation, ...registry, sendTool, functionText: owner.text};
+}
+
+function importedToolConstant(value, toolName) {
+  const imported = uniqueMatch(value, /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g, "app-initial tool import");
+  const moduleSource = fs.readFileSync(path.resolve(path.dirname(target), imported.groups.relative), "utf8");
+  const internal = uniqueMatch(
+    moduleSource,
+    new RegExp("(?<internal>" + id + ")=`" + escapeRegExp(toolName) + "`", "g"),
+    `${toolName} constant`
+  ).groups.internal;
+  const exported = exportedAs(moduleSource, internal);
+  return uniqueMatch(
+    imported.groups.specifiers,
+    new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>${id})(?=,|$)`, "g"),
+    `${toolName} imported binding`
+  ).groups.local;
 }
 
 function resolveTaskImports(ownerSource) {
@@ -180,6 +197,7 @@ function resolveTaskImports(ownerSource) {
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
   const profiles = [
+    ["function Ocs(){", "KB=am(Q,", ["vm", "BR", "KB", "yk", "bk"]],
     ["function QMn(){", "kW=Ny(Q,", ["ub", "Q", "kW", "PF", "FF"]],
     ["function ALs(){", "kW=Py(Q,", ["db", "Q", "kW", "FF", "IF"]],
     ["function Oks(){", "cW=Xy(Q,", ["Db", "Q", "cW", "oF", "sF"]],
@@ -190,7 +208,9 @@ function resolveTaskImports(ownerSource) {
   const match = profiles.find(([owner, atom]) => appInitial.includes(owner) && appInitial.includes(atom));
   if (match == null) throw new Error("Upstream changed: wait roster task metadata family is unknown");
   const aliases = ["MTKwaitStoreHook", "MTKwaitStoreScope", "MTKwaitTaskAtom", "MTKwaitLocalThreadKey", "MTKwaitRemoteThreadKey"];
-  const additions = match[2].map((internal, index) => `${exportedAs(appInitial, internal)} as ${aliases[index]}`);
+  const additions = match[2].map((internal, index) =>
+    `${exportedAs(appInitial, internal === "BR" ? "Q" : internal)} as ${aliases[index]}`
+  );
   return {
     before: importMatch[0],
     after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`
@@ -204,8 +224,8 @@ function uniqueOwner() {
   const matches = fs.readdirSync(assets).filter(name => {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
-    return value.includes("localConversation.appControlToolCall.threadsSendMessage.active") &&
-      value.includes("threadsReadActive") && value.includes("send_message_to_thread");
+    return value.includes('e.tool===`read_thread`') && value.includes('e.tool===`send_message_to_thread`') &&
+      value.includes("renderAgentActivityIcon:");
   });
   if (matches.length !== 1) throw new Error(`Upstream changed: found ${matches.length} wait roster owners`);
   return path.join(assets, matches[0]);

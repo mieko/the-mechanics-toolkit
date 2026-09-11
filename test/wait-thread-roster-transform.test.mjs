@@ -25,6 +25,10 @@ try {
   assert.equal(applied.state, "applied");
   assert.deepEqual(applied.targets, ["webview/assets/agent-activity-item-fixture.js"]);
   const once = fs.readFileSync(ownerTarget);
+  assert.match(once.toString(), /q as MTKwaitStoreScope/,
+    "build 8690 imports the task selector's Q scope, not an unrelated BR export");
+  assert.doesNotMatch(once.toString(), /BR as MTKwaitStoreScope/,
+    "build 8690 does not confuse the export named BR with internal scope Q");
 
   const probe = spawnSync(process.execPath, [behavioralProbe, extracted], {encoding: "utf8"});
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
@@ -62,13 +66,13 @@ try {
 
 function initialFixture() {
   return [
-    "const x=0,Q=Symbol(`scope`);",
-    "function hb(e){return e}",
-    "function ZP(e){return `local:${e}`}",
-    "function QP(e){return `remote:${e}`}",
-    "const zy=(...e)=>e,XU=zy(Q,0);",
-    "function Oks(){}",
-    "export{x as x,hb as h,Q as q,XU as task,ZP as local,QP as remote};"
+    "const x=0,Q=Symbol(`scope`),LQ=Symbol(`unrelated`);",
+    "function vm(e){return e}",
+    "function yk(e){return `local:${e}`}",
+    "function bk(e){return `remote:${e}`}",
+    "const am=(...e)=>e,KB=am(Q,0);",
+    "function Ocs(){}",
+    "export{x as x,vm as h,Q as q,LQ as BR,KB as task,yk as local,bk as remote};"
   ].join("");
 }
 

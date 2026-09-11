@@ -38,15 +38,18 @@ function inspectState(mainValue, rendererValue) {
 function verifyStockContracts(mainValue, rendererValue) {
   const rendererReady = [
     "H.dispatchMessage(`ready`,{persistedStateResponsePriority:G7?`critical`:void 0})",
-    "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})"
+    "H.dispatchMessage(`ready`,{persistedStateResponsePriority:W7?`critical`:void 0})",
+    "h.dispatchMessage(`ready`,{persistedStateResponsePriority:i7?`critical`:void 0})"
   ];
-  const contracts = [
-    [mainValue, "Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"],
-    [mainValue, "requestDevRelaunch:P=Aie}=e"],
-    [mainValue, "if(!N(t))return;"]
+  const contractFamilies = [
+    ["relaunch marker environment", ["Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`", "Doe=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"]],
+    ["development relaunch owner", ["requestDevRelaunch:P=Aie}=e", "requestDevRelaunch:P=Moe}=e"]],
+    ["trusted renderer message guard", ["if(!N(t))return;"]]
   ];
-  for (const [value, contract] of contracts) {
-    if (count(value, contract) !== 1) throw new Error(`Upstream changed: safe-start contract is not unique: ${contract}`);
+  for (const [label, variants] of contractFamilies) {
+    if (variants.reduce((total, contract) => total + count(mainValue, contract), 0) !== 1) {
+      throw new Error(`Upstream changed: safe-start ${label} is not unique`);
+    }
   }
   if (!rendererReady.some(contract => count(rendererValue, contract) === 1)) {
     throw new Error("Upstream changed: safe-start renderer readiness contract is not recognized");

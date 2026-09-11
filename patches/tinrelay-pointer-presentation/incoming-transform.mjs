@@ -158,6 +158,10 @@ function inspectAppliedRenderer(source) {
   inspectAppliedRendererBase(source);
   const helpers = helperSlice(source);
   const profile = incomingRendererProfile(source);
+  const hostBus = resolveHostBus(source);
+  if (!helpers.includes(`const MTKtinrelayHostBus=${hostBus};`)) {
+    throw new Error("Tinrelay renderer host bus is not captured outside component-local bindings");
+  }
   for (const contract of [
     "function MTKtinrelayAddress(",
     'function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"',
@@ -197,7 +201,7 @@ function inspectAppliedRenderer(source) {
   ]) {
     if (!helpers.includes(contract)) throw new Error(`Tinrelay renderer postcondition missing: ${contract}`);
   }
-  if (!["MTKtinrelayReact=t(x(),1)", "MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)",
+  if (!["MTKtinrelayReact=t(x(),1)", "MTKtinrelayReact=t(Wo(),1)", "MTKtinrelayReact=t(ic(),1)", "MTKtinrelayReact=t(Mc(),1)", "MTKtinrelayReact=t(r(),1)",
     "MTKtinrelayReact=t(_e(),1)"].some(marker => source.includes(marker))) {
     throw new Error("Tinrelay renderer React owner is not initialized");
   }
@@ -221,7 +225,6 @@ function inspectAppliedRenderer(source) {
   for (const retired of ["Hide transmission", "Show transmission", "aria-expanded", "bg-surface-secondary/50", "linear-gradient(110deg"]) {
     if (helpers.includes(retired)) throw new Error(`Tinrelay renderer retains retired disclosure surface: ${retired}`);
   }
-  resolveHostBus(source);
 }
 
 function inspectAppliedRendererBase(source) {
@@ -249,7 +252,8 @@ function inspectPristineMain(source) {
       throw new Error(`Upstream changed: Tinrelay main-process contract is not unique: ${contract}`);
     }
   }
-  if (count(source, "var mQ=i.i(`electron-message-handler`)") +
+  if (count(source, "var dQ=i.i(`electron-message-handler`)") +
+      count(source, "var mQ=i.i(`electron-message-handler`)") +
       count(source, "var pQ=i.i(`electron-message-handler`)") +
       count(source, "var fQ=i.i(`electron-message-handler`)") !== 1) {
     throw new Error("Upstream changed: Tinrelay main helper owner is not unique");
@@ -291,6 +295,17 @@ function inspectAppliedMainBase(source) {
 }
 
 function incomingRendererProfile(value) {
+  if (value.includes("function rz(") && value.includes("function JR(")) {
+    const moduleBefore = "var YR,XR,ZR,QR=e((()=>{YR=i(),Il(),h_(),XR=Z(),ZR=2}))";
+    const moduleAfter = "var YR,MTKtinrelayReact,XR,ZR,QR=e((()=>{YR=i(),Il(),h_(),MTKtinrelayReact=t(r(),1),XR=Z(),ZR=2}))";
+    if (value.includes(moduleBefore) || value.includes(moduleAfter)) {
+      return {
+        cache: "YR", collapsedLines: "ZR", delegation: "rz", delegationJsx: "az",
+        helperJsx: "XR", jsx: "XR", message: "JR", messageComponent: "l_", moduleBefore, moduleAfter,
+        labelClass: "text-size-chat-sm flex max-w-full items-center gap-1 px-1 py-0.5 text-codex-description"
+      };
+    }
+  }
   if (value.includes("function Gb(") && value.includes("function Xb(")) {
     const moduleBefore = "var Kb,qb,Jb,Yb=e((()=>{Kb=Qo(),hu(),o_(),qb=X(),Jb=2}))";
     const moduleAfter = "var Kb,MTKtinrelayReact,qb,Jb,Yb=e((()=>{Kb=Qo(),hu(),o_(),MTKtinrelayReact=t(x(),1),qb=X(),Jb=2}))";
@@ -403,7 +418,7 @@ function scrollHelpers() {
 }
 
 function presentationHelpers(hostBus, jsx = "Tb", messageComponent = "Eg") {
-  return `function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n}){MTKtinrelayEnsureStyle();return(0,${jsx}.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,${jsx}.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,${jsx}.jsx)(${messageComponent},{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=${hostBus}.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,${hostBus}.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l})]})}`;
+  return `const MTKtinrelayHostBus=${hostBus};function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n}){MTKtinrelayEnsureStyle();return(0,${jsx}.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,${jsx}.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,${jsx}.jsx)(${messageComponent},{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=MTKtinrelayHostBus.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,MTKtinrelayHostBus.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l})]})}`;
 }
 
 
@@ -539,7 +554,7 @@ function migrateRendererPresentation(value) {
 }
 
 function patchMain(value, config) {
-  const helperOwner = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
+  const helperOwner = ["var dQ=i.i(`electron-message-handler`)", "var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
     "var fQ=i.i(`electron-message-handler`)"].find(owner => value.includes(owner));
   if (helperOwner == null) throw new Error("Upstream changed: Tinrelay main helper owner is not recognized");
   let patched = replaceOnce(
@@ -569,17 +584,29 @@ function patchTinrelayLabelOwner(value, profile = incomingRendererProfile(value)
   if (cache == null) throw new Error("Upstream changed: delegated message label cache owner is missing");
   const cacheSize = Number(cache.groups.size);
   let after = message.text.replace(cache[0], `let t=(0,${profile.cache}.c)(${cacheSize + 1})`);
-  const mergeMatch = /className:(?<merge>[$A-Z_a-z][$\w]*)\(`text-size-chat-sm flex items-center gap-1 px-1 py-0\.5 text-codex-description`/.exec(message.text);
+  const labelClass = profile.labelClass ?? "text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description";
+  const mergeMatch = new RegExp(`className:(?<merge>[$A-Z_a-z][$\\w]*)\\(${escapeRegExp("`" + labelClass + "`")}`).exec(message.text);
   if (mergeMatch == null) throw new Error("Upstream changed: delegated message class merge owner is missing");
   const merge = mergeMatch.groups.merge;
-  const before = `t[2]!==n||t[3]!==l?(p=l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[4]=p):p=t[4]`;
-  const replacement = `t[2]!==n||t[3]!==l||t[${cacheSize}]!==MTKmessageNode?(p=MTKmessageNode?null:l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description\`,children:n}),t[2]=n,t[3]=l,t[${cacheSize}]=MTKmessageNode,t[4]=p):p=t[4]`;
+  const before = `t[2]!==n||t[3]!==l?(p=l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`${labelClass}\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`${labelClass}\`,children:n}),t[2]=n,t[3]=l,t[4]=p):p=t[4]`;
+  const replacement = `t[2]!==n||t[3]!==l||t[${cacheSize}]!==MTKmessageNode?(p=MTKmessageNode?null:l?(0,${profile.jsx}.jsx)(\`button\`,{type:\`button\`,className:${merge}(\`${labelClass}\`,\`cursor-interaction rounded-md hover:text-default\`),onClick:l,children:n}):(0,${profile.jsx}.jsx)(\`div\`,{className:\`${labelClass}\`,children:n}),t[2]=n,t[3]=l,t[${cacheSize}]=MTKmessageNode,t[4]=p):p=t[4]`;
   after = replaceOnce(after, before, replacement, "Tinrelay stock delegated-label suppression");
   return value.slice(0, message.start) + after + value.slice(message.end);
 }
 
 
 function resolveHostBus(source) {
+  const busImports = [...source.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/message-bus-[^"]+\.js)";/g)];
+  if (busImports.length === 1) {
+    const busSource = fs.readFileSync(path.resolve(path.dirname(renderer), busImports[0].groups.relative), "utf8");
+    const singleton = uniqueMatch(busSource, /,(?<internal>[$A-Z_a-z][$\w]*)=[$A-Z_a-z][$\w]*\.getInstance\(\),/g, "message bus singleton").groups.internal;
+    const exported = exportedAs(busSource, singleton);
+    return uniqueMatch(
+      busImports[0].groups.specifiers,
+      new RegExp(`(?:^|,)${escapeRegExp(exported)} as (?<local>[$A-Z_a-z][$\\w]*)(?=,|$)`, "g"),
+      "renderer message-bus import"
+    ).groups.local;
+  }
   const imported = uniqueMatch(
     source,
     /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g,
@@ -613,7 +640,7 @@ function helperSlice(source) {
 
 function mainHelperSlice(source) {
   const start = source.indexOf("const MTKtinrelayClient=");
-  const boundaries = ["var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
+  const boundaries = ["var dQ=i.i(`electron-message-handler`)", "var mQ=i.i(`electron-message-handler`)", "var pQ=i.i(`electron-message-handler`)",
     "var fQ=i.i(`electron-message-handler`)"]
     .map(marker => source.indexOf(marker, start))
     .filter(index => index >= 0);

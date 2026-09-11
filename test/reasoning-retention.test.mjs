@@ -25,7 +25,8 @@ assert.equal(decision(ordinary, policy), false, "an ordinary task keeps stock be
 assert.equal(decision("Engine Tender — Repairs", policy), false, "a title cannot opt a task into retention");
 
 const helperStart = turn.source.indexOf("const MTKreasoningNoopSubscribe=");
-const helperEnd = turn.source.indexOf("function _i(e){", helperStart);
+const helperOwner = turn.source.indexOf("function MTKuseReasoningRetention(", helperStart);
+const helperEnd = turn.source.indexOf("function ", helperOwner + "function MTKuseReasoningRetention(".length);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, "turn hook helper seam");
 const hookText = turn.source.slice(helperStart, helperEnd);
 let subscribed = false;
@@ -58,7 +59,7 @@ assert.match(
 );
 assert.match(
   thread.source,
-  /(?:\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*|\[e,u,ue,x,pe),MTKreasoningThreadRetained\]/,
+  /(?:\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*|\[e,u,ue,x,pe|\[e,l,ce,x,q),MTKreasoningThreadRetained\]/,
   "the auto-collapse effect follows live retention-policy changes"
 );
 
@@ -73,7 +74,8 @@ assert.equal(
     turn.source.includes("preventAutoCollapse:kt||yr||MTKreasoningRetained") ||
     turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained") ||
     turn.source.includes("preventAutoCollapse:Dt||br||MTKreasoningRetained") ||
-    turn.source.includes("preventAutoCollapse:At||xr||MTKreasoningRetained"),
+    turn.source.includes("preventAutoCollapse:At||xr||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:Ot||Sr||MTKreasoningRetained"),
   true,
   "selected policy reaches the stock collapse decision"
 );
