@@ -11,13 +11,19 @@ try {
   const app = path.join(scratch, "ChatGPT.app");
   const bundled = path.join(app, "Contents/Resources/codex");
   const replacement = path.join(scratch, "patched-codex");
+  const bundledProbeLog = path.join(scratch, "bundled-probe.log");
   fs.mkdirSync(path.dirname(bundled), {recursive: true});
-  writeFakeCodex(bundled, "stock", "codex-cli 0.154.0-alpha.6.2");
+  writeFakeCodex(bundled, "stock", "codex-cli 0.154.0-alpha.6.2", bundledProbeLog);
   writeFakeCodex(replacement, "patched", "codex-cli 0.154.0-alpha.6.2");
   const config = path.join(scratch, "toolkit.json");
   fs.writeFileSync(config, JSON.stringify({codexBinary: replacement}));
 
   assert.equal(run("check", app, config).state, "needs-apply");
+  const bundledProbe = fs.readFileSync(bundledProbeLog, "utf8").trim();
+  assert.equal(bundledProbe.startsWith(`${app}${path.sep}`), false,
+    "macOS version probe executes a temporary copy outside the application bundle");
+  assert.equal(fs.existsSync(bundledProbe), false,
+    "temporary macOS version probe is removed before the check returns");
   assert.equal(run("apply", app, config).state, "applied");
   assert.equal(fs.readFileSync(bundled, "utf8"), fs.readFileSync(replacement, "utf8"));
   assert.equal(run("apply", app, config).state, "applied");
@@ -81,6 +87,7 @@ function run(command, app, config) {
   return JSON.parse(result.stdout);
 }
 
-function writeFakeCodex(target, marker, reportedVersion = "codex-cli 0.153.4") {
-  fs.writeFileSync(target, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "${reportedVersion}"; else echo "${marker}"; fi\n`, {mode: 0o755});
+function writeFakeCodex(target, marker, reportedVersion = "codex-cli 0.153.4", invocationLog = null) {
+  const recordInvocation = invocationLog == null ? "" : `printf '%s\\n' "$0" >> '${invocationLog}'\n`;
+  fs.writeFileSync(target, `#!/bin/sh\n${recordInvocation}if [ "$1" = "--version" ]; then echo "${reportedVersion}"; else echo "${marker}"; fi\n`, {mode: 0o755});
 }

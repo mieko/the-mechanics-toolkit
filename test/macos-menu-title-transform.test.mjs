@@ -51,6 +51,15 @@ try {
     assert.match(result.stderr, expected, key);
   }
 
+  const unwritable = path.join(scratch, "unwritable.app");
+  writeApp(unwritable);
+  const unwritableInfo = path.join(unwritable, "Contents/Info.plist");
+  fs.chmodSync(unwritableInfo, 0o444);
+  const denied = runPatchRaw("apply", unwritable);
+  fs.chmodSync(unwritableInfo, 0o644);
+  assert.notEqual(denied.status, 0);
+  assert.match(denied.stderr, /PlistBuddy Set :CFBundleName Codex failed: Error Opening Destination/);
+
   process.stdout.write("macOS menu title transform probe passed\n");
 } finally {
   fs.rmSync(scratch, {recursive: true, force: true});

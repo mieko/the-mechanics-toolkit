@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {spawnSync} from "node:child_process";
 
@@ -19,7 +20,10 @@ const config = JSON.parse(fs.readFileSync(path.resolve(configPath), "utf8"));
 const layout = applicationLayout(app);
 const replacements = replacementBinaries(config, layout.kind);
 const versions = layout.binaries.map((binary, index) => ({
-  bundled: version(binary.path, {linuxBinary: binary.linux}),
+  bundled: version(binary.path, {
+    linuxBinary: binary.linux,
+    copyBeforeExecute: layout.kind === "macos"
+  }),
   replacement: version(replacements[index], {linuxBinary: binary.linux})
 }));
 const expectedVersion = versions[0].bundled;
@@ -151,20 +155,32 @@ function attributes(value) {
   return result;
 }
 
-function version(binary, {linuxBinary}) {
-  const invocation = linuxBinary && process.platform === "win32"
-    ? {program: "wsl.exe", arguments_: ["--exec", wslPath(binary), "--version"]}
-    : {program: binary, arguments_: ["--version"]};
-  const result = spawnSync(invocation.program, invocation.arguments_, {encoding: "utf8"});
-  if (result.status !== 0) {
-    throw new Error(`${binary} --version failed: ${
-      result.error?.message ?? (result.stderr || result.stdout).trim()}`);
+function version(binary, {linuxBinary, copyBeforeExecute = false}) {
+  let scratch = null;
+  let executable = binary;
+  try {
+    if (copyBeforeExecute) {
+      scratch = fs.mkdtempSync(path.join(os.tmpdir(), "tmtk-codex-version-"));
+      executable = path.join(scratch, "codex");
+      fs.copyFileSync(binary, executable);
+      fs.chmodSync(executable, fs.statSync(binary).mode & 0o777);
+    }
+    const invocation = linuxBinary && process.platform === "win32"
+      ? {program: "wsl.exe", arguments_: ["--exec", wslPath(executable), "--version"]}
+      : {program: executable, arguments_: ["--version"]};
+    const result = spawnSync(invocation.program, invocation.arguments_, {encoding: "utf8"});
+    if (result.status !== 0) {
+      throw new Error(`${binary} --version failed: ${
+        result.error?.message ?? (result.stderr || result.stdout).trim()}`);
+    }
+    const output = result.stdout.trim();
+    if (!/^codex-cli \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(output)) {
+      throw new Error(`Unexpected Codex version output: ${JSON.stringify(output)}`);
+    }
+    return output;
+  } finally {
+    if (scratch != null) fs.rmSync(scratch, {recursive: true, force: true});
   }
-  const output = result.stdout.trim();
-  if (!/^codex-cli \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(output)) {
-    throw new Error(`Unexpected Codex version output: ${JSON.stringify(output)}`);
-  }
-  return output;
 }
 
 function wslPath(value) {

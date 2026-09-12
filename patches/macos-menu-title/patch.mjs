@@ -51,8 +51,8 @@ function verifyBundleContract() {
 
 function plist(instruction) {
   const result = spawnSync("/usr/libexec/PlistBuddy", ["-c", instruction, info], {encoding: "utf8"});
-  if (result.status !== 0) {
-    const cause = (result.stderr || result.stdout).trim();
+  if (result.status !== 0 || (result.stderr ?? "").trim() !== "") {
+    const cause = result.error?.message ?? (result.stderr || result.stdout).trim();
     throw new Error(`PlistBuddy ${instruction} failed: ${cause}`);
   }
   return result.stdout.trim();
