@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { linuxBuild8881 } from "../patches/outgoing-message-receipt/profiles/linux.mjs";
 
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const toolkit = path.join(repository, "bin/toolkit.mjs");
@@ -65,6 +66,7 @@ try {
   assert.deepEqual(fs.readFileSync(consumerTarget), Buffer.from(consumerFixture()), "message formatter consumer stays untouched");
   assert.deepEqual(fs.readFileSync(styleTarget), Buffer.from(styleFixture()), "stylesheet stays untouched");
   assertBuild8576SplitPresentationOrdering();
+  assertBuild8881PlatformTurnSelection();
 
   const registry = spawnSync(process.execPath, [toolkit, "patch", "renderer-patch-registry", "apply", extracted], { encoding: "utf8" });
   assert.equal(registry.status, 0, registry.stderr || registry.stdout);
@@ -109,6 +111,27 @@ function assertBuild8576SplitPresentationOrdering() {
     "build 8576 durable task receipts render after the initiating user request and before activity");
   assert.ok(!patched.includes("children:[(0,Q.jsx)(MTKOutboundTurnReceipts"),
     "build 8576 receipts are not mounted ahead of the entire stock turn list");
+}
+
+function assertBuild8881PlatformTurnSelection() {
+  const transform = fs.readFileSync(path.join(repository, "patches/outgoing-message-receipt/patch.mjs"), "utf8");
+  const splitProfile = sourceBetween(transform, "function splitTurnProfile(", "function assistantProfile(");
+  const uniqueMatch = sourceBetween(transform, "function uniqueMatch(", "function escapeRegExp(");
+  const escapeRegExp = sourceBetween(transform, "function escapeRegExp(", "function count(");
+  const count = sourceBetween(transform, "function count(", "function syntaxCheck(");
+  const conversationTarget = "/tmp/conversation-blocks-fixture.js";
+  const profile = Function(
+    "conversationTarget", "path", `${escapeRegExp};${uniqueMatch};${count};${splitProfile};return splitTurnProfile`
+  )(conversationTarget, path);
+  const owner = turnId => [
+    'import{x as x}from"./conversation-blocks-fixture.js";',
+    `function bi(e){let t=(0,Ki.c)(216),{conversationId:o,turnId:${turnId},hostId:c}=e,za=[],$=(e,t,n)=>za.push({key:e,node:t,options:n});`,
+    "let Ha=za.length,Ua={};"
+  ].join("");
+  assert.match(profile(owner("m"), linuxBuild8881.turn).after, /turnId:m/,
+    "macOS build 8881 does not select the Linux turn binding");
+  assert.match(profile(owner("f"), linuxBuild8881.turn).after, /turnId:f/,
+    "Linux build 8881 selects its exact turn binding");
 }
 
 function sourceBetween(value, startMarker, endMarker) {

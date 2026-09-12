@@ -32,6 +32,19 @@ const names = [
   "MTKrenderWaitThreads"
 ];
 const helper = names.map(name => functionSource(source, name)).join("");
+const dedicatedTitleOwner = fs.readdirSync(assets).some(name => {
+  if (!/^app-primary-.*\.js$/.test(name)) return false;
+  const value = fs.readFileSync(path.join(assets, name), "utf8");
+  return [
+    ["Q2t=Jf(o_,(e,{get:t})=>{", "X2t({...n,localTitle:r})"],
+    ["G2t=Ll(Hc,(e,{get:t})=>{", "U2t({...n,localTitle:r})"]
+  ].some(markers => markers.every(marker => value.includes(marker)));
+});
+assert.equal(
+  helper.includes("MTKwaitTitleAtom"),
+  dedicatedTitleOwner,
+  "current wait rosters use the stock live-title selector rather than stale task metadata"
+);
 const profile = presentationProfile(source);
 const dispatched = [];
 const tasks = new Map([
@@ -43,10 +56,22 @@ const jsx = {
   jsx(type, props, key) { return {type, props, key}; },
   jsxs(type, props, key) { return {type, props, key}; }
 };
+const taskAtom = {};
+const titleAtom = {};
+const liveTitles = new Map([
+  ["local:elias", "Elias — MapWire Deployment Steward"],
+  ["local:mechanic", "The Mechanic — Engine Rooms and Escape Hatches"],
+  ["remote:rowan", "Rowan — Systems Wayfinder"]
+]);
 const deps = {
-  MTKwaitStoreHook: () => ({get(_atom, key) { return tasks.get(key) ?? null; }}),
+  MTKwaitStoreHook: () => ({get(atom, key) {
+    if (atom === titleAtom) return liveTitles.get(`${key.hostId}:${key.threadId}`) ?? null;
+    if (dedicatedTitleOwner && atom === taskAtom) return null;
+    return tasks.get(key) ?? null;
+  }}),
   MTKwaitStoreScope: {},
-  MTKwaitTaskAtom: {},
+  MTKwaitTaskAtom: taskAtom,
+  MTKwaitTitleAtom: titleAtom,
   MTKwaitLocalThreadKey: id => `local:${id}`,
   MTKwaitRemoteThreadKey: id => `remote:${id}`,
   [profile.jsx]: jsx,

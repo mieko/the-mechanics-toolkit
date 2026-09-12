@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881 } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -19,7 +20,11 @@ let state = inspectState(source, primarySource);
 
 if (command === "apply" && state === "needs-apply") {
   const workspaceRoot = configuredWorkspaceRoot();
-  if (current8690Contracts(source, primarySource).every(Boolean)) {
+  if (linux8881Contracts(source, primarySource).every(Boolean)) {
+    ({ appSource: source, primarySource } = patchLinux8881(source, primarySource, workspaceRoot));
+  } else if (current8881Contracts(source, primarySource).every(Boolean)) {
+    ({ appSource: source, primarySource } = patch8881(source, primarySource, workspaceRoot));
+  } else if (current8690Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch8690(source, primarySource, workspaceRoot));
   } else if (current8576Contracts(source, primarySource).every(Boolean)) {
     ({ appSource: source, primarySource } = patch8576(source, primarySource, workspaceRoot));
@@ -51,6 +56,38 @@ process.stdout.write(`${JSON.stringify({
 }, null, 2)}\n`);
 
 function inspectState(value, primaryValue) {
+  const linuxMarkers = [
+    ...linuxBuild8881.applied.app.map(marker => value.includes(marker)),
+    ...linuxBuild8881.applied.primary.map(marker => primaryValue.includes(marker))
+  ];
+  if (value.includes(`function MTKuseAttentionBootstrap${linuxBuild8881.suffix}(`) ||
+      primaryValue.includes(`function MTKuseTaskAttention${linuxBuild8881.suffix}(`)) {
+    if (!linuxMarkers.every(Boolean)) {
+      throw new Error("Unrecognized Linux build-8881 task attention patch: partial markers");
+    }
+    return "applied";
+  }
+  const build8881Markers = [
+    value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
+    value.includes("MTKattentionPolicyAtom=Zp(Q,null)"),
+    value.includes("function MTKattentionIgnoredThread8881("),
+    value.includes("function MTKacceptAttentionReload8881("),
+    value.includes('__MTK_RUNTIME_JSON_RELOAD__?.register("task-attention-policy.json"'),
+    value.includes("function MTKuseAttentionBootstrap8881("),
+    value.includes("function Jcs(){MTKuseAttentionBootstrap8881();"),
+    primaryValue.includes("function MTKuseTaskAttention8881("),
+    primaryValue.includes("MTKattentionIgnoredForTask=MTKuseTaskAttention8881(vt,n)"),
+    primaryValue.includes("let Rt=MTKattentionIgnoredForTask?{...Lt,unread:!1,unreadCount:0}:Lt"),
+    primaryValue.includes("Ht=MTKattentionIgnoredForTask?[]:Vt==null?[]:[Vt]"),
+    primaryValue.includes("let Jt=MTKattentionIgnoredForTask?void 0:qt"),
+    primaryValue.includes("hasUnreadTurn:!MTKattentionIgnoredForTask&&!jt&&nt===!0"),
+    value.includes("s=s.filter(t=>!MTKattentionIgnoredThread8881(e,t,c))"),
+    value.includes("[desktop-notifications] suppressed task-attention-policy turn-complete")
+  ];
+  if (value.includes("function MTKuseAttentionBootstrap8881(") || primaryValue.includes("function MTKuseTaskAttention8881(")) {
+    if (!build8881Markers.every(Boolean)) throw new Error("Unrecognized build-8881 task attention patch: partial markers");
+    return "applied";
+  }
   const build8690Markers = [
     value.includes('const MTKattentionRelativePath=".codex/task-attention-policy.json"'),
     value.includes("MTKattentionPolicyAtom=$p(Q,null)"),
@@ -239,6 +276,8 @@ function inspectState(value, primaryValue) {
   }
   if (present.some(Boolean)) throw new Error("Unrecognized task attention patch: partial markers");
 
+  if (linux8881Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
+  if (current8881Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current8690Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current8576Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
   if (current8378Contracts(value, primaryValue).every(Boolean)) return "needs-apply";
@@ -252,6 +291,90 @@ function inspectState(value, primaryValue) {
     if (!value.includes(contract)) throw new Error(`Upstream changed: missing task attention contract ${contract}`);
   }
   return "needs-apply";
+}
+
+function linux8881Contracts(appValue, primaryValue) {
+  return [
+    appValue.includes("function Jcs(){MTKusePaletteBootstrap();let e=(0,Zcs.c)(12),") ||
+      appValue.includes("function Jcs(){let e=(0,Zcs.c)(12),"),
+    appValue.includes(linuxBuild8881.notificationOwner),
+    appValue.includes(linuxBuild8881.notificationBefore),
+    appValue.includes(linuxBuild8881.atomBefore) && appValue.includes("xga=X(Q,({get:e})=>"),
+    appValue.includes(linuxBuild8881.dockBefore),
+    primaryValue.includes(linuxBuild8881.primaryOwner),
+    primaryValue.includes(linuxBuild8881.titleBefore),
+    ...linuxBuild8881.pristinePrimary.map(contract => primaryValue.includes(contract))
+  ];
+}
+
+function current8881Contracts(appValue, primaryValue) {
+  return [
+    ["function Jcs(){MTKusePaletteBootstrap();let e=(0,Zcs.c)(12),", "function Jcs(){let e=(0,Zcs.c)(12),"].some(contract => appValue.includes(contract)),
+    appValue.includes("function n3o(e,t){s.info(`[desktop-notifications] service starting`)"),
+    appValue.includes("let a=kI(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:c}=g(t.conversationId)"),
+    appValue.includes("Sga,Cga=t((()=>{Z(),") && appValue.includes("Sga=X(Q,({get:e})=>"),
+    appValue.includes("s=t===`work`?D$n({cloudThreadsAllowed:i,localThreadsAllowed:Hk(e(VS)),threadKeys:o}):o;return r+"),
+    primaryValue.includes("function H4t(e){let t=(0,W4t.c)(146),"),
+    primaryValue.includes("vt=X(Q2t,{hostId:Je??`local`,threadId:n})??He?.title??null,yt=X(ep,n)??He?.threadSource"),
+    primaryValue.includes("):Lt=t[25];let Rt=Lt,zt;t[26]"),
+    primaryValue.includes("Ht=Vt==null?[]:[Vt]"),
+    primaryValue.includes("):qt=t[45];let Jt=qt,Yt;t[46]"),
+    primaryValue.includes("hasUnreadTurn:!jt&&nt===!0")
+  ];
+}
+
+function attentionHelper8881(workspaceRoot) {
+  return String.raw`const MTKattentionRelativePath=".codex/task-attention-policy.json";let MTKattentionPromiseKey=null,MTKattentionPromise=null,MTKattentionPolicy=null;var MTKattentionPolicyAtom;const MTKattentionListeners=new Set;function MTKattentionPlainObject8881(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&Object.getPrototypeOf(e)===Object.prototype}function MTKattentionJoin8881(e,t){return e.replace(/[\\/]+$/,"" )+"/"+t}function MTKattentionMissing8881(e){return e instanceof Error&&("code"in e&&e.code==="ENOENT"||e.message.includes("No such file or directory")||e.message.includes("(os error 2)"))}function MTKattentionBase64Size8881(e){return Math.floor(e.length*3/4)-(e.endsWith("==")?2:+e.endsWith("="))}async function MTKfindAttentionFile8881(e,t){let n=MTKattentionJoin8881(t,".codex"),r=MTKattentionJoin8881(t,MTKattentionRelativePath);try{let i=await e.sendRequest("fs/getMetadata",{path:n});if(!i.isDirectory||i.isSymlink)throw Error("unsafe attention policy directory");let a=await e.sendRequest("fs/getMetadata",{path:r});if(!a.isFile||a.isSymlink)throw Error("unsafe attention policy file");let{dataBase64:o}=await e.sendRequest("fs/readFile",{path:r});if(MTKattentionBase64Size8881(o)>16384)throw Error("attention policy too large");return o}catch(e){if(MTKattentionMissing8881(e))return null;throw e}}function MTKparseAttentionPolicy8881(e){let t;try{t=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(e),e=>e.charCodeAt(0))))}catch{return null}if(!MTKattentionPlainObject8881(t)||Object.keys(t).length!==1||!Array.isArray(t.ignore)||t.ignore.length>64)return null;let n=[];for(let e of t.ignore){if(typeof e!=="string"||e.length===0||e.length>512)return null;try{n.push(new RegExp(e))}catch{return null}}return n}async function MTKloadAttentionPolicy8881(e,t){try{let n=await MTKfindAttentionFile8881(e,t);return n==null?null:MTKparseAttentionPolicy8881(n)}catch{return null}}function MTKattentionMatch8881(e,t,n){if(e==null)return!1;let r=typeof t==="string"?t:"",i=typeof n==="string"?n:"";return e.some(e=>e.test(r)||e.test(i))}function MTKattentionIgnored8881(e,t){return MTKattentionMatch8881(MTKattentionPolicy,e,t)}function MTKattentionIgnoredThread8881(e,t,n){let r=e(KB,t);return r?.kind==="local"?MTKattentionMatch8881(n,r.catalogTitle??r.summary?.title,r.conversationId):r?.kind==="remote"?MTKattentionMatch8881(n,r.task.title,r.task.id):!1}function MTKinstallAttentionPolicy8881(e,t){MTKattentionPolicy=e,t.set(MTKattentionPolicyAtom,e);for(let e of MTKattentionListeners)e()}function MTKattentionSubscribe8881(e){return MTKattentionListeners.add(e),()=>MTKattentionListeners.delete(e)}async function MTKloadAttentionWhenReady8881(e,t){try{return e.get(Om)==null&&await e.when(({get:e})=>e(Om)!=null),await MTKloadAttentionPolicy8881(Dm(e,"local"),t)}catch{return null}}async function MTKacceptAttentionReload8881(e,t,n,r){let i=await MTKloadAttentionWhenReady8881(e,t);return r()&&(i!=null||n?.initial===!0)?(MTKinstallAttentionPolicy8881(i,e),i!=null):!1}function MTKuseAttentionBootstrap8881(){let e=gm(Q),t=${JSON.stringify(workspaceRoot)};return Qcs.useEffect(()=>{let n=!1,r=globalThis.__MTK_RUNTIME_JSON_RELOAD__?.register("task-attention-policy.json",r=>MTKacceptAttentionReload8881(e,t,r,()=>!n));if(typeof r==="function")return()=>{n=!0,r()};return MTKattentionPromiseKey!==t&&(MTKattentionPromiseKey=t,MTKattentionPromise=MTKloadAttentionWhenReady8881(e,t)),MTKattentionPromise.then(t=>{n||MTKinstallAttentionPolicy8881(t,e)}),()=>{n=!0}},[e]),globalThis.__MTKattentionIgnored=MTKattentionIgnored8881,globalThis.__MTKattentionSubscribe=MTKattentionSubscribe8881,null}`;
+}
+
+function patch8881(appValue, primaryValue, workspaceRoot) {
+  const helper = attentionHelper8881(workspaceRoot);
+  const roots = [
+    "function Jcs(){MTKusePaletteBootstrap();let e=(0,Zcs.c)(12),",
+    "function Jcs(){let e=(0,Zcs.c)(12),"
+  ];
+  const root = roots.find(contract => appValue.includes(contract));
+  if (root == null) throw new Error("Upstream changed: build-8881 attention bootstrap owner is unrecognized");
+  let appPatched = replaceOnce(appValue, root, helper + root.replace("function Jcs(){", "function Jcs(){MTKuseAttentionBootstrap8881();"), "build-8881 attention bootstrap");
+  appPatched = replaceOnce(appPatched, "Sga,Cga=t((()=>{Z(),", "Sga,Cga=t((()=>{Z(),MTKattentionPolicyAtom=Zp(Q,null),", "build-8881 attention atom");
+  appPatched = replaceOnce(appPatched, "s=t===`work`?D$n({cloudThreadsAllowed:i,localThreadsAllowed:Hk(e(VS)),threadKeys:o}):o;return r+", "s=t===`work`?D$n({cloudThreadsAllowed:i,localThreadsAllowed:Hk(e(VS)),threadKeys:o}):o,c=e(MTKattentionPolicyAtom);c!=null&&(s=s.filter(t=>!MTKattentionIgnoredThread8881(e,t,c)));return r+", "build-8881 Dock badge projection");
+  appPatched = replaceOnce(appPatched, "let a=kI(e.getConversation(t.conversationId)),{navigationPath:o,navigateToNotification:c}=g(t.conversationId)", "let a=kI(e.getConversation(t.conversationId));if(MTKattentionIgnored8881(a,t.conversationId)){s.debug(`[desktop-notifications] suppressed task-attention-policy turn-complete`,{safe:{conversationId:t.conversationId},sensitive:{}});return}let{navigationPath:o,navigateToNotification:c}=g(t.conversationId)", "build-8881 native notification projection");
+
+  const primaryHelper = 'function MTKuseTaskAttention8881(e,t){let n=globalThis.__MTKattentionSubscribe??(()=>()=>{});return G4t.useSyncExternalStore(n,()=>globalThis.__MTKattentionIgnored?.(e,t)===!0,()=>!1)}';
+  let primaryPatched = replaceOnce(primaryValue, "function H4t(e){let t=(0,W4t.c)(146),", `${primaryHelper}function H4t(e){let t=(0,W4t.c)(146),`, "build-8881 task attention hook");
+  primaryPatched = replaceOnce(primaryPatched, "vt=X(Q2t,{hostId:Je??`local`,threadId:n})??He?.title??null,yt=X(ep,n)??He?.threadSource", "vt=X(Q2t,{hostId:Je??`local`,threadId:n})??He?.title??null,MTKattentionIgnoredForTask=MTKuseTaskAttention8881(vt,n),yt=X(ep,n)??He?.threadSource", "build-8881 local title");
+  primaryPatched = replaceOnce(primaryPatched, "):Lt=t[25];let Rt=Lt,zt;t[26]", "):Lt=t[25];let Rt=MTKattentionIgnoredForTask?{...Lt,unread:!1,unreadCount:0}:Lt,zt;t[26]", "build-8881 status projection");
+  primaryPatched = replaceOnce(primaryPatched, "Ht=Vt==null?[]:[Vt]", "Ht=MTKattentionIgnoredForTask?[]:Vt==null?[]:[Vt]", "build-8881 approval projection");
+  primaryPatched = replaceOnce(primaryPatched, "):qt=t[45];let Jt=qt,Yt;t[46]", "):qt=t[45];let Jt=MTKattentionIgnoredForTask?void 0:qt,Yt;t[46]", "build-8881 waiting projection");
+  primaryPatched = replaceOnce(primaryPatched, "hasUnreadTurn:!jt&&nt===!0", "hasUnreadTurn:!MTKattentionIgnoredForTask&&!jt&&nt===!0", "build-8881 hover-card unread projection");
+  return { appSource: appPatched, primarySource: primaryPatched };
+}
+
+function patchLinux8881(appValue, primaryValue, workspaceRoot) {
+  const suffix = linuxBuild8881.suffix;
+  const helper = attentionHelper8881(workspaceRoot)
+    .replaceAll("8881", suffix)
+    .replace(...linuxBuild8881.taskAtom);
+  const roots = [
+    "function Jcs(){MTKusePaletteBootstrap();let e=(0,Zcs.c)(12),",
+    "function Jcs(){let e=(0,Zcs.c)(12),"
+  ];
+  const root = roots.find(contract => appValue.includes(contract));
+  if (root == null) throw new Error("Upstream changed: Linux build-8881 attention bootstrap owner is unrecognized");
+  let appPatched = replaceOnce(appValue, root, helper + root.replace(linuxBuild8881.appRoot, `${linuxBuild8881.appRoot}MTKuseAttentionBootstrap${suffix}();`), "Linux build-8881 attention bootstrap");
+  appPatched = replaceOnce(appPatched, linuxBuild8881.atomBefore, linuxBuild8881.atomAfter, "Linux build-8881 attention atom");
+  appPatched = replaceOnce(appPatched, linuxBuild8881.dockBefore, linuxBuild8881.dockAfter, "Linux build-8881 Dock badge projection");
+  const notificationAfter = `let a=_L(e.getConversation(t.conversationId));if(MTKattentionIgnored${suffix}(a,t.conversationId)){s.debug(\`[desktop-notifications] suppressed task-attention-policy turn-complete\`,{safe:{conversationId:t.conversationId},sensitive:{}});return}let{navigationPath:o,navigateToNotification:c}=g(t.conversationId)`;
+  appPatched = replaceOnce(appPatched, linuxBuild8881.notificationBefore, notificationAfter, "Linux build-8881 native notification projection");
+
+  const primaryHelper = `function MTKuseTaskAttention${suffix}(e,t){let n=globalThis.__MTKattentionSubscribe??(()=>()=>{});return ${linuxBuild8881.primaryReact}.useSyncExternalStore(n,()=>globalThis.__MTKattentionIgnored?.(e,t)===!0,()=>!1)}`;
+  let primaryPatched = replaceOnce(primaryValue, linuxBuild8881.primaryOwner, `${primaryHelper}${linuxBuild8881.primaryOwner}`, "Linux build-8881 task attention hook");
+  primaryPatched = replaceOnce(primaryPatched, linuxBuild8881.titleBefore, linuxBuild8881.titleAfter, "Linux build-8881 local title");
+  primaryPatched = replaceOnce(primaryPatched, "):Lt=t[25];let Rt=Lt,zt;t[26]", "):Lt=t[25];let Rt=MTKattentionIgnoredForTask?{...Lt,unread:!1,unreadCount:0}:Lt,zt;t[26]", "Linux build-8881 status projection");
+  primaryPatched = replaceOnce(primaryPatched, "Ht=Vt==null?[]:[Vt]", "Ht=MTKattentionIgnoredForTask?[]:Vt==null?[]:[Vt]", "Linux build-8881 approval projection");
+  primaryPatched = replaceOnce(primaryPatched, "):qt=t[45];let Jt=qt,Yt;t[46]", "):qt=t[45];let Jt=MTKattentionIgnoredForTask?void 0:qt,Yt;t[46]", "Linux build-8881 waiting projection");
+  primaryPatched = replaceOnce(primaryPatched, "hasUnreadTurn:!jt&&nt===!0", "hasUnreadTurn:!MTKattentionIgnoredForTask&&!jt&&nt===!0", "Linux build-8881 hover-card unread projection");
+  return { appSource: appPatched, primarySource: primaryPatched };
 }
 
 function current8690Contracts(appValue, primaryValue) {

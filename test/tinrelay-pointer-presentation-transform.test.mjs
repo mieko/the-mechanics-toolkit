@@ -159,19 +159,22 @@ function assertMainUpgradePreservesAdjacentHelpers() {
 function assertSplitTurnPresentationOrdering() {
   const transform = fs.readFileSync(outgoingTransform, "utf8");
   const patchPresentations = sourceBetween(transform, "function patchAssistantPresentations(", "function upgradeRendererTurnAnchors(");
+  const turnCompletionExpression = sourceBetween(transform, "function turnCompletionExpression(", "function patchAssistantPresentations(");
   const uniqueMatch = sourceBetween(transform, "function uniqueMatch(", "function containingFunction(");
+  const functionOwnership = sourceBetween(transform, "function containingFunction(", "function replaceOnce(");
   const replaceOnce = sourceBetween(transform, "function replaceOnce(", "function escapeRegExp(");
   const escapeRegExp = sourceBetween(transform, "function escapeRegExp(", "function count(");
   const count = sourceBetween(transform, "function count(", "function countMatches(");
-  const api = Function("path", "renderer",
-    `${uniqueMatch};${replaceOnce};${escapeRegExp};${count};${patchPresentations};return patchAssistantPresentations`)(
+  const api = Function("path", "renderer", "id",
+    `${uniqueMatch};${functionOwnership};${replaceOnce};${escapeRegExp};${count};${turnCompletionExpression};${patchPresentations};return patchAssistantPresentations`)(
       path,
-      "/tmp/conversation-blocks-fixture.js"
+      "/tmp/conversation-blocks-fixture.js",
+      "[$A-Z_a-z][$\\w]*"
     );
   const renderer = "MTKtinrelayReact=t(_e(),1);function Yb(){}export{x as x}";
   const turn = [
     'import{MTKOutboundTurnReceipts as MTKOutboundTurnReceipts}from"./conversation-blocks-fixture.js";',
-    "function turn(){let Fa=[],$=(e,t,n)=>Fa.push({key:e,node:t,options:n});",
+    "function turn(e){let{turn:u,isTurnInProgress:L}=e,{userItems:J,assistantItem:K,systemEventItem:G,agentItems:A}=e,Fa=[],$=(e,t,n)=>Fa.push({key:e,node:t,options:n});",
     '$(`user-item`,USER,{canOwnLatestTurnFollowContent:!1});',
     '$(`mtk-outbound-turn-receipts`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:s,turnId:d}),{canOwnLatestTurnFollowContent:!1});',
     "let Ra=Fa.length,za={}}"
@@ -183,6 +186,8 @@ function assertSplitTurnPresentationOrdering() {
   const activityAt = patched.turnSource.indexOf("let Ra=Fa.length");
   assert.ok(userAt >= 0 && taskAt > userAt && tinrelayAt > taskAt && tinrelayAt < activityAt,
     "split turn hoists task and Tinrelay sends after the initiating user request and before activity");
+  assert.ok(patched.turnSource.includes("turnFinished:!L&&(u.status===`cancelled`||K?.completed===!0&&K?.phase===`final_answer`)"),
+    "split turn delays promotion until the final assistant item completes");
   const syntax = spawnSync(process.execPath, ["--input-type=module", "--check"], {
     encoding: "utf8",
     input: patched.turnSource
@@ -238,7 +243,7 @@ function rendererFixture() {
     "m=(0,Tb.jsx)(vb,{conversationId:n,label:p,message:i,sentAtMs:a,cwd:o,hostId:s,compactActions:l,onLabelClick:null});return m}",
     "function tx(e){return e}",
     "function Render(e){let{conversationId:d,turnId:S,item:n,toolActivityTurnKey:R}=e,m=!1,p=`default`,v=`local`,ve=`default`,ye=!0,r=null,je=!1;switch(n.type){case`exec`:{let e=cE(n);if(!Ne&&Ae&&!e||(n.parsedCmd.type===`read`||n.parsedCmd.type===`search`||n.parsedCmd.type===`list_files`)&&!n.parsedCmd.isFinished&&!e)return null;return(0,Tb.jsx)(tx,{item:n,isTurnInProgress:m,threadDetailLevel:p,hostId:v,summaryTone:ve,showSummaryIcon:ye,summaryIcon:r,hideRawCommand:je,toolActivityTurnKey:R})}}}",
-    "function Oy(e){let{conversationId:p,turnId:o}=e,Ze=null;return(0,Tb.jsx)(`div`,{children:[Ze,null]})}",
+    "function Oy(e){let{conversationId:p,turnId:o,turn:u,isTurnInProgress:L}=e,{userItems:J,assistantItem:K,systemEventItem:G,agentItems:A}=e,Ze=null;return(0,Tb.jsx)(`div`,{turn:u,isTurnInProgress:L,assistantItem:K,children:[Ze,null]})}",
     "function GE(e,{keepMcpAppEntriesPersistent:t=!1,mcpServerStatuses:n,renderMcpApps:r=!1}={}){let i=[],a=[],o=[],s=[],c=null;for(let l of e){if(l.kind===`standalone`&&l.item.item.type===`worked-for`){c=l.item.item;continue}if(l.kind===`standalone`&&l.item.item.type===`realtime-transcript`){a.length===0?s.push(l):(a.push(l),o.push(l));continue}a.push(l),KE({unit:l,keepMcpAppEntriesPersistent:t,mcpServerStatuses:n,renderMcpApps:r})?o.push(l):i.push(l)}return{collapsibleUnits:i,expandedUnits:a,persistentUnits:o,preToggleUnits:s,workedForItem:c}}",
     "function KE({unit:e,keepMcpAppEntriesPersistent:t,mcpServerStatuses:n,renderMcpApps:r}){if(e.kind!==`standalone`)return!1;let i=e.item.item;return i.type===`dynamic-tool-call`&&Zm(i)||t&&r&&i.type===`mcp-tool-call`&&qE({item:i,mcpServerStatuses:n})?!0:i.type===`user-message`&&(i.steeringStatus!=null||i.hookFeedback===!0)}",
     "function qE(){return!1}var JE=0;",

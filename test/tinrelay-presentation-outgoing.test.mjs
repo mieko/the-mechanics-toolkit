@@ -19,6 +19,11 @@ const main = unique(fs.readdirSync(path.join(root, ".vite/build")).filter(name =
 const rendererSource = fs.readFileSync(renderer, "utf8");
 const activitySource = fs.readFileSync(activity, "utf8");
 const mainSource = fs.readFileSync(main, "utf8");
+const turnCallSources = fs.readdirSync(assets).filter(name => name.endsWith(".js")).map(name =>
+  fs.readFileSync(path.join(assets, name), "utf8")
+).filter(value => value.includes("(MTKtinrelayOutgoingTurnPresentations,{conversationId:"));
+assert.equal(turnCallSources.length, 1, "one turn renderer owns outgoing TinRelay promotion");
+const turnCallSource = turnCallSources[0];
 const localShip = JSON.parse(uniqueMatch(
   rendererSource,
   /const MTKtinrelayLocalShip=(?<ship>"(?:\\.|[^"\\])*");function MTKtinrelayPointerFromMessage\(/g,
@@ -60,6 +65,10 @@ const react = {
     const index = hookIndex++;
     if (!(index in activeSlots)) activeSlots[index] = {current: value};
     return activeSlots[index];
+  },
+  useSyncExternalStore(_subscribe, getSnapshot) {
+    hookIndex++;
+    return getSnapshot();
   }
 };
 function StockMessageBubble() {}
@@ -117,7 +126,7 @@ liveAnchorListeners[0]({
   }
 });
 const detachedTurn = renderWithHooks("detached-turn", rendererApi.turn,
-  {conversationId: "detached-source-task", turnId: "detached-source-turn"});
+  {conversationId: "detached-source-task", turnId: "detached-source-turn", turnFinished: true});
 assert.equal(detachedTurn.props.children[0].props.event, detachedEvent,
   "the turn receives a persisted outgoing card even when its request-scoped listener is gone");
 dispatches.length = 0;
@@ -178,15 +187,25 @@ assert.deepEqual(scheduledScrolls, [scrollToken], "a matching outgoing transmiss
 assert.equal(dispatches.filter(entry => entry.type === "mtk-tinrelay-outgoing-anchor-remember").length, 0,
   "the successful lookup returns the main-process anchor instead of relying on a second silent IPC write");
 const observed = renderWithHooks("exec", rendererApi.exec, componentProps);
-assert.equal(observed, null, "the source exec disappears after the turn-owned presentation is anchored");
-const turn = renderWithHooks("turn", rendererApi.turn, {conversationId: "source-task", turnId: "source-turn"});
+assert.equal(observed?.type.name, "MTKtinrelayOutgoingView",
+  "the accepted radio card remains visible in reasoning until its turn-owned presentation can be promoted");
+assert.equal(observed.props.event, event,
+  "the active reasoning slot renders the accepted outgoing transmission");
+assert.equal(renderWithHooks("active-turn", rendererApi.turn, {
+  conversationId: "source-task", turnId: "source-turn", turnFinished: false
+}), null, "an anchored outgoing transmission does not hoist above its source turn while that turn is active");
+const turn = renderWithHooks("turn", rendererApi.turn, {
+  conversationId: "source-task", turnId: "source-turn", turnFinished: true
+});
 assert.equal(turn.props["data-mtk-tinrelay-outgoing-turn"], true);
+assert.equal(renderWithHooks("exec", rendererApi.exec, componentProps), null,
+  "the source exec disappears after the completed turn promotes its durable presentation");
 const anchored = turn.props.children[0];
 assert.equal(anchored.type.name, "MTKtinrelayOutgoingView");
 const rendered = anchored.type(anchored.props);
 const restartedRenderer = rendererApiFactory();
 assert.equal(renderWithHooks("restarted-turn", restartedRenderer.turn,
-  {conversationId: "source-task", turnId: "source-turn"}), null,
+  {conversationId: "source-task", turnId: "source-turn", turnFinished: true}), null,
 "a fresh renderer waits for its private source-task anchor bucket");
 const anchorRequest = dispatches.findLast(entry => entry.type === "mtk-tinrelay-outgoing-anchors-list");
 assert.ok(anchorRequest, "fresh renderer requests source-task anchors");
@@ -204,9 +223,14 @@ for (const callback of subscriptions.get("mtk-tinrelay-outgoing-anchors-result")
   }]
 });
 const reconstructed = renderWithHooks("restarted-turn", restartedRenderer.turn,
-  {conversationId: "source-task", turnId: "source-turn"});
+  {conversationId: "source-task", turnId: "source-turn", turnFinished: true});
 assert.equal(reconstructed.props.children[0].props.event, event,
   "a fresh renderer rebuilds the card without the original command activity");
+assert.match(turnCallSource, /MTKtinrelayOutgoingTurnPresentations,\{conversationId:[$A-Z_a-z][$\w]*,turnId:[$A-Z_a-z][$\w]*,turnFinished:/,
+  "the turn renderer passes an explicit source-turn completion decision to outgoing hoisting");
+assert.ok(turnCallSource.includes("?.completed===!0") && turnCallSource.includes("?.phase===`final_answer`") &&
+  turnCallSource.includes(".status===`cancelled`"),
+"the source-turn completion decision waits for a completed final answer or terminal cancellation");
 assert.equal(rendered.props.className, "flex w-full flex-col items-start justify-start gap-1",
   "outgoing card mirrors the incoming card across the conversation");
 assert.ok(rendererSource.includes("circle at 7% 72%"),

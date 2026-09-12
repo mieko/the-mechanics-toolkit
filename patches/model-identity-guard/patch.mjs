@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881 } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -14,7 +15,10 @@ const owner = uniqueOwner(source =>
   ((source.includes("function _Lr(e){let t=(0,DLr.c)(231),") && source.includes("Ie=aor(I.reasoningEffort,Me)")) ||
    (source.includes("function Pqr(e){let t=(0,Wqr.c)(232),") && source.includes("Le=wgr(R.reasoningEffort,Ne)")) ||
    (source.includes("function Rqr(e){let t=(0,Jqr.c)(232),") && source.includes("Re=Ogr(R.reasoningEffort,Pe)")) ||
-   (source.includes("function Onr(e){let t=(0,znr.c)(240),") && source.includes("Ye=I1(ee.reasoningEffort,Ge)"))) &&
+   (source.includes("function Onr(e){let t=(0,znr.c)(240),") && source.includes("Ye=I1(ee.reasoningEffort,Ge)")) ||
+   (source.includes("function Inr(e){let t=(0,qnr.c)(242),") && source.includes("Ze=B1(ee.reasoningEffort,qe)")) ||
+   (source.includes(linuxBuild8881.ownerFunction) &&
+    (source.includes(linuxBuild8881.publicationBefore) || source.includes(linuxBuild8881.appliedPublication)))) &&
   source.includes('"data-codex-intelligence-trigger"'),
   "build-8109 composer model owner"
 );
@@ -39,7 +43,7 @@ function inspectState() {
   const markers = [
     source.includes("function MTKinstallModelIdentityGuard("),
     source.includes("function MTKuseModelIdentityGuard("),
-    source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,U,Ie)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Le)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Re)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,ye,Ye)"),
+    source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,U,Ie)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Le)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,G,Re)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,ye,Ye)") || source.includes("MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,xe,Ze)"),
     source.includes('data-mtk-model-guard-mismatch'),
     source.includes('content:"BAD MODEL"'),
     source.includes('data-mtk-model-guard-message'),
@@ -58,7 +62,9 @@ function inspectState() {
   const build8378 = source.includes("function Pqr(e){let t=(0,Wqr.c)(232),") && source.includes("Le=wgr(R.reasoningEffort,Ne),Re=");
   const build8576 = source.includes("function Rqr(e){let t=(0,Jqr.c)(232),") && source.includes("Re=Ogr(R.reasoningEffort,Pe),ze=");
   const build8690 = source.includes("function Onr(e){let t=(0,znr.c)(240),") && source.includes("Ye=I1(ee.reasoningEffort,Ge),Xe=");
-  if (!build8109 && !build8378 && !build8576 && !build8690) {
+  const build8881 = source.includes("function Inr(e){let t=(0,qnr.c)(242),") && source.includes("Ze=B1(ee.reasoningEffort,qe),Qe=");
+  const linuxBuild = source.includes(linuxBuild8881.ownerFunction) && source.includes(linuxBuild8881.publicationBefore);
+  if (!build8109 && !build8378 && !build8576 && !build8690 && !build8881 && !linuxBuild) {
     throw new Error("Upstream changed: missing build-8109 model selector contract");
   }
   return "needs-apply";
@@ -103,7 +109,35 @@ function patchOwner(file, state) {
     if (start < 0 || end < 0) throw new Error("Unrecognized model identity guard patch: missing upgrade boundary");
     source = source.slice(0, start) + modelGuardHelper() + source.slice(end);
   } else {
-    if (source.includes("function Onr(e){let t=(0,znr.c)(240),")) {
+    if (source.includes(linuxBuild8881.ownerFunction) && source.includes(linuxBuild8881.publicationBefore)) {
+      const helper = modelGuardHelper().replace("S7.useEffect", `${linuxBuild8881.reactAlias}.useEffect`);
+      source = replaceOnce(
+        source,
+        linuxBuild8881.ownerFunction,
+        `${helper}${linuxBuild8881.ownerFunction}`,
+        "Linux build-8881 composer model guard helper"
+      );
+      source = replaceOnce(
+        source,
+        linuxBuild8881.publicationBefore,
+        linuxBuild8881.publicationAfter,
+        "Linux build-8881 live model and effort publication"
+      );
+    } else if (source.includes("function Inr(e){let t=(0,qnr.c)(242),")) {
+      const helper = modelGuardHelper().replace("S7.useEffect", "F8.useEffect");
+      source = replaceOnce(
+        source,
+        "function Inr(e){let t=(0,qnr.c)(242),",
+        `${helper}function Inr(e){let t=(0,qnr.c)(242),`,
+        "build-8881 composer model guard helper"
+      );
+      source = replaceOnce(
+        source,
+        "Ze=B1(ee.reasoningEffort,qe),Qe=",
+        "Ze=B1(ee.reasoningEffort,qe),MTKmodelIdentityGuardHook=MTKuseModelIdentityGuard(r,xe,Ze),Qe=",
+        "build-8881 live model and effort publication"
+      );
+    } else if (source.includes("function Onr(e){let t=(0,znr.c)(240),")) {
       const helper = modelGuardHelper().replace("S7.useEffect", "N8.useEffect");
       source = replaceOnce(
         source,

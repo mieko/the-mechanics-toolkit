@@ -296,6 +296,16 @@ function inspectAppliedMainBase(source) {
 
 function incomingRendererProfile(value) {
   if (value.includes("function rz(") && value.includes("function JR(")) {
+    const build8881Before = "var YR,XR,ZR,QR=e((()=>{YR=i(),vl(),C_(),XR=Z(),ZR=2}))";
+    const build8881After = "var YR,MTKtinrelayReact,XR,ZR,QR=e((()=>{YR=i(),vl(),C_(),MTKtinrelayReact=t(r(),1),XR=Z(),ZR=2}))";
+    if (value.includes(build8881Before) || value.includes(build8881After)) {
+      return {
+        cache: "YR", collapsedLines: "ZR", delegation: "rz", delegationJsx: "az",
+        helperJsx: "XR", jsx: "XR", message: "JR", messageComponent: "__",
+        moduleBefore: build8881Before, moduleAfter: build8881After,
+        labelClass: "text-size-chat-sm flex max-w-full items-center gap-1 px-1 py-0.5 text-codex-description"
+      };
+    }
     const moduleBefore = "var YR,XR,ZR,QR=e((()=>{YR=i(),Il(),h_(),XR=Z(),ZR=2}))";
     const moduleAfter = "var YR,MTKtinrelayReact,XR,ZR,QR=e((()=>{YR=i(),Il(),h_(),MTKtinrelayReact=t(r(),1),XR=Z(),ZR=2}))";
     if (value.includes(moduleBefore) || value.includes(moduleAfter)) {

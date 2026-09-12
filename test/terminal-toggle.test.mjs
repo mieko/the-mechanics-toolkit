@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { linuxBuild8881Contracts } from "../patches/terminal-toggle/profiles/linux.mjs";
 
 const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: terminal-toggle.test.mjs EXTRACTED_ASAR_ROOT");
@@ -22,6 +23,7 @@ assert.equal(
   1,
   "the terminal command is allowed while the composer or xterm editable owns focus"
 );
+const build8881 = source.includes("jQr=()=>{pMt.run({action:{type:`windows.terminal.toggle`,windowId:wh}})");
 const build7345 = source.includes("ccr=()=>{K9t.run({action:{type:`windows.terminal.toggle`,windowId:hx}})");
 const build7746 = source.includes("$bi=()=>{u1t.run({action:{type:`windows.terminal.toggle`,windowId:Wx}})");
 const build7942 = source.includes("pxi=()=>{d1t.run({action:{type:`windows.terminal.toggle`,windowId:Ux}})");
@@ -29,7 +31,8 @@ const build8109 = source.includes("lxi=()=>{d1t.run({action:{type:`windows.termi
 const build8378 = source.includes("qTi=()=>{C1t.run({action:{type:`windows.terminal.toggle`,windowId:Hx}})");
 const build8576 = source.includes("rEi=()=>{w1t.run({action:{type:`windows.terminal.toggle`,windowId:Vx}})");
 const build8690 = source.includes("YXr=()=>{jAt.run({action:{type:`windows.terminal.toggle`,windowId:Eh}})");
-if (!build7345 && !build7746 && !build7942 && !build8109 && !build8378 && !build8576 && !build8690) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
+const build8881Linux = source.includes(linuxBuild8881Contracts[2]);
+if (!build8881Linux && !build8881 && !build7345 && !build7746 && !build7942 && !build8109 && !build8378 && !build8576 && !build8690) assert.equal(count(source, "i=_s(uW,r)"), 1, "shortcut dispatch reads configured accelerators");
 assert.equal(
   count(source, "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u"),
   1,
@@ -40,7 +43,17 @@ assert.equal(
   1,
   "editable permission reaches the existing hotkey hook"
 );
-if (build8690) {
+if (build8881Linux) {
+  assert.equal(count(source, linuxBuild8881Contracts[2]), 1,
+    "the Linux command keeps the stock terminal action owner");
+  assert.equal(count(source, linuxBuild8881Contracts[3]), 1,
+    "the Linux configurable command remains routed through the stock terminal toggle action");
+} else if (build8881) {
+  assert.equal(count(source, "jQr=()=>{pMt.run({action:{type:`windows.terminal.toggle`,windowId:wh}})"), 1,
+    "the command keeps the stock terminal action owner");
+  assert.equal(count(source, "[`toggleTerminal`,jQr]"), 1,
+    "the configurable command remains routed through the stock terminal toggle action");
+} else if (build8690) {
   assert.equal(count(source, "YXr=()=>{jAt.run({action:{type:`windows.terminal.toggle`,windowId:Eh}})"), 1,
     "the command keeps the stock terminal action owner");
   assert.equal(count(source, "[`toggleTerminal`,YXr]"), 1,
@@ -98,7 +111,7 @@ process.stdout.write(`${JSON.stringify({
   command: "toggleTerminal",
   acceleratorOwner: "configured-keymap",
   composerFocused: "opens-terminal",
-  terminalFocused: build7746 || build7942 || build8109 || build8378 || build8576 || build8690 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
+  terminalFocused: build8881Linux || build8881 || build7746 || build7942 || build8109 || build8378 || build8576 || build8690 ? "stock-terminal-toggle-action" : "hides-bottom-panel-and-focuses-composer",
   hardcodedShortcutAdded: false
 }, null, 2)}\n`);
 

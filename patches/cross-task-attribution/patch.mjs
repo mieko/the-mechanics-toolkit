@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881 } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -101,6 +102,7 @@ function inspectPristine(source) {
   const labelAt = source.indexOf("localConversation.codexDelegationUserMessage.app");
   const delegation = containingFunction(source, labelAt);
   const profile = [
+    linuxBuild8881.component,
     {
       delegation: "Cb", delegationCache: "wb", delegationJsx: "Tb",
       wrapper: "vb", wrapperCache: "yb", wrapperJsx: "bb",
@@ -141,8 +143,28 @@ function inspectPristine(source) {
         "t[43]=_e,t[44]=de,t[45]=Ce,t[46]=we",
         "t[43]=_e,t[44]=de,t[45]=Ce,t[135]=MTKbubbleStyleOverride,t[46]=we"
       ]
+    },
+    {
+      delegation: "rz", delegationCache: "iz", delegationJsx: "az",
+      wrapper: "JR", wrapperCache: "YR", wrapperJsx: "XR",
+      bubble: "__", bubbleCache: "y_", collapsedLines: "ZR",
+      bubbleCacheSize: 135,
+      bubbleOwner: [
+        "turnId:k,cwd:A,hostId:j}=e,",
+        "turnId:k,cwd:A,hostId:j,messageBubbleStyle:MTKbubbleStyleOverride}=e,"
+      ],
+      bubbleDependency: [
+        "t[43]!==_e||t[44]!==fe||t[45]!==Ce){",
+        "t[43]!==_e||t[44]!==fe||t[45]!==Ce||t[135]!==MTKbubbleStyleOverride){"
+      ],
+      bubbleStorage: [
+        "t[43]=_e,t[44]=fe,t[45]=Ce,t[46]=we",
+        "t[43]=_e,t[44]=fe,t[45]=Ce,t[135]=MTKbubbleStyleOverride,t[46]=we"
+      ]
     }
-  ].find(candidate => delegation.text.startsWith(`function ${candidate.delegation}(`));
+  ].find(candidate => delegation.text.startsWith(`function ${candidate.delegation}(`) &&
+    source.includes(`function ${candidate.bubble}(`) &&
+    (candidate.marker == null || source.includes(candidate.marker)));
   if (profile == null) throw new Error("Upstream changed: attribution component family is unknown");
   const wrapper = functionAt(source, source.indexOf(`function ${profile.wrapper}(`));
   const bubble = functionAt(source, source.indexOf(`function ${profile.bubble}(`));
@@ -257,6 +279,14 @@ function resolveImports(ownerSource, ownerFile) {
   const appInitialFile = ownedImport(ownerFile, initialImport.groups.relative);
   const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  if (appPrimary.includes(linuxBuild8881.titleOwner)) {
+    return {
+      before: primaryImport[0],
+      after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, linuxBuild8881.titleAtom)} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, linuxBuild8881.storeHook)),
+      storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, linuxBuild8881.storeScope))
+    };
+  }
   if (appPrimary.includes("pt=jm(xNn,{hostId:Je??`local`,threadId:n})??Ue?.title??null")) {
     return {
       before: primaryImport[0],
@@ -269,6 +299,15 @@ function resolveImports(ownerSource, ownerFile) {
     return {
       before: primaryImport[0],
       after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, "tOn")} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
+      storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, currentStoreHookInternal(appInitial))),
+      storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
+    };
+  }
+  if (appPrimary.includes("Q2t=Jf(o_,(e,{get:t})=>{") &&
+      appPrimary.includes("X2t({...n,localTitle:r})")) {
+    return {
+      before: primaryImport[0],
+      after: `import{${primaryImport.groups.specifiers},${exportedAs(appPrimary, "Q2t")} as MTKtitleAtom}from"${primaryImport.groups.relative}";`,
       storeHook: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, currentStoreHookInternal(appInitial))),
       storeScope: importedLocal(initialImport.groups.specifiers, exportedAs(appInitial, "Q"))
     };

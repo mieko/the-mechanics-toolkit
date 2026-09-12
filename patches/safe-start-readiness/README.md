@@ -14,6 +14,9 @@ terminal, or kill a wedged process; those decisions belong to `tmtk-restart`.
 Every staged fleet must include this infrastructure patch. Without it, a healthy candidate cannot
 produce the supervisor's acceptance signal and would be misclassified as an unready launch.
 
-The current transform is qualified only for Codex Desktop `26.908.31457` (`8690`) and fails closed
-when the app-shell owner, trusted IPC boundary, or stock marker writer changes. The current fleet's
-supervised installation produced this marker and reached healthy renderer readiness.
+The transform is qualified on Codex Desktop `26.908.31457` (`8690`) for macOS ARM64 and
+`26.908.40834` (`8881`) for Ubuntu 24.04 ARM64. It fails closed when the app-shell owner, trusted
+IPC boundary, or stock marker writer changes. Both qualified fleets produced the private marker
+through supervised installation and reached healthy renderer readiness. The Linux run also froze
+a genuine task and exact bundled-CLI ancestor before replacement; controlled failure, terminal
+rescue, and known-good restoration remain separate open gates.

@@ -364,7 +364,9 @@ function inspectAppliedMain(source) {
 function inspectTurnAnchors(rendererSource, turnSource, mainSource) {
   const helpers = helperSlice(rendererSource);
   for (const marker of [
-    "function MTKtinrelayOutgoingTurnPresentations(",
+    "function MTKtinrelayOutgoingTurnPresentations({conversationId:e,turnId:t,turnFinished:MTKturnFinished})",
+    "function MTKtinrelayUseOutgoingTurnFinished(",
+    "function MTKtinrelayMarkOutgoingTurnFinished(",
     'dispatchMessage("mtk-tinrelay-outgoing-anchors-list"',
     'subscribe("mtk-tinrelay-outgoing-anchors-result"',
     "MTKtinrelayOutgoingAnchorRecord(t?.anchor)",
@@ -377,6 +379,12 @@ function inspectTurnAnchors(rendererSource, turnSource, mainSource) {
   }
   if (count(rendererSource + (turnSource ?? ""), "(MTKtinrelayOutgoingTurnPresentations,{conversationId:") !== 1) {
     throw new Error("Tinrelay outgoing turn presentation is not unique");
+  }
+  if (countMatches(
+    rendererSource + (turnSource ?? ""),
+    /\(MTKtinrelayOutgoingTurnPresentations,\{conversationId:[$A-Z_a-z][$\w]*,turnId:[$A-Z_a-z][$\w]*,turnFinished:![$A-Z_a-z][$\w]*&&\([$A-Z_a-z][$\w]*\.status===`cancelled`\|\|[$A-Z_a-z][$\w]*\?\.completed===!0&&[$A-Z_a-z][$\w]*\?\.phase===`final_answer`\)\}\)/g
+  ) !== 1) {
+    throw new Error("Tinrelay outgoing turn presentation does not follow source-turn completion");
   }
   for (const marker of [
     '"outgoing-anchors"',
@@ -504,12 +512,24 @@ function rendererHelpers(hostBus, jsx = "Tb") {
   const legacy = legacyAnchorRendererHelpers(hostBus);
   const current = legacy
     .replace(/MTKtinrelayOutgoingAnchorNotify\(t\),[$A-Z_a-z][$\w]*\.dispatchMessage\("mtk-tinrelay-outgoing-anchor-remember",\{record:\{contract:e\.contract,sourceThreadId:e\.sourceThreadId,sourceTurnId:e\.sourceTurnId,transmissionId:e\.transmissionId,recordedAtMs:e\.recordedAtMs\}\}\);return!0/, "MTKtinrelayOutgoingAnchorNotify(t);return!0")
-    .replace(legacyAnchorOutgoingExec(hostBus), currentOutgoingExec(hostBus));
-  if (current === legacy || current.includes('dispatchMessage("mtk-tinrelay-outgoing-anchor-remember"') ||
-      !current.includes("MTKtinrelayOutgoingAnchorRecord(t?.anchor)")) {
+    .replace(legacyAnchorOutgoingExec(hostBus), currentOutgoingExec(hostBus))
+    .replace(
+      "function MTKtinrelayOutgoingTurnPresentations({conversationId:e,turnId:t})",
+      "function MTKtinrelayOutgoingTurnPresentations({conversationId:e,turnId:t,turnFinished:MTKturnFinished})"
+    )
+    .replace("},[e,t,r]),i.length===0?null:", "},[e,t,r]),MTKtinrelayReact.useEffect(()=>{MTKturnFinished&&i.length>0&&MTKtinrelayMarkOutgoingTurnFinished(e,t)},[e,t,MTKturnFinished,i.length]),!MTKturnFinished||i.length===0?null:");
+  const finishHelpers = "const MTKtinrelayFinishedTurnLimit=4096,MTKtinrelayFinishedTurns=new Set,MTKtinrelayFinishedTurnListeners=new Set;function MTKtinrelayOutgoingTurnKey(e,t){return typeof e===\`string\`&&e.length>0&&typeof t===\`string\`&&t.length>0?e+\`\\0\`+t:null}function MTKtinrelayMarkOutgoingTurnFinished(e,t){let n=MTKtinrelayOutgoingTurnKey(e,t);if(n==null||MTKtinrelayFinishedTurns.has(n))return!1;MTKtinrelayFinishedTurns.add(n);while(MTKtinrelayFinishedTurns.size>MTKtinrelayFinishedTurnLimit)MTKtinrelayFinishedTurns.delete(MTKtinrelayFinishedTurns.values().next().value);for(let e of MTKtinrelayFinishedTurnListeners)e();return!0}function MTKtinrelayUseOutgoingTurnFinished(e,t){let n=MTKtinrelayOutgoingTurnKey(e,t);return MTKtinrelayReact.useSyncExternalStore(e=>(MTKtinrelayFinishedTurnListeners.add(e),()=>MTKtinrelayFinishedTurnListeners.delete(e)),()=>n!=null&&MTKtinrelayFinishedTurns.has(n),()=>!1)}";
+  const finishInsertion = current.indexOf("function MTKtinrelayOutgoingTurnPresentations(");
+  if (finishInsertion < 0) throw new Error("Tinrelay turn-finish helper insertion failed");
+  const withFinishHelpers = current.slice(0, finishInsertion) + finishHelpers + current.slice(finishInsertion);
+  if (withFinishHelpers === legacy || withFinishHelpers.includes('dispatchMessage("mtk-tinrelay-outgoing-anchor-remember"') ||
+      !withFinishHelpers.includes("MTKtinrelayOutgoingAnchorRecord(t?.anchor)") ||
+      !withFinishHelpers.includes("turnFinished:MTKturnFinished") ||
+      !withFinishHelpers.includes("MTKtinrelayMarkOutgoingTurnFinished(e,t)") ||
+      !withFinishHelpers.includes("!MTKturnFinished||i.length===0?null:")) {
     throw new Error("Tinrelay acknowledged renderer helper construction failed");
   }
-  const upgraded = jsxDialect(upgradeOutgoingPresentation(current), jsx);
+  const upgraded = jsxDialect(upgradeOutgoingPresentation(withFinishHelpers), jsx);
   const insertion = upgraded.indexOf("function MTKtinrelayOutgoingExec(");
   if (insertion < 0) throw new Error("Tinrelay live-anchor renderer helper construction failed");
   return upgraded.slice(0, insertion) + liveAnchorResultSubscription(hostBus) + upgraded.slice(insertion);
@@ -557,7 +577,7 @@ function legacyAnchorOutgoingExec(hostBus) {
 }
 
 function currentOutgoingExec(hostBus) {
-  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,MTKsetTinrelayOutgoingEvent]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;MTKsetTinrelayOutgoingEvent(s&&a==null?null:n),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(t,{item:n,...a})}`;
+  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,MTKsetTinrelayOutgoingEvent]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null),MTKturnFinished=MTKtinrelayUseOutgoingTurnFinished(r,i);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;MTKsetTinrelayOutgoingEvent(s&&a==null?null:n),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?MTKturnFinished?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(t,{item:n,...a})}`;
 }
 
 function previousAcknowledgedOutgoingExec(hostBus) {
@@ -631,6 +651,27 @@ function sourceContextProfile(value, position) {
   return {conversationId, turnId};
 }
 
+function turnCompletionExpression(value, position) {
+  const owner = containingFunction(value, position);
+  const turnBindings = [...new Set([...owner.text.matchAll(
+    /(?:^|[,{])turn:(?<value>[$A-Z_a-z][$\w]*)(?=[,}])/g
+  )].map(match => match.groups.value))];
+  const progressBindings = [...new Set([...owner.text.matchAll(
+    /isTurnInProgress:(?<value>[$A-Z_a-z][$\w]*)(?=[,}])/g
+  )].map(match => match.groups.value))];
+  const assistantBindings = [...new Set([...owner.text.matchAll(new RegExp(
+    `\\{userItems:${id},assistantItem:(?<value>${id}),systemEventItem:${id},`, "g"
+  ))].map(match => match.groups.value))];
+  if (turnBindings.length !== 1 || progressBindings.length !== 1 || assistantBindings.length !== 1) {
+    throw new Error(
+      `Upstream changed: source-turn completion owners turn=${turnBindings.length} ` +
+      `progress=${progressBindings.length} assistant=${assistantBindings.length}`
+    );
+  }
+  const turn = turnBindings[0], progress = progressBindings[0], assistant = assistantBindings[0];
+  return `!${progress}&&(${turn}.status===\`cancelled\`||${assistant}?.completed===!0&&${assistant}?.phase===\`final_answer\`)`;
+}
+
 function patchAssistantPresentations(value, turnValue, profile) {
   if (profile.splitTurn) {
     if (turnValue == null) throw new Error("Upstream changed: split turn renderer is missing");
@@ -660,10 +701,11 @@ function patchAssistantPresentations(value, turnValue, profile) {
     if (stagedReceipts.length > 1) throw new Error("Upstream changed: post-user outbound receipt boundary is ambiguous");
     if (stagedReceipts.length === 1) {
       const stagedReceipt = stagedReceipts[0];
+      const turnFinished = turnCompletionExpression(turnValue, stagedReceipt.index);
       turnValue = replaceOnce(
         turnValue,
         stagedReceipt[0],
-        `${stagedReceipt.groups.call};$(\`mtk-tinrelay-outgoing-turn\`,(0,${stagedReceipt.groups.jsx}.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${stagedReceipt.groups.conversationId},turnId:${stagedReceipt.groups.turnId}}),{canOwnLatestTurnFollowContent:!1});${stagedReceipt.groups.boundary}`,
+        `${stagedReceipt.groups.call};$(\`mtk-tinrelay-outgoing-turn\`,(0,${stagedReceipt.groups.jsx}.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${stagedReceipt.groups.conversationId},turnId:${stagedReceipt.groups.turnId},turnFinished:${turnFinished}}),{canOwnLatestTurnFollowContent:!1});${stagedReceipt.groups.boundary}`,
         "Tinrelay outgoing presentation after the user request and before activity"
       );
       return {rendererSource: value, turnSource: turnValue};
@@ -673,10 +715,11 @@ function patchAssistantPresentations(value, turnValue, profile) {
       /(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<prelude>[$A-Z_a-z][$\w]*),(?<body>[$A-Z_a-z][$\w]*),/g,
       "turn renderer receipt and body"
     );
+    const turnFinished = turnCompletionExpression(turnValue, receipt.index);
     turnValue = replaceOnce(
       turnValue,
       receipt[0],
-      `${receipt.groups.call},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId}}),${receipt.groups.prelude},${receipt.groups.body},`,
+      `${receipt.groups.call},(0,Q.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${receipt.groups.conversationId},turnId:${receipt.groups.turnId},turnFinished:${turnFinished}}),${receipt.groups.prelude},${receipt.groups.body},`,
       "Tinrelay outgoing presentation before the stock turn body"
     );
     return {rendererSource: value, turnSource: turnValue};
@@ -691,12 +734,14 @@ function patchAssistantPresentations(value, turnValue, profile) {
   const existing = [...owner.text.matchAll(/(?<call>\(0,[$A-Z_a-z][$\w]*\.jsx\)\(MTKOutboundTurnReceipts,\{conversationId:(?<conversationId>[$A-Z_a-z][$\w]*),turnId:(?<turnId>[$A-Z_a-z][$\w]*)\}\)),(?<body>[$A-Z_a-z][$\w]*),/g)];
   if (existing.length === 1) {
     const match = existing[0];
-    value = replaceOnce(value, match[0], `${match.groups.call},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId}}),${match.groups.body},`, "Tinrelay assistant turn presentation before the stock turn body");
+    const turnFinished = turnCompletionExpression(value, owner.start + match.index);
+    value = replaceOnce(value, match[0], `${match.groups.call},(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${match.groups.conversationId},turnId:${match.groups.turnId},turnFinished:${turnFinished}}),${match.groups.body},`, "Tinrelay assistant turn presentation before the stock turn body");
     return {rendererSource: value, turnSource: turnValue};
   }
   if (existing.length > 1) throw new Error("Upstream changed: assistant task receipt seam is not unique");
   const children = uniqueMatch(owner.text, /children:\[(?<first>[$A-Z_a-z][$\w]*),/g, "assistant message children");
-  value = replaceOnce(value, children[0], `children:[(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId}}),${children.groups.first},`, "Tinrelay assistant turn presentation before the stock turn body");
+  const turnFinished = turnCompletionExpression(value, owner.start);
+  value = replaceOnce(value, children[0], `children:[(0,Tb.jsx)(MTKtinrelayOutgoingTurnPresentations,{conversationId:${context.conversationId},turnId:${context.turnId},turnFinished:${turnFinished}}),${children.groups.first},`, "Tinrelay assistant turn presentation before the stock turn body");
   return {rendererSource: value, turnSource: turnValue};
 }
 

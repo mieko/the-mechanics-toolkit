@@ -1,0 +1,42 @@
+export const linuxBuild8881 = {
+  name: "Linux build-8881",
+  suffix: "8881Linux",
+  react: "E1",
+  jsx: "D1",
+  intl: "uv",
+  contracts: [
+    "function nzn(e){let t=(0,ozn.c)(143),",
+    "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,",
+    "t[60]=Te}else Te=t[60];let Ee=Te.length>0",
+    '(0,D1.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,D1.jsx)(lJt,{}),(0,D1.jsx)(NB,{showCustomizeSidebarAction:je,children:(0,D1.jsx)(B$t,{})}),!D&&_e===`header_icon`?(0,D1.jsx)(C1t,{sidebarMode:se}):null]})',
+    '(0,D1.jsx)(f1t,{showCustomizeSidebarAction:je,sidebarMode:se,showSearchNavItem:!1})',
+    "t[93]!==h||t[94]!==y||t[95]!==D||t[96]!==_e||t[97]!==J||t[98]!==Me||t[99]!==je||t[100]!==se?(",
+    "t[93]=h,t[94]=y,t[95]=D,t[96]=_e,t[97]=J,t[98]=Me,t[99]=je,t[100]=se,t[101]=He):He=t[101]"
+  ],
+  applied: [
+    'const MTK_SIDEBAR_ACTIONS_STORAGE_KEY="the-mechanics-toolkit:sidebar-global-actions-collapsed:v1"',
+    "function MTKuseSidebarActionCollapse8881Linux()",
+    "function MTKsidebarActionDisclosure8881Linux(",
+    "function MTKsidebarCollapsedDestinations8881Linux(",
+    'className:"flex size-8 items-center justify-center rounded-md text-secondary hover:bg-tertiary hover:text-primary cursor-pointer"',
+    "function nzn(e){let t=(0,ozn.c)(144),",
+    "[MTKsidebarActionsCollapsed,MTKtoggleSidebarActions]=MTKuseSidebarActionCollapse8881Linux()",
+    "Te=MTKsidebarCollapsedDestinations8881Linux(MTKsidebarActionsCollapsed,Te,pb.projects);let Ee=Te.length>0",
+    "MTKsidebarActionsCollapsed?null:(0,D1.jsx)(f1t,",
+    '!D&&_e===`header_icon`?(0,D1.jsx)(C1t,{sidebarMode:se}):null,(0,D1.jsx)(MTKsidebarActionDisclosure8881Linux,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
+    "t[143]!==MTKsidebarActionsCollapsed",
+    "t[143]=MTKsidebarActionsCollapsed,t[101]=He"
+  ],
+  ownerBefore: "function nzn(e){let t=(0,ozn.c)(143),",
+  ownerAfter: "function nzn(e){let t=(0,ozn.c)(144),",
+  stateBefore: "{desktopNavItemsEnabled:n,sidebarTriggerState:r}=e,",
+  destinationBefore: "t[60]=Te}else Te=t[60];let Ee=Te.length>0",
+  destinationAfter: "t[60]=Te}else Te=t[60];Te=MTKsidebarCollapsedDestinations8881Linux(MTKsidebarActionsCollapsed,Te,pb.projects);let Ee=Te.length>0",
+  headerBefore: '(0,D1.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,D1.jsx)(lJt,{}),(0,D1.jsx)(NB,{showCustomizeSidebarAction:je,children:(0,D1.jsx)(B$t,{})}),!D&&_e===`header_icon`?(0,D1.jsx)(C1t,{sidebarMode:se}):null]})',
+  headerAfter: '(0,D1.jsxs)(`div`,{className:`ms-auto flex items-center gap-1`,children:[(0,D1.jsx)(lJt,{}),(0,D1.jsx)(NB,{showCustomizeSidebarAction:je,children:(0,D1.jsx)(B$t,{})}),!D&&_e===`header_icon`?(0,D1.jsx)(C1t,{sidebarMode:se}):null,(0,D1.jsx)(MTKsidebarActionDisclosure8881Linux,{collapsed:MTKsidebarActionsCollapsed,onToggle:MTKtoggleSidebarActions})]})',
+  actionBefore: '(0,D1.jsx)(f1t,{showCustomizeSidebarAction:je,sidebarMode:se,showSearchNavItem:!1})',
+  memoBefore: "t[93]!==h||t[94]!==y||t[95]!==D||t[96]!==_e||t[97]!==J||t[98]!==Me||t[99]!==je||t[100]!==se?(",
+  memoAfter: "t[93]!==h||t[94]!==y||t[95]!==D||t[96]!==_e||t[97]!==J||t[98]!==Me||t[99]!==je||t[100]!==se||t[143]!==MTKsidebarActionsCollapsed?(",
+  assignmentBefore: "t[93]=h,t[94]=y,t[95]=D,t[96]=_e,t[97]=J,t[98]=Me,t[99]=je,t[100]=se,t[101]=He):He=t[101]",
+  assignmentAfter: "t[93]=h,t[94]=y,t[95]=D,t[96]=_e,t[97]=J,t[98]=Me,t[99]=je,t[100]=se,t[143]=MTKsidebarActionsCollapsed,t[101]=He):He=t[101]"
+};

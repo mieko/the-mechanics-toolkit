@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881 } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -88,6 +89,9 @@ function inspectState(value) {
     if (!value.includes("function MTKwaitLabelColor(") || value.includes(legacyTaskColorStyle)) {
       return "legacy-theme-label";
     }
+    if (requiresDedicatedTitleSelector(value) && !value.includes("MTKwaitTitleAtom")) {
+      throw new Error("Unrecognized wait-thread roster patch: live-title selector is missing");
+    }
     return "applied";
   }
   if (present.some(Boolean)) throw new Error("Unrecognized wait-thread roster patch: partial markers");
@@ -109,17 +113,40 @@ function inspectPristine(value) {
 function patchSource(value) {
   const profile = rendererProfile(value);
   const imports = resolveTaskImports(value);
-  const helper = buildHelper(profile);
+  const helper = buildHelper(profile, imports.titleImport != null);
   const waitEntry = `{namespace:${profile.namespace},render:MTKrenderWaitThreads,renderAgentActivityIcon:${profile.icon},tool:\`wait_threads\`}`;
   let patched = replaceOnce(value, profile.functionText, `${helper}${profile.functionText}`, "wait roster helper");
   patched = replaceOnce(patched, profile.sendEntry, `${waitEntry},${profile.sendEntry}`, "wait roster registry entry");
-  return replaceOnce(patched, imports.before, imports.after, "wait roster task imports");
+  patched = replaceOnce(patched, imports.before, imports.after, "wait roster task imports");
+  if (imports.titleImport != null) {
+    patched = replaceOnce(
+      patched,
+      imports.titleImport.before,
+      imports.titleImport.after,
+      "wait roster stock live-title selector import"
+    );
+  }
+  return patched;
 }
 
-function buildHelper(profile) {
-  const helper = String.raw`
+function buildHelper(profile, useDedicatedTitleSelector = false) {
+  let helper = String.raw`
 function MTKwaitTargets(e){if(e==null||typeof e!=="object"||Array.isArray(e)||!Array.isArray(e.targets)||e.targets.length<1||e.targets.length>8)return null;let t=[];for(let n of e.targets){if(n==null||typeof n!=="object"||Array.isArray(n)||typeof n.threadId!=="string"||n.threadId.length<1||n.threadId.length>256||n.hostId!==void 0&&(typeof n.hostId!=="string"||n.hostId.length<1||n.hostId.length>256))return null;t.push({hostId:n.hostId??"local",threadId:n.threadId})}return t}function MTKwaitFallbackLabel(e){if(typeof e!=="string")return null;let t=e.trim();if(t.length===0)return null;let n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKwaitTaskLabel(e){let t=MTKwaitFallbackLabel(e);if(t==null)return null;try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return t;let r=n.packages?.crossTaskAttribution;if(r?.version!==2||typeof r.resolveTaskLabel!=="function")return t;let i=r.resolveTaskLabel({title:e});return typeof i==="string"&&i.trim().length>0?i.trim():t}catch{return t}}function MTKwaitTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKwaitResolvedTarget(e,t){let n=t?.kind==="local"?(t.conversation?.title??t.catalogTitle??t.summary?.title):t?.kind==="remote"?t.task?.title:null;return{color:MTKwaitTaskColor(e.threadId,n),known:t!=null,label:MTKwaitTaskLabel(n)??"Task "+e.threadId.slice(0,8)+"…",target:e,title:n}}function MTKwaitNavigate(e){let t=${profile.normalize}(e);${profile.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${profile.routeFlag}()?${profile.newRoute}(t):${profile.oldRoute}(t)})}function MTKWaitThreadRoster({item:e,variant:t,agentActivityIcon:n}){let r=MTKwaitStoreHook(MTKwaitStoreScope),i=MTKwaitTargets(e.arguments);if(i==null)return null;let a=i.map(e=>{let t=e.hostId==="local"?MTKwaitLocalThreadKey(e.threadId):MTKwaitRemoteThreadKey(e.threadId);return MTKwaitResolvedTarget(e,r.get(MTKwaitTaskAtom,t))}),o=e.completed?e.success===!1?"Wait failed for":"Waited for":"Waiting for",s=t==="row"&&n!==void 0,c=s?"summary-text":t,l=[];for(let e=0;e<a.length;e++){let t=a[e];e>0&&l.push((0,${profile.jsx}.jsx)("span",{className:"text-text-tertiary/70",children:e===a.length-1&&a.length>2?", and ":a.length===2?" and ":", "},"separator-"+e));let n=t.color==null?void 0:{color:"color-mix(in srgb, "+t.color+" 68%, var(--color-text) 32%)"},r=t.target.hostId+":"+t.target.threadId+":"+e;l.push(t.known?(0,${profile.jsx}.jsx)("button",{"aria-label":"Open "+(t.title??t.label),className:"cursor-pointer rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:e=>{e.preventDefault(),e.stopPropagation(),MTKwaitNavigate(t.target.threadId)},style:n,type:"button",children:t.label},r):(0,${profile.jsx}.jsx)("span",{className:"font-medium text-text-secondary",style:n,children:t.label},r))}let u=(0,${profile.jsx}.jsxs)(${profile.container},{"data-mtk-wait-thread-roster":!0,className:${profile.classNames}("text-size-chat",c==="row"?"text-text-tertiary/90":"text-text/40 group-hover/activity-header:text-default"),children:[c==="summary-text"?null:${profile.iconFunction}(e),(0,${profile.jsx}.jsxs)("span",{className:${profile.classNames}(c!=="summary-text"&&"min-w-0"),children:[(0,${profile.jsx}.jsx)(${profile.spinner},{active:!e.completed,children:o})," ",...l,e.completed?null:"…"]})]});return s?(0,${profile.jsx}.jsx)(${profile.summaryWrapper},{icon:n,summary:u}):u}function MTKrenderWaitThreads(e,t,n){return(0,${profile.jsx}.jsx)(MTKWaitThreadRoster,{agentActivityIcon:n,item:e,variant:t})}
 `;
+  if (useDedicatedTitleSelector) {
+    helper = replaceOnce(
+      helper,
+      'function MTKwaitResolvedTarget(e,t){let n=t?.kind==="local"?(t.conversation?.title??t.catalogTitle??t.summary?.title):t?.kind==="remote"?t.task?.title:null;return{color:MTKwaitTaskColor(e.threadId,n),known:t!=null,label:MTKwaitTaskLabel(n)??"Task "+e.threadId.slice(0,8)+"…",target:e,title:n}}',
+      'function MTKwaitResolvedTarget(e,t,n){let r=n??(t?.kind==="local"?(t.conversation?.title??t.catalogTitle??t.summary?.title):t?.kind==="remote"?t.task?.title:null);return{color:MTKwaitTaskColor(e.threadId,r),known:t!=null||n!=null,label:MTKwaitTaskLabel(r)??"Task "+e.threadId.slice(0,8)+"…",target:e,title:r}}',
+      "wait title resolver"
+    );
+    helper = replaceOnce(
+      helper,
+      "return MTKwaitResolvedTarget(e,r.get(MTKwaitTaskAtom,t))",
+      'return MTKwaitResolvedTarget(e,r.get(MTKwaitTaskAtom,t),r.get(MTKwaitTitleAtom,{hostId:e.hostId,threadId:e.threadId}))',
+      "wait title lookup"
+    );
+  }
   const themed = helper.replace(legacyTaskColorFunction, themedTaskColorFunctions).replace(legacyTaskColorStyle, themedTaskColorStyle);
   if (!themed.includes(themedTaskColorFunctions) || !themed.includes(themedTaskColorStyle)) {
     throw new Error("unrecognized wait roster theme-color seam");
@@ -197,6 +224,12 @@ function resolveTaskImports(ownerSource) {
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
   const profiles = [
+    {...taskImportProfile(linuxBuild8881.taskImports), titleSelector: linuxBuild8881.titleSelector},
+    {...taskImportProfile(["function Jcs(){", "KB=rm(Q,", ["gm", "Q", "KB", "yk", "bk"]]), titleSelector: {
+      owner: "Q2t=Jf(o_,(e,{get:t})=>{",
+      helper: "X2t({...n,localTitle:r})",
+      internal: "Q2t"
+    }},
     ["function Ocs(){", "KB=am(Q,", ["vm", "BR", "KB", "yk", "bk"]],
     ["function QMn(){", "kW=Ny(Q,", ["ub", "Q", "kW", "PF", "FF"]],
     ["function ALs(){", "kW=Py(Q,", ["db", "Q", "kW", "FF", "IF"]],
@@ -205,16 +238,44 @@ function resolveTaskImports(ownerSource) {
     ["function qOs(){", "aW=Iy(Q,", ["pb", "Q", "aW", "QP", "$P"]],
     ["function g$c(e){", "VN=i_($,", ["A_", "$", "VN", "gk", "_k"]]
   ];
-  const match = profiles.find(([owner, atom]) => appInitial.includes(owner) && appInitial.includes(atom));
+  const normalizedProfiles = profiles.map(profile => Array.isArray(profile) ? taskImportProfile(profile) : profile);
+  const match = normalizedProfiles.find(profile => appInitial.includes(profile.owner) && appInitial.includes(profile.atom));
   if (match == null) throw new Error("Upstream changed: wait roster task metadata family is unknown");
   const aliases = ["MTKwaitStoreHook", "MTKwaitStoreScope", "MTKwaitTaskAtom", "MTKwaitLocalThreadKey", "MTKwaitRemoteThreadKey"];
-  const additions = match[2].map((internal, index) =>
+  const additions = match.internals.map((internal, index) =>
     `${exportedAs(appInitial, internal === "BR" ? "Q" : internal)} as ${aliases[index]}`
   );
+  let titleImport = null;
+  if (match.titleSelector != null) {
+    const imported = uniqueMatch(
+      ownerSource,
+      /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-primary-[^"]+\.js)";/g,
+      "app-primary import"
+    );
+    const appPrimaryFile = path.resolve(path.dirname(target), imported.groups.relative);
+    if (!appPrimaryFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
+    const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
+    if (!appPrimary.includes(match.titleSelector.owner) || !appPrimary.includes(match.titleSelector.helper)) {
+      throw new Error("Upstream changed: live-title selector owner is not recognized");
+    }
+    titleImport = {
+      before: imported[0],
+      after: `import{${imported.groups.specifiers},${exportedAs(appPrimary, match.titleSelector.internal)} as MTKwaitTitleAtom}from"${imported.groups.relative}";`
+    };
+  }
   return {
     before: importMatch[0],
-    after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`
+    after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+    titleImport
   };
+}
+
+function requiresDedicatedTitleSelector(ownerSource) {
+  return resolveTaskImports(ownerSource).titleImport != null;
+}
+
+function taskImportProfile([owner, atom, internals]) {
+  return {owner, atom, internals};
 }
 
 function uniqueOwner() {

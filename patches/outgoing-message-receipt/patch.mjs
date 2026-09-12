@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881 } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -134,6 +135,7 @@ function inspectState() {
     'padding:"0.75rem"',
     "data-mtk-outgoing-message-receipt"
   ];
+  if (requiresDedicatedTitleSelector(source)) ownerMarkers.push("MTKoutboundTitleAtom");
   const conversationMarkers = [
     "const MTKoutboundReceiptContract=",
     "function MTKoutboundRemember(",
@@ -250,11 +252,19 @@ function patchSource(value) {
   const imports = resolveTaskImports(value);
   const red = `{namespace:${send.namespace},render:${send.genericRender},renderAgentActivityIcon:${send.icon},tool:${send.sendTool}}`;
   const green = `{namespace:${send.namespace},persistentInCollapsedConversation:!0,render:MTKrenderOutboundMessage,renderAgentActivityIcon:${send.icon},standaloneInConversation:!0,tool:${send.sendTool}}`;
-  const helper = buildHelper(send);
+  const helper = buildHelper(send, imports.titleImport != null);
 
   let patched = replaceOnce(value, send.functionText, `${helper}${send.functionText}`, "outbound renderer helper");
   patched = replaceOnce(patched, red, green, "send-message registry entry");
   patched = replaceOnce(patched, imports.before, imports.after, "outbound task imports");
+  if (imports.titleImport != null) {
+    patched = addImportSpecifier(
+      patched,
+      imports.titleImport.relative,
+      `${imports.titleImport.exported} as MTKoutboundTitleAtom`,
+      "stock live-title selector import"
+    );
+  }
   patched = addImportSpecifier(patched, presentation.appRelative, `${presentation.tooltipExport} as MTKoutboundHover`, "stock hover import");
   patched = addImportSpecifier(patched, presentation.formatterRelative, `${presentation.formatterExport} as MTKoutboundFormattedText`, "stock message formatter import");
   patched = replaceOnce(patched, "export{", "export{MTKOutboundMessageReceipt as MTKoutboundReceipt,", "outbound receipt export");
@@ -264,9 +274,13 @@ function patchSource(value) {
   return patched;
 }
 
-function buildHelper(send) {
+function buildHelper(send, useDedicatedTitleSelector = false) {
+  const title = useDedicatedTitleSelector
+    ? 't.get(MTKoutboundTitleAtom,{hostId:n.hostId??"local",threadId:n.threadId})??('
+    : "";
+  const titleEnd = useDedicatedTitleSelector ? ")" : "";
   const helper = String.raw`
-function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null,o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0,i){let a=MTKoutboundArguments(e.arguments);if(t==="row"&&a!=null){if(e.completed&&e.success===!0&&typeof e.callId==="string"&&e.callId.length>0&&i!=null&&typeof i.conversationId==="string"&&i.conversationId.length>0&&typeof i.turnId==="string"&&i.turnId.length>0&&typeof globalThis.__MTK_OUTBOUND_REMEMBER__==="function"){let t={callId:e.callId,contract:"outgoing-message-receipt-v1",prompt:a.prompt,recordedAtMs:Date.now(),sourceThreadId:i.conversationId,sourceTurnId:i.turnId,targetHostId:a.hostId??"local",targetThreadId:a.threadId};if(globalThis.__MTK_OUTBOUND_REMEMBER__(t)===!0)return null}return(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e})}return ${send.genericRender}(e,t,n,r)}
+function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=${title}i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null${titleEnd},o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0,i){let a=MTKoutboundArguments(e.arguments);if(t==="row"&&a!=null){if(e.completed&&e.success===!0&&typeof e.callId==="string"&&e.callId.length>0&&i!=null&&typeof i.conversationId==="string"&&i.conversationId.length>0&&typeof i.turnId==="string"&&i.turnId.length>0&&typeof globalThis.__MTK_OUTBOUND_REMEMBER__==="function"){let t={callId:e.callId,contract:"outgoing-message-receipt-v1",prompt:a.prompt,recordedAtMs:Date.now(),sourceThreadId:i.conversationId,sourceTurnId:i.turnId,targetHostId:a.hostId??"local",targetThreadId:a.threadId};if(globalThis.__MTK_OUTBOUND_REMEMBER__(t)===!0)return null}return(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e})}return ${send.genericRender}(e,t,n,r)}
 `;
   const themed = helper.replace(legacyTaskColorFunction, themedTaskColorFunctions).replace(legacyTaskColorStyle, themedTaskColorStyle);
   if (!themed.includes(themedTaskColorFunctions) || !themed.includes(themedTaskColorStyle)) {
@@ -282,7 +296,7 @@ function inspectPristineConversation(value, turnValue = conversationTurnSource) 
   }
   const dynamic = dynamicRendererProfile(value);
   if (dynamic.variant.startsWith("split-")) {
-    splitTurnProfile(turnValue);
+    splitTurnProfile(turnValue, linuxBuild8881.turn);
   } else {
     assistantProfile(value);
   }
@@ -319,7 +333,7 @@ function patchConversation(value, turnValue) {
     "outbound source turn context"
   );
   if (dynamic.variant.startsWith("split-")) {
-    const turn = splitTurnProfile(turnValue);
+    const turn = splitTurnProfile(turnValue, linuxBuild8881.turn);
     patched = replaceOnce(
       patched,
       "export{",
@@ -392,6 +406,84 @@ function ownerImportProfile(value) {
 }
 
 function dynamicRendererProfile(value) {
+  const linux = linuxBuild8881.dynamic;
+  if (value.includes(linux.before) && value.includes(linux.call) && value.includes(linux.parentBefore)) {
+    const start = value.indexOf(linux.owner);
+    const owner = functionAt(value, start);
+    const patchedFunction = replaceOnce(
+      owner.text,
+      linux.before,
+      linux.after,
+      "Linux build-8881 split dynamic renderer context body"
+    );
+    if (count(value, linux.call) !== 1) {
+      throw new Error(`Upstream changed: found ${count(value, linux.call)} Linux build-8881 dynamic renderer calls`);
+    }
+    const callIndex = value.indexOf(linux.call);
+    const parent = containingFunction(value, callIndex);
+    if (!parent.text.startsWith(linux.parentBefore) || !parent.text.includes(linux.parentTurn)) {
+      throw new Error("Upstream changed: Linux build-8881 source-turn owner is ambiguous");
+    }
+    const patchedParent = replaceOnce(
+      parent.text,
+      linux.parentBefore,
+      linux.parentAfter,
+      "Linux build-8881 source-turn cache size"
+    );
+    const patchedCall = linux.call
+      .replace(linux.callDependencyBefore, linux.callDependencyAfter)
+      .replace(linux.callBodyBefore, linux.callBodyAfter)
+      .replace(linux.callStorageBefore, linux.callStorageAfter);
+    return {
+      variant: "split-8881-linux",
+      functionText: owner.text,
+      patchedFunction,
+      callText: parent.text,
+      patchedCallText: replaceOnce(patchedParent, linux.call, patchedCall, "Linux build-8881 source-turn call"),
+      helperBoundary: linux.helperBoundary,
+      react: linux.react,
+      jsx: linux.jsx
+    };
+  }
+  if (value.includes("function Cz(") && value.includes("Ih(o)?.render?.(o,l,i,c)")) {
+    const start = value.indexOf("function Cz(");
+    const owner = functionAt(value, start);
+    const patchedFunction = replaceOnce(
+      owner.text,
+      "function Cz(e){let t=(0,wz.c)(16),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s;if(Xt(`off`,n)===`stopped`)return null;let u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=Ih(o)?.render?.(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4]",
+      "function Cz(e){let t=(0,wz.c)(17),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s,sourceTurnId:h}=e,c=a===void 0||a,l=s===void 0?`row`:s;if(Xt(`off`,n)===`stopped`)return null;let u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l||t[16]!==h?(u=Ih(o)?.render?.(o,l,i,c,{conversationId:n,turnId:h}),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[16]=h,t[4]=u):u=t[4]",
+      "build-8881 split dynamic renderer context body"
+    );
+    const call = uniqueMatch(
+      value,
+      /\(e=\(0,\$\.jsx\)\(Cz,\{agentActivityIcon:Ie,conversationId:f,enableTimelineTargets:we,item:n\}\),t\[354\]=Ie,t\[355\]=f,t\[356\]=we,t\[357\]=n,t\[358\]=e\)/g,
+      "build-8881 split conversation dynamic renderer call"
+    );
+    const parent = containingFunction(value, call.index);
+    if (!parent.text.startsWith("function NW(e){let t=(0,JW.c)(371),") || !parent.text.includes("turnId:T,")) {
+      throw new Error("Upstream changed: build-8881 source-turn owner is ambiguous");
+    }
+    const patchedParent = replaceOnce(
+      parent.text,
+      "function NW(e){let t=(0,JW.c)(371),",
+      "function NW(e){let t=(0,JW.c)(372),",
+      "build-8881 source-turn cache size"
+    );
+    const patchedCall = call[0]
+      .replace("t[357]!==n?", "t[357]!==n||t[371]!==T?")
+      .replace("enableTimelineTargets:we,item:n}", "enableTimelineTargets:we,item:n,sourceTurnId:T}")
+      .replace("t[357]=n,t[358]=e", "t[357]=n,t[371]=T,t[358]=e");
+    return {
+      variant: "split-8881",
+      functionText: owner.text,
+      patchedFunction,
+      callText: parent.text,
+      patchedCallText: replaceOnce(patchedParent, call[0], patchedCall, "build-8881 source-turn call"),
+      helperBoundary: "function Cz(",
+      react: "t(r(),1)",
+      jsx: "Tz"
+    };
+  }
   if (value.includes("function Cz(") && value.includes("wh(o)?.render?.(o,l,i,c)")) {
     const start = value.indexOf("function Cz(");
     const owner = functionAt(value, start);
@@ -520,14 +612,31 @@ function dynamicRendererProfile(value) {
   };
 }
 
-function splitTurnProfile(value) {
+function splitTurnProfile(value, linux) {
   const relative = `./${path.basename(conversationTarget)}`;
   const imported = uniqueMatch(
     value,
     new RegExp(`import\\{(?<specifiers>[^}]+)\\}from"${escapeRegExp(relative)}";`, "g"),
     "split conversation renderer import"
   );
+  if (linux != null && value.includes(linux.owner) && value.includes(linux.marker) && value.includes(linux.boundary)) {
+    const before = linux.boundary;
+    return {
+      importText: imported[0], specifiers: imported.groups.specifiers, relative,
+      before,
+      after: `$(\`mtk-outbound-turn-receipts\`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:${linux.conversationId},turnId:${linux.turnId}}),{canOwnLatestTurnFollowContent:!1});${before}`
+    };
+  }
   if (!value.includes("function _i(") || !value.includes("{conversationId:s")) {
+    if (value.includes("function bi(e){let t=(0,Ki.c)(216),") && value.includes("conversationId:o") &&
+        value.includes("turnId:m") && value.includes("let Ha=za.length,Ua={")) {
+      const before = "let Ha=za.length,Ua={";
+      return {
+        importText: imported[0], specifiers: imported.groups.specifiers, relative,
+        before,
+        after: '$(`mtk-outbound-turn-receipts`,(0,Q.jsx)(MTKOutboundTurnReceipts,{conversationId:o,turnId:m}),{canOwnLatestTurnFollowContent:!1});let Ha=za.length,Ua={'
+      };
+    }
     if (value.includes("function bi(e){let t=(0,Ki.c)(216),") && value.includes("conversationId:o") &&
         value.includes("turnId:p") && value.includes("let Ha=za.length,Ua={")) {
       const before = "let Ha=za.length,Ua={";
@@ -945,6 +1054,68 @@ function resolveTaskImports(ownerSource) {
   const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
   if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
   const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  const linux = linuxBuild8881.taskImports;
+  if (appInitial.includes(linux.appRoot) && appInitial.includes(linux.taskOwner)) {
+    const titleImport = uniqueMatch(
+      ownerSource,
+      /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-primary-[^"]+\.js)";/g,
+      "app-primary import"
+    );
+    const appPrimaryFile = path.resolve(path.dirname(target), titleImport.groups.relative);
+    if (!appPrimaryFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
+    const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
+    if (!appPrimary.includes(linux.titleOwner) || !appPrimary.includes(linux.titleHelper)) {
+      throw new Error("Upstream changed: Linux build-8881 live-title selector owner is not recognized");
+    }
+    const additions = [
+      `${exportedAs(appInitial, linux.storeHook)} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, linux.storeScope)} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, linux.taskAtom)} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, linux.localThreadKey)} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, linux.remoteThreadKey)} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      titleImport: {
+        relative: titleImport.groups.relative,
+        exported: exportedAs(appPrimary, linux.titleAtom)
+      },
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
+  if (appInitial.includes("function Jcs(){") && appInitial.includes("KB=rm(Q,")) {
+    const titleImport = uniqueMatch(
+      ownerSource,
+      /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-primary-[^"]+\.js)";/g,
+      "app-primary import"
+    );
+    const appPrimaryFile = path.resolve(path.dirname(target), titleImport.groups.relative);
+    if (!appPrimaryFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
+    const appPrimary = fs.readFileSync(appPrimaryFile, "utf8");
+    if (!appPrimary.includes("Q2t=Jf(o_,(e,{get:t})=>{") ||
+        !appPrimary.includes("X2t({...n,localTitle:r})")) {
+      throw new Error("Upstream changed: build-8881 live-title selector owner is not recognized");
+    }
+    const additions = [
+      `${exportedAs(appInitial, "gm")} as MTKoutboundStoreHook`,
+      `${exportedAs(appInitial, "Q")} as MTKoutboundStoreScope`,
+      `${exportedAs(appInitial, "KB")} as MTKoutboundTaskAtom`,
+      `${exportedAs(appInitial, "yk")} as MTKoutboundLocalThreadKey`,
+      `${exportedAs(appInitial, "bk")} as MTKoutboundRemoteThreadKey`
+    ];
+    return {
+      before: importMatch[0],
+      after: `import{${importMatch.groups.specifiers},${additions.join(",")}}from"${importMatch.groups.relative}";`,
+      titleImport: {
+        relative: titleImport.groups.relative,
+        exported: exportedAs(appPrimary, "Q2t")
+      },
+      storeHook: "MTKoutboundStoreHook",
+      storeScope: "MTKoutboundStoreScope"
+    };
+  }
   if (appInitial.includes("function Ocs(){") && appInitial.includes("KB=am(Q,")) {
     const additions = [
       `${exportedAs(appInitial, "vm")} as MTKoutboundStoreHook`,
@@ -1102,6 +1273,20 @@ function resolveTaskImports(ownerSource) {
   };
 }
 
+function requiresDedicatedTitleSelector(ownerSource) {
+  const importMatch = uniqueMatch(
+    ownerSource,
+    /import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-initial-[^"]+\.js)";/g,
+    "app-initial import"
+  );
+  const appInitialFile = path.resolve(path.dirname(target), importMatch.groups.relative);
+  if (!appInitialFile.startsWith(path.resolve(root) + path.sep)) throw new Error("App import escaped extraction root");
+  const appInitial = fs.readFileSync(appInitialFile, "utf8");
+  const linux = linuxBuild8881.taskImports;
+  return appInitial.includes("function Jcs(){") && appInitial.includes("KB=rm(Q,") ||
+    appInitial.includes(linux.appRoot) && appInitial.includes(linux.taskOwner);
+}
+
 function resolvePresentationOwners(ownerSource) {
   const appImports = [...ownerSource.matchAll(/import\{(?<specifiers>[^}]+)\}from"(?<relative>\.\/app-(?:initial|primary)-[^"]+\.js)";/g)];
   const hoverOwners = appImports.map(appImport => {
@@ -1245,7 +1430,7 @@ function uniqueConversationOwner() {
     if (!name.endsWith(".js")) return false;
     const value = fs.readFileSync(path.join(assets, name), "utf8");
     const combined = value.includes("function Ub(") && value.includes("function Oy(");
-    const split = (value.includes("function Cz(") && value.includes("wh(o)?.render?.(o,l,i,c)")) ||
+    const split = (value.includes("function Cz(") && (value.includes("Ih(o)?.render?.(o,l,i,c)") || value.includes("wh(o)?.render?.(o,l,i,c)"))) ||
       (value.includes("function hx(") && value.includes("Mh(o)?.render?.(o,l,i,c)")) ||
       (value.includes("function gx(") && value.includes("Nh(o)?.render?.(o,l,i,c)")) ||
       value.includes("function MTKOutboundTurnReceipts(");

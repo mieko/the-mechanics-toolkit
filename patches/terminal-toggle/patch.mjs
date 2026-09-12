@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { linuxBuild8881Contracts } from "./profiles/linux.mjs";
 
 const command = process.argv[2];
 const root = path.resolve(process.argv[3] ?? "");
@@ -60,6 +61,14 @@ function inspectState(value) {
 }
 
 function verifyOwnedBehavior(value) {
+  if (linuxBuild8881Contracts.every(contract => count(value, contract) === 1)) return;
+  const build8881Contracts = [
+    "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u",
+    "allowWithinEditable:c,enabled:a,onKeyDown:l",
+    "jQr=()=>{pMt.run({action:{type:`windows.terminal.toggle`,windowId:wh}})",
+    "[`toggleTerminal`,jQr]"
+  ];
+  if (build8881Contracts.every(contract => count(value, contract) === 1)) return;
   const build8690Contracts = [
     "accelerators:i,allowRepeat:d,enabled:f,onlyWithin:p,yieldToSelectedText:u",
     "allowWithinEditable:c,enabled:a,onKeyDown:l",

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { linuxBuild8881 } from "../patches/outgoing-message-receipt/profiles/linux.mjs";
 
 const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: outgoing-message-receipt.test.mjs EXTRACTED_ASAR_ROOT");
@@ -46,6 +47,18 @@ const helperStart = owner.indexOf("function MTKoutboundArguments(");
 const helperEnd = owner.indexOf("function ", owner.indexOf("function MTKrenderOutboundMessage(") + 10);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, "outbound helper seam");
 const helper = owner.slice(helperStart, helperEnd);
+const dedicatedTitleOwner = fs.readdirSync(assets).some(name => {
+  if (!/^app-primary-.*\.js$/.test(name)) return false;
+  const source = fs.readFileSync(path.join(assets, name), "utf8");
+  const linux = linuxBuild8881.taskImports;
+  return source.includes("Q2t=Jf(o_,(e,{get:t})=>{") && source.includes("X2t({...n,localTitle:r})") ||
+    source.includes(linux.titleOwner) && source.includes(linux.titleHelper);
+});
+assert.equal(
+  helper.includes("MTKoutboundTitleAtom"),
+  dedicatedTitleOwner,
+  "build 8881 receipts use the stock live-title selector rather than metadata that omits active titles"
+);
 
 const jsxName = unique(
   helper,
@@ -67,8 +80,12 @@ const jsx = {
   jsx(type, props) { return {type, props}; },
   jsxs(type, props) { return {type, props}; }
 };
+const taskAtom = Symbol("task-atom");
+const titleAtom = Symbol("title-atom");
 const store = {
-  get(_atom, key) {
+  get(atom, key) {
+    if (atom === titleAtom && key?.threadId === "bridge-keeper") return "Bridge Keeper — Coordination";
+    if (dedicatedTitleOwner && atom === taskAtom) return null;
     if (key === "local:bridge-keeper") return {kind: "local", conversation: {title: "Bridge Keeper — Coordination"}};
     return null;
   }
@@ -89,13 +106,14 @@ const names = [
   navigation.oldRoute,
   genericRenderName
 ];
+if (dedicatedTitleOwner) names.splice(names.indexOf("MTKoutboundHover"), 0, "MTKoutboundTitleAtom");
 const values = [
   jsx,
   () => store,
   Symbol("store-scope"),
   id => `local:${id}`,
   id => `remote:${id}`,
-  Symbol("task-atom"),
+  taskAtom,
   function StockHover() {},
   function StockUserFormattedText() {},
   id => id,
@@ -105,6 +123,7 @@ const values = [
   id => `/local/${id}`,
   () => ({type: "stock-fallback"})
 ];
+if (dedicatedTitleOwner) values.splice(names.indexOf("MTKoutboundTitleAtom"), 0, titleAtom);
 const api = Function(...names, `${helper};return {MTKoutboundArguments,MTKoutboundLabel,MTKoutboundPreview,MTKoutboundTaskColor,MTKoutboundContrast,MTKoutboundLabelColor,MTKOutboundMessageReceipt,MTKrenderOutboundMessage}`)(...values);
 
 assert.equal(api.MTKoutboundArguments({threadId: "bridge-keeper", prompt: "hello"})?.threadId, "bridge-keeper");

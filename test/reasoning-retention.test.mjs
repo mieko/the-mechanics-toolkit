@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { linuxBuild8881 } from "../patches/reasoning-retention/profiles/linux.mjs";
 
 const extracted = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: reasoning-retention.test.mjs EXTRACTED_ASAR_ROOT");
@@ -59,7 +60,7 @@ assert.match(
 );
 assert.match(
   thread.source,
-  /(?:\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*|\[e,u,ue,x,pe|\[e,l,ce,x,q),MTKreasoningThreadRetained\]/,
+  /(?:\[e,[A-Za-z_$][\w$]*,G,[A-Za-z_$][\w$]*,[A-Za-z_$][\w$]*|\[e,u,ue,x,pe|\[e,l,ce,x,q|\[e,l,le,y,fe),MTKreasoningThreadRetained\]/,
   "the auto-collapse effect follows live retention-policy changes"
 );
 
@@ -75,7 +76,9 @@ assert.equal(
     turn.source.includes("preventAutoCollapse:Ot||yr||MTKreasoningRetained") ||
     turn.source.includes("preventAutoCollapse:Dt||br||MTKreasoningRetained") ||
     turn.source.includes("preventAutoCollapse:At||xr||MTKreasoningRetained") ||
-    turn.source.includes("preventAutoCollapse:Ot||Sr||MTKreasoningRetained"),
+    turn.source.includes("preventAutoCollapse:Ot||Sr||MTKreasoningRetained") ||
+    turn.source.includes("preventAutoCollapse:jt||Sr||MTKreasoningRetained") ||
+    turn.source.includes(linuxBuild8881.turn.appliedOwner),
   true,
   "selected policy reaches the stock collapse decision"
 );

@@ -12,8 +12,8 @@ try {
   const bundled = path.join(app, "Contents/Resources/codex");
   const replacement = path.join(scratch, "patched-codex");
   fs.mkdirSync(path.dirname(bundled), {recursive: true});
-  writeFakeCodex(bundled, "stock", "codex-cli 0.154.0-alpha.6.1");
-  writeFakeCodex(replacement, "patched", "codex-cli 0.154.0-alpha.6.1");
+  writeFakeCodex(bundled, "stock", "codex-cli 0.154.0-alpha.6.2");
+  writeFakeCodex(replacement, "patched", "codex-cli 0.154.0-alpha.6.2");
   const config = path.join(scratch, "toolkit.json");
   fs.writeFileSync(config, JSON.stringify({codexBinary: replacement}));
 

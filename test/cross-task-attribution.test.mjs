@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { linuxBuild8881 } from "../patches/cross-task-attribution/profiles/linux.mjs";
 
 const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: cross-task-attribution.test.mjs EXTRACTED_ASAR_ROOT");
@@ -61,6 +62,17 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
     assert.ok(titleOwner.includes("L0t=wx(Vv,") && titleOwner.includes("hasConversation") &&
       titleOwner.includes("liveTitle") && titleOwner.includes("localTitle:r"),
     "current split title atom retains its stock live-title selector owner");
+  } else if (titleInternal === "Q2t") {
+    assert.ok(titleOwner.includes("Q2t=Jf(o_,") && titleOwner.includes("hasConversation") &&
+      titleOwner.includes("liveTitle") && titleOwner.includes("X2t({...n,localTitle:r})"),
+    "build-8881 title atom retains its stock live-title selector owner");
+  } else if (titleInternal === linuxBuild8881.titleSelector.internal) {
+    const selector = linuxBuild8881.titleSelector;
+    assert.ok(titleOwner.includes(`${selector.internal}=${selector.atomFactory}(${selector.scope},`) &&
+      titleOwner.includes("hasConversation") && titleOwner.includes("liveTitle") &&
+      titleOwner.includes("localTitle:r") &&
+      titleOwner.includes(`${selector.helper}({...n,localTitle:r})`),
+    "Linux build-8881 title atom retains its stock live-title selector owner");
   } else {
     assert.ok(["SOn", "EI", "xNn"].includes(titleInternal), "title atom retains its stock ESM export owner");
   }
