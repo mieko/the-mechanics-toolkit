@@ -55,7 +55,9 @@ configuration leaves the last valid palette in force when runtime reload is enab
 The transform recognizes the build-`8109` owner that jointly holds the displayed model and
 normalized reasoning effort. A small React effect publishes that exact live pair to a DOM guard.
 The guard scopes itself to the existing composer root inside the exact task room and uses the stock
-model selector as the repair control.
+model selector as the repair control. A transient composer withdrawal, including switching into
+Dictate, supplies no contrary model evidence and does not trigger the guard; a concrete published
+model or effort must disagree with the pin.
 
 This patch requires task-visual-palette because the palette owns the private identity file, exact-ID
 validation, runtime reload, and pin subscription. It remains a separate patch so colors and identity
@@ -79,7 +81,8 @@ ownership, syntax, idempotence, upgrade from the first guard revision, and the f
 probe. The behavioral probe verifies exact model-and-effort comparison, visible expected/current
 diagnostics, the in-editor recovery instruction, draft-preserving editor lock, submit suppression,
 selector availability, platform-native session override from both clickable surfaces, recovery
-after the live pair matches, and stock behavior for an unpinned task. It also checks the light-theme
+after the live pair matches, no false alert while the composer publication is transiently absent,
+and stock behavior for an unpinned task. It also checks the light-theme
 recovery treatment rather than assuming the dark warning color will remain readable on a pale
 composer.
 

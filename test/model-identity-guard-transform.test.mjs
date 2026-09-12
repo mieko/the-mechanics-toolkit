@@ -37,8 +37,18 @@ try {
   const helperStart = current.indexOf('const MTKmodelGuardStyleId=');
   const helperEnd = current.indexOf("function _Lr(e){", helperStart);
   assert.ok(helperStart >= 0 && helperEnd > helperStart, "current helper upgrade boundaries");
+  const transientFalsePositive = 'const MTKmodelGuardStyleId="mtk-model-identity-guard-style";function MTKmodelGuardMismatch(e,t){return e!=null&&(t==null||e.model!==t.model||e.reasoningEffort!==t.reasoningEffort)}function MTKmodelGuardEnsureStyle(){return\'data-mtk-model-guard-mismatch data-mtk-model-guard-message content:"BAD MODEL"\'}function MTKinstallModelIdentityGuard(){return{version:6}}const MTKmodelIdentityGuard=MTKinstallModelIdentityGuard();function MTKuseModelIdentityGuard(){}';
+  fs.writeFileSync(owner, current.slice(0, helperStart) + transientFalsePositive + current.slice(helperEnd));
+  assert.equal(run("check").state, "needs-upgrade", "the transient false-positive helper upgrades");
+  assert.equal(run("apply").state, "applied");
+  const transientBehavior = spawnSync(process.execPath, [probe, extracted], {encoding: "utf8"});
+  assert.equal(transientBehavior.status, 0, transientBehavior.stderr || transientBehavior.stdout);
+
+  const transientFixed = fs.readFileSync(owner, "utf8");
+  const transientHelperStart = transientFixed.indexOf('const MTKmodelGuardStyleId=');
+  const transientHelperEnd = transientFixed.indexOf("function _Lr(e){", transientHelperStart);
   const baselineShifted = 'const MTKmodelGuardStyleId="mtk-model-identity-guard-style";function MTKmodelGuardEnsureStyle(){return\'data-mtk-model-guard-mismatch data-mtk-model-guard-message content:"BAD MODEL" align-items:center\'}function MTKinstallModelIdentityGuard(){return{version:3}}const MTKmodelIdentityGuard=MTKinstallModelIdentityGuard();function MTKuseModelIdentityGuard(){}';
-  fs.writeFileSync(owner, current.slice(0, helperStart) + baselineShifted + current.slice(helperEnd));
+  fs.writeFileSync(owner, transientFixed.slice(0, transientHelperStart) + baselineShifted + transientFixed.slice(transientHelperEnd));
   assert.equal(run("check").state, "needs-upgrade", "the pre-alignment BAD MODEL helper upgrades");
   assert.equal(run("apply").state, "applied");
   const alignedBehavior = spawnSync(process.execPath, [probe, extracted], {encoding: "utf8"});

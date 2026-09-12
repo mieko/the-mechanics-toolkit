@@ -92,6 +92,8 @@ const navigator = {platform: "MacIntel"};
 const api = Function("document", "MutationObserver", "Element", "S7", "globalThis", "navigator", `${helper};return {guard:MTKmodelIdentityGuard,mismatch:MTKmodelGuardMismatch,describe:MTKmodelGuardDescription,recovery:MTKmodelGuardRecoveryMessage,instruction:MTKmodelGuardOverrideInstruction,use:MTKuseModelIdentityGuard}`)(document, FakeMutationObserver, FakeElement, S7, realm, navigator);
 
 assert.equal(api.mismatch(pin, {model: "gpt-5.6-sol", reasoningEffort: "high"}), false);
+assert.equal(api.mismatch(pin, null), false,
+  "a transient composer withdrawal such as Dictate is not evidence that the selected model changed");
 assert.equal(api.mismatch(pin, {model: "gpt-5.6-luna", reasoningEffort: "low"}), true);
 assert.match(api.describe({model: "gpt-5.6-luna", reasoningEffort: "low"}, pin), /Expected GPT-5.6 Sol \/ High; current GPT-5.6 Luna \/ Light/);
 assert.equal(api.instruction(), "Hold ⌘ and click");
