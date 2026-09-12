@@ -18,6 +18,7 @@ import {
   defaultTerminal,
   diagnosticLocations,
   launchApplication,
+  launchSupervisor,
   openRescueTerminal,
   releaseApplicationLaunch,
   replaceApplicationWithVerifiedSource,
@@ -44,7 +45,8 @@ import {
   rescuePrompt,
   rescueConfiguration,
   verifiedApplicationSource,
-  waitForReadiness
+  waitForReadiness,
+  writePrivateJson
 } from "../src/safe-start.mjs";
 
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -292,6 +294,30 @@ try {
   assert.equal(launchChild.unrefCalled, true);
   releaseApplicationLaunch(launchChild, "darwin");
   assert.equal(launchChild.killCalled, true, "macOS releases only its open -W lifetime proxy");
+  const supervisorCalls = [];
+  const supervisorChild = {unrefCalled: false, unref() { this.unrefCalled = true; }};
+  const supervisorLog = path.join(scratch, "supervisor.log");
+  assert.equal(launchSupervisor({
+    nodeExecutable: process.execPath,
+    supervisorScript: path.join(scratch, "safe-start-supervisor.mjs"),
+    stateFile: path.join(scratch, "state.json"),
+    logFile: supervisorLog,
+    platform: "darwin",
+    processLauncher(command, arguments_, options) {
+      supervisorCalls.push({command, arguments_, options});
+      return supervisorChild;
+    }
+  }), supervisorChild);
+  assert.equal(supervisorCalls[0].command, process.execPath);
+  assert.deepEqual(supervisorCalls[0].arguments_, [
+    path.join(scratch, "safe-start-supervisor.mjs"),
+    "supervise",
+    path.join(scratch, "state.json")
+  ]);
+  assert.equal(supervisorCalls[0].options.detached, true);
+  assert.equal(supervisorCalls[0].options.stdio[0], "ignore");
+  assert.equal(supervisorCalls[0].options.stdio[1], supervisorCalls[0].options.stdio[2]);
+  assert.equal(supervisorChild.unrefCalled, true);
   const knownGoodApp = path.join(scratch, "hidden/known-good.app");
   const replacementTarget = path.join(scratch, "Applications/Replacement.app");
   fs.mkdirSync(knownGoodApp, {recursive: true});
@@ -539,6 +565,25 @@ try {
   }), {receiptFile: stopReceipt, taskId, codexHome});
   assert.equal(receipt.turnId, stopTurnId);
   assert.equal(receipt.transcriptSize, fs.statSync(stopTranscript).size);
+  const retryOperations = [];
+  let renameAttempts = 0;
+  writePrivateJson(path.join(scratch, "retry-state.json"), {phase: "ready"}, {
+    platform: "win32",
+    fileSystem: {
+      mkdirSync(...args) { retryOperations.push(["mkdir", ...args]); },
+      writeFileSync(...args) { retryOperations.push(["write", ...args]); },
+      renameSync(...args) {
+        retryOperations.push(["rename", ...args]);
+        renameAttempts += 1;
+        if (renameAttempts < 3) throw Object.assign(new Error("temporarily locked"), {code: "EPERM"});
+      },
+      rmSync(...args) { retryOperations.push(["remove", ...args]); }
+    },
+    wait(milliseconds) { retryOperations.push(["wait", milliseconds]); }
+  });
+  assert.equal(renameAttempts, 3, "Windows state replacement retries transient sharing locks");
+  assert.equal(retryOperations.filter(([operation]) => operation === "wait").length, 2);
+  assert.equal(retryOperations.some(([operation]) => operation === "remove"), false);
   const repairChild = new EventEmitter();
   repairChild.exitCode = null;
   repairChild.signalCode = null;

@@ -1,20 +1,19 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { inspectAppBundle } from "./app-bundle.mjs";
-import { diagnosticLocations } from "./restart-platform.mjs";
+import { diagnosticLocations, inspectApplication } from "./restart-platform.mjs";
 
 const maxLogFiles = 500;
 const maxLogBytes = 2 * 1024 * 1024;
 const maxEntries = 12;
 
-export function diagnoseApp({app, home = os.homedir(), inspect = inspectAppBundle, platform = process.platform}) {
+export function diagnoseApp({app, home = os.homedir(), inspect = null, platform = process.platform}) {
   const resolvedHome = path.resolve(home);
-  const locations = diagnosticLocations(resolvedHome, platform);
+  const locations = diagnosticLocations(resolvedHome, platform, app);
   return {
     state: "diagnostic-report",
     generatedAt: new Date().toISOString(),
-    app: inspect(app, {platform}),
+    app: inspect == null ? inspectApplication(app, {platform}) : inspect(app, {platform}),
     desktopLog: desktopLogEvidence(locations.desktopLogs, resolvedHome),
     rendererErrors: rendererErrorEvidence(locations.rendererScope, resolvedHome)
   };

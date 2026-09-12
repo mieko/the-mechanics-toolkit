@@ -3,19 +3,22 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { diagnoseApp } from "../src/diagnose-app.mjs";
 import {
   ancestorProcessPid,
+  applicationLayout,
   applicationIsRunning,
   confirmApplicationRestart,
   confirmTaskHandoff,
+  finishRescueTerminalClosure,
   launchApplication,
+  launchSupervisor,
   openRescueTerminal,
   releaseApplicationLaunch,
   replaceApplicationWithVerifiedSource,
-  requestApplicationQuit
+  requestApplicationQuit,
+  resolveCli
 } from "../src/restart-platform.mjs";
 import {
   loadRescueFile,
@@ -23,6 +26,7 @@ import {
   pruneSupersededKnownGoodApps,
   rescueConfiguration,
   rescuePrompt,
+  writePrivateJson,
   waitForCodexStateQuiescence,
   waitForReadiness
 } from "../src/safe-start.mjs";
@@ -107,14 +111,13 @@ function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath
   }
   writeJson(stateFile, state);
   writeJson(latestFile, state);
-  const log = fs.openSync(path.join(incidentDirectory, "supervisor.log"), "a", 0o600);
-  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), "supervise", stateFile], {
-    detached: true,
-    stdio: ["ignore", log, log],
-    env: process.env
+  launchSupervisor({
+    nodeExecutable: process.execPath,
+    supervisorScript: fileURLToPath(import.meta.url),
+    stateFile,
+    logFile: path.join(incidentDirectory, "supervisor.log"),
+    platform: configuration.platform
   });
-  child.unref();
-  fs.closeSync(log);
   process.stdout.write(`TMTK safe-start supervisor armed: ${displayPath(incidentDirectory, userHome)}\n`);
   process.stdout.write("A restart confirmation dialog is waiting. Do not poll or wait: finish this agent turn now.\n");
 }
@@ -125,7 +128,7 @@ async function supervise(stateFile, {
   rescuePid = null
 }) {
   let state = readJson(stateFile);
-  const configuration = state.configuration;
+  let configuration = state.configuration;
   const latestFile = path.join(path.dirname(path.dirname(stateFile)), "latest.json");
   const save = updates => {
     state = {...state, ...updates, updatedAt: new Date().toISOString()};
@@ -146,6 +149,15 @@ async function supervise(stateFile, {
         if (typeof completionFile !== "string" ||
             !await waitUntil(() => fs.existsSync(completionFile), 30_000)) {
           const failure = "rescue Terminal did not confirm closure; refusing to launch Desktop";
+          process.stderr.write(`TMTK return handoff stopped: ${failure}.\n`);
+          save({phase: "return-handoff-blocked", failedAt: new Date().toISOString(), failure});
+          return false;
+        }
+        if (!finishRescueTerminalClosure({
+          completionFile,
+          processRunner: undefined
+        }, {platform: configuration.platform})) {
+          const failure = "rescue Terminal closure task could not be removed; refusing to launch Desktop";
           process.stderr.write(`TMTK return handoff stopped: ${failure}.\n`);
           save({phase: "return-handoff-blocked", failedAt: new Date().toISOString(), failure});
           return false;
@@ -247,10 +259,12 @@ async function supervise(stateFile, {
         targetApp: configuration.app,
         source: configuration.candidate
       }, {platform: configuration.platform});
+      configuration = installedConfiguration(configuration, installed);
       save({
         phase: "candidate-installed",
         candidateInstalled: true,
-        installedCandidate: installed
+        installedCandidate: installed,
+        configuration
       });
     }
 
@@ -260,6 +274,7 @@ async function supervise(stateFile, {
       app: configuration.app,
       marker: state.marker,
       appLog: path.join(state.incidentDirectory, "app-stdio.log"),
+      taskId: configuration.taskId,
       platform: configuration.platform
     });
     save({phase: "waiting-for-renderer", pid: child.pid, launchedAt: new Date().toISOString()});
@@ -328,6 +343,16 @@ function discardUnusedKnownGood(configuration, state) {
   }
 }
 
+function installedConfiguration(current, installed) {
+  const layout = applicationLayout(installed.app, current.platform);
+  return {
+    ...current,
+    app: installed.app,
+    executable: layout.executable,
+    cli: resolveCli(layout.cli, {platform: current.platform})
+  };
+}
+
 function discardIncidentPayload(value, incidentDirectory) {
   if (typeof value !== "string") return;
   const backup = path.resolve(value);
@@ -389,6 +414,7 @@ function rescueLauncher(stateFile) {
   return "#!/usr/bin/env node\n" +
     "const {spawnSync}=require('node:child_process');\n" +
     "process.env.TMTK_RESCUE_TERMINAL_OWNED='1';\n" +
+    "process.env.TMTK_RESCUE_TERMINAL_PID=String(process.pid);\n" +
     `const result=spawnSync(process.execPath,[${JSON.stringify(runner)},${JSON.stringify(stateFile)}],{stdio:'inherit',env:process.env});\n` +
     "if(result.error)throw result.error;process.exit(result.status??1);\n";
 }
@@ -407,9 +433,7 @@ function readJson(file) {
 }
 
 function writeJson(file, value) {
-  const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {encoding: "utf8", mode: 0o600, flag: "wx"});
-  fs.renameSync(temporary, file);
+  writePrivateJson(file, value);
 }
 
 function displayPath(value, userHome) {

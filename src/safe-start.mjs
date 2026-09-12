@@ -8,8 +8,11 @@ import {
   applicationIsRunning,
   applicationLayout,
   defaultTerminal,
+  inspectApplicationSource,
   prepareCandidateAdoption as preparePlatformCandidateAdoption,
-  resolveApplication
+  resolveApplication,
+  resolveApplicationSource,
+  resolveCli
 } from "./restart-platform.mjs";
 
 const taskIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -63,7 +66,8 @@ export function rescueConfiguration(environment, applicationArgument, {
   const timeoutSeconds = optionalInteger(rescueFile.readyTimeoutSeconds, 300, 30, 1_800,
     "RESCUE-AGENT.json readyTimeoutSeconds");
   const app = resolveApplication(applicationArgument, platform);
-  const {executable, cli} = applicationLayout(app, platform);
+  const {executable, cli: packagedCli} = applicationLayout(app, platform);
+  const cli = resolveCli(packagedCli, {platform});
   if (!regularFile(executable)) throw new Error(`Codex executable is missing: ${executable}`);
   if (!regularFile(cli)) throw new Error(`Bundled Codex CLI is missing: ${cli}`);
   return {
@@ -101,20 +105,27 @@ export function rescuePrompt({reason, diagnosticFile, supervisorLog, appStdioLog
 
 export function verifiedApplicationSource(applicationArgument, targetApp, {
   platform = process.platform,
-  appInspector = inspectAppBundle
+  appInspector = null,
+  fileSystem = fs
 } = {}) {
-  const app = resolveApplication(applicationArgument, platform);
-  const target = path.resolve(targetApp);
-  const relativeToTarget = path.relative(target, app);
-  const relativeToSource = path.relative(app, target);
-  if (app === target || isContained(relativeToTarget) || isContained(relativeToSource)) {
+  const app = resolveApplicationSource(applicationArgument, {platform, fileSystem});
+  const pathApi = platform === "win32" ? path.win32 : path;
+  const target = pathApi.resolve(targetApp);
+  const relativeToTarget = pathApi.relative(target, app);
+  const relativeToSource = pathApi.relative(app, target);
+  if (app === target || isContained(relativeToTarget, pathApi) || isContained(relativeToSource, pathApi)) {
     throw new Error("verified source application must be separate from its destination");
   }
-  const inspection = appInspector(app);
+  const inspection = appInspector == null
+    ? inspectApplicationSource(app, {platform, fileSystem})
+    : appInspector(app);
   if (inspection.signature?.state !== "valid") {
     throw new Error(`application signature is not valid: ${app}`);
   }
-  if (inspection.asarIntegrity?.state !== "valid") {
+  const packageProtected = platform === "win32" &&
+    inspection.asarIntegrity?.state === "not-present" &&
+    inspection.package?.status === "Ok";
+  if (inspection.asarIntegrity?.state !== "valid" && !packageProtected) {
     throw new Error(`application ASAR integrity is not valid: ${app}`);
   }
   if (typeof inspection.version !== "string" || inspection.version === "" ||
@@ -122,12 +133,20 @@ export function verifiedApplicationSource(applicationArgument, targetApp, {
       !/^[0-9a-f]{64}$/.test(inspection.archive?.sha256 ?? "")) {
     throw new Error(`application inspection is incomplete: ${app}`);
   }
-  return {
+  const verified = {
     app,
     version: inspection.version,
     build: inspection.build,
     archiveSha256: inspection.archive?.sha256
   };
+  if (typeof inspection.artifact?.sha256 === "string") {
+    verified.artifactSha256 = inspection.artifact.sha256;
+  }
+  if (typeof inspection.package?.fullName === "string") {
+    verified.packageFullName = inspection.package.fullName;
+    verified.package = inspection.package;
+  }
+  return verified;
 }
 
 export function prepareCandidateAdoption({
@@ -136,15 +155,16 @@ export function prepareCandidateAdoption({
   knownGoodPath = null,
   configuration,
   incidentDirectory,
-  appInspector = inspectAppBundle
+  appInspector = null
 }) {
+  const inspector = appInspector ?? (configuration.platform === "win32" ? null : inspectAppBundle);
   return preparePlatformCandidateAdoption({
     candidatePath,
     candidateSourcePath,
     knownGoodPath,
     configuration,
     incidentDirectory,
-    appInspector,
+    appInspector: inspector,
     verifyApplicationSource: verifiedApplicationSource
   }, {platform: configuration.platform});
 }
@@ -164,7 +184,7 @@ export function pruneSupersededKnownGoodApps(rescueRootArgument, keepIncidentDir
     .sort();
   for (const incident of incidents) {
     if (incident === keep) continue;
-    for (const name of ["known-good.app", "known-good.deb", "candidate.deb"]) {
+    for (const name of ["known-good.app", "known-good.deb", "candidate.deb", "known-good.msix", "candidate.msix"]) {
       const rollbackPayload = path.join(incident, name);
       let stat;
       try {
@@ -182,9 +202,9 @@ export function pruneSupersededKnownGoodApps(rescueRootArgument, keepIncidentDir
   return removed;
 }
 
-function isContained(relative) {
-  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) &&
-    !path.isAbsolute(relative);
+function isContained(relative, pathApi = path) {
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${pathApi.sep}`) &&
+    !pathApi.isAbsolute(relative);
 }
 
 export function acquireRescueLease(incidentDirectory, {
@@ -438,8 +458,8 @@ export function recordRescueStopReceipt(input, {receiptFile, taskId, codexHome})
   if (typeof payload.transcript_path !== "string" || payload.transcript_path.trim() === "") {
     throw new Error("repair Stop hook has no transcript path");
   }
-  const transcriptPath = path.resolve(payload.transcript_path);
-  const sessionsDirectory = path.resolve(codexHome, "sessions");
+  const transcriptPath = resolveLocalPath(payload.transcript_path);
+  const sessionsDirectory = resolveLocalPath(codexHome, "sessions");
   const relative = path.relative(sessionsDirectory, transcriptPath);
   if (relative === "" || relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative)) {
     throw new Error("repair Stop hook transcript is outside the Codex sessions directory");
@@ -607,8 +627,8 @@ function validateStopReceipt(receipt, {receiptFile, taskId, codexHome}) {
   if (!Number.isSafeInteger(receipt.transcriptSize) || receipt.transcriptSize < 0) {
     throw new Error(`invalid repair Stop transcript offset at ${receiptFile}`);
   }
-  const expectedSessions = path.resolve(codexHome, "sessions");
-  const transcriptPath = path.resolve(receipt.transcriptPath ?? "");
+  const expectedSessions = resolveLocalPath(codexHome, "sessions");
+  const transcriptPath = resolveLocalPath(receipt.transcriptPath ?? "");
   const relative = path.relative(expectedSessions, transcriptPath);
   if (relative === "" || relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative) ||
       !path.basename(transcriptPath).includes(taskId) || !regularFile(transcriptPath)) {
@@ -638,12 +658,52 @@ function readRolloutAppend(file, offset) {
   });
 }
 
-function writePrivateJson(file, value) {
+function resolveLocalPath(value, ...segments) {
+  let root = value;
+  if (process.platform === "win32" && typeof root === "string") {
+    if (/^\\\\\?\\UNC\\/i.test(root)) {
+      root = `\\\\${root.slice(8)}`;
+    } else if (/^\\\\\?\\/.test(root)) {
+      root = root.slice(4);
+    }
+  }
+  return path.resolve(root, ...segments);
+}
+
+export function writePrivateJson(file, value, {
+  fileSystem = fs,
+  platform = process.platform,
+  wait = waitSynchronously
+} = {}) {
   const directory = path.dirname(file);
-  fs.mkdirSync(directory, {recursive: true, mode: 0o700});
+  fileSystem.mkdirSync(directory, {recursive: true, mode: 0o700});
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {encoding: "utf8", mode: 0o600, flag: "wx"});
-  fs.renameSync(temporary, file);
+  fileSystem.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+    flag: "wx"
+  });
+  try {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        fileSystem.renameSync(temporary, file);
+        break;
+      } catch (error) {
+        const retryable = platform === "win32" &&
+          new Set(["EACCES", "EBUSY", "EPERM"]).has(error?.code) &&
+          attempt < 100;
+        if (!retryable) throw error;
+        wait(20);
+      }
+    }
+  } catch (error) {
+    try { fileSystem.rmSync(temporary, {force: true}); } catch {}
+    throw error;
+  }
+}
+
+function waitSynchronously(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
 function delay(milliseconds) {

@@ -60,7 +60,7 @@ try {
 
   const applied = runToolkit("apply", true);
   assert.equal(applied.state, "applied");
-  assert.equal(applied.client, "/opt/tinrelay/bin/tinrelay");
+  assert.equal(applied.client, path.resolve("/opt/tinrelay/bin/tinrelay"));
   assert.equal(applied.localShip, "sample-ship");
   const rendererOnce = fs.readFileSync(rendererTarget);
   const activityOnce = fs.readFileSync(activityTarget);

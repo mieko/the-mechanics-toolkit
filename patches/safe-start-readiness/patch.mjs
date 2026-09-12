@@ -32,7 +32,9 @@ process.stdout.write(`${JSON.stringify({
 
 function inspectState(mainValue, rendererValue) {
   verifyStockContracts(mainValue, rendererValue);
-  return mainValue.includes("if(!N(t))return;s.type===`ready`&&P();") ? "applied" : "needs-apply";
+  return markerVariables(mainValue).some(marker => mainValue.includes(readinessStatement(marker)))
+    ? "applied"
+    : "needs-apply";
 }
 
 function verifyStockContracts(mainValue, rendererValue) {
@@ -57,12 +59,35 @@ function verifyStockContracts(mainValue, rendererValue) {
 }
 
 function patchMain(value) {
+  const marker = markerVariables(value)[0];
+  const previous = "if(!N(t))return;s.type===`ready`&&P();";
+  if (count(value, previous) === 1) {
+    return replaceOnce(value, previous, readinessStatement(marker), "earlier safe-start readiness patch");
+  }
   return replaceOnce(
     value,
     "if(!N(t))return;",
-    "if(!N(t))return;s.type===`ready`&&P();",
+    readinessStatement(marker),
     "trusted stock renderer readiness message"
   );
+}
+
+function markerVariables(value) {
+  return ["Tie", "Doe"].filter(variable =>
+    count(value, `${variable}=\`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH\``) === 1
+  );
+}
+
+function readinessStatement(marker) {
+  return "if(!N(t))return;s.type===`ready`&&(()=>{" +
+    "let e=process.argv.filter(e=>e.startsWith(`--tmtk-safe-start-marker=`));" +
+    "if(e.length===1){let t=Buffer.from(e[0].slice(`--tmtk-safe-start-marker=`.length)," +
+    "`base64url`).toString(`utf8`),r=(process.env.USERPROFILE+" +
+    "`\\\\.codex\\\\tmtk-rescue\\\\`).toLowerCase(),i=t.toLowerCase()," +
+    "n=i.slice(r.length).split(`\\\\`);" +
+    `i.startsWith(r)&&n.length===2&&/^[0-9a-z-]+$/.test(n[0])&&` +
+    `n[1]===\`renderer.ready\`&&(process.env[${marker}]=t)}` +
+    "P()})();";
 }
 
 function uniqueAsset(directory, pattern) {

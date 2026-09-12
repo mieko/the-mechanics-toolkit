@@ -153,25 +153,29 @@ seams:
 
 - [`patches/`](patches/) transforms an explicitly supplied Codex Desktop package: extracted ASAR
   JavaScript, platform package metadata, or—on macOS in one integration step—the bundled
-  `Contents/Resources/codex` executable. The selected ASAR fleet stages into one macOS application
-  candidate or one Linux DEB candidate; each platform adapter owns its package integrity and
+  `Contents/Resources/codex` executable. The selected ASAR fleet stages into one macOS application,
+  Linux DEB, or Windows MSIX candidate; each platform adapter owns its package integrity and
   adoption boundary.
 - [`source-patches/`](source-patches/) applies exact diffs to an explicitly supplied checkout of
   [OpenAI Codex](https://github.com/openai/codex). The agent inspects the source, applies or ports
   the repair, runs its focused Rust tests, and builds a new `codex` executable. Nothing in this
   lane modifies a desktop app.
 
-On macOS, a source repair crosses into the package lane by setting `codexBinary` to the built
-executable and enabling its desktop integration patch. Staging verifies that its reported CLI
-version matches the vendor bundle, copies it to `Contents/Resources/codex`, then signs and verifies
-the complete candidate. Source application, compilation, package staging, installation, restart,
-and live acceptance remain separate actions.
+A source repair crosses into the package lane by configuring the built executable and enabling its
+desktop integration patch. Staging verifies that each replacement reports the vendor bundle's CLI
+version, copies it into the platform package, then finalizes and verifies the complete candidate.
+Windows requires separate native and WSL replacements. Source application, compilation, package
+staging, installation, restart, and live acceptance remain separate actions.
 
 ## Codex Desktop package patches
 
-The desktop package fleet is currently qualified on **macOS ARM64** against
-**Codex Desktop `26.908.40834` (`8881`)**. That exact fleet passed static proof, supervised
-installation, real renderer readiness, and selected live message-path checks.
+The desktop package fleet is currently qualified against **Codex Desktop `26.908.40834` (`8881`)**
+on **macOS ARM64**, **Ubuntu ARM64**, and **Windows 11 ARM64**, with different platform-owned
+acceptance boundaries. macOS passed the complete static fleet, supervised installation, renderer
+readiness, and selected live message paths. Ubuntu passed the complete 13-patch package and healthy
+supervisor adoption. Windows passed the complete 14-patch signed-MSIX package and a deliberately
+broken three-turn rescue with known-working restoration; its ordinary cross-version rollback
+provenance remains open.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
 and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
 evidence. Qualification may carry a previous live result only when the patch's current owner and
@@ -316,6 +320,11 @@ The Linux DEB adapter uses the same supervisor protocol with desktop-native dial
 executable identity, PolicyKit-backed package installation, and a Linux terminal handoff. Its exact
 qualified and still-open gates live in [the Linux runbook](qualification/linux.md).
 
+The Windows MSIX adapter supplies the same shared transitions through WPF dialogs, exact package
+and process identity, signed local package adoption, a PowerShell rescue surface, and strict
+incident-scoped terminal cleanup. Its exact qualified and still-open gates live in
+[the Windows runbook](qualification/windows.md).
+
 ### Native app-tools peer authorization
 
 [Native app-tools peer authorization](patches/native-app-tools-peer-authorization/) preserves native
@@ -422,8 +431,9 @@ Every Codex Desktop update is a compatibility event. Exact anchors fail closed w
 ownership changes; each selected patch must be inspected, retired, or ported and verified. See
 [`docs/maintenance.md`](docs/maintenance.md).
 
-Restarts interrupt the room and may trigger macOS permission or Storage Key prompts. Minimize them
-by qualifying the complete desired fleet as one candidate. A
+Restarts interrupt the room and may trigger platform authorization prompts; macOS may also show
+permission or Storage Key prompts. Minimize them by qualifying the complete desired fleet as one
+candidate. A
 [`persistent local signing identity`](docs/local-signing.md) can stabilize permissions tied to the
 application's designated requirement, although Codex's Storage Key may still enforce a separate
 exact-hash policy. When the readiness patch is part of the candidate, use

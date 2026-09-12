@@ -5,6 +5,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
+const windows = process.platform === "win32";
 const root = path.resolve(process.argv[2] ?? "");
 if (!process.argv[2]) throw new Error("usage: tinrelay-presentation-outgoing.test.mjs EXTRACTED_ASAR_ROOT");
 
@@ -319,6 +320,8 @@ const mainEnd = [mainSource.indexOf("var dQ=i.i(`electron-message-handler`)", ma
   mainSource.indexOf("var pQ=i.i(`electron-message-handler`)", mainStart),
   mainSource.indexOf("var fQ=i.i(`electron-message-handler`)", mainStart)].find(index => index >= 0);
 assert.ok(mainStart >= 0 && mainEnd > mainStart, "outgoing main helpers are localized");
+assert.ok(mainSource.slice(mainStart, mainEnd).includes('process.platform==="win32"'),
+  "the outgoing observer carries its explicit Windows transport and ACL boundary");
 const localRequire = await import("node:module").then(({createRequire}) => createRequire(import.meta.url));
 const mainApiFactory = () => Function("require", `${mainSource.slice(mainStart, mainEnd)};return {event:MTKtinrelayOutgoingEvent,remember:MTKtinrelayRememberOutgoing,read:MTKtinrelayReadOutgoing,lookup:MTKtinrelayOutgoingLookup,anchorRemember:MTKtinrelayOutgoingAnchorRemember,anchorsList:MTKtinrelayOutgoingAnchorsList,start:MTKtinrelayStartOutgoingObserver}`)(localRequire);
 const mainApi = mainApiFactory();
@@ -341,8 +344,10 @@ assert.equal(mainApi.event(event)?.body, event.body);
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-outgoing-observer-test-"));
 const socketDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtko-"));
 const originalHome = process.env.HOME;
+const originalUserProfile = process.env.USERPROFILE;
 try {
   process.env.HOME = scratch;
+  if (windows) process.env.USERPROFILE = scratch;
   const appUserData = path.join(scratch, "app-user-data");
   const cacheDirectory = path.join(appUserData, "mechanics-toolkit", "tinrelay", localShip,
     "outgoing-presentations");
@@ -357,14 +362,22 @@ try {
   fs.writeFileSync(configPath, JSON.stringify({socket_path: publicSocketPath}));
   const disposeDisabled = await mainApi.start(appUserData);
   assert.equal(fs.existsSync(publicSocketPath), false, "observer rejects a group/world-accessible parent");
-  assert.equal(fs.statSync(cacheDirectory).mode & 0o777, 0o700, "presentation cache is private");
+  if (!windows) {
+    assert.equal(fs.statSync(cacheDirectory).mode & 0o777, 0o700, "presentation cache is private");
+  }
   disposeDisabled();
 
-  fs.chmodSync(socketDir, 0o700);
-  const socketPath = path.join(socketDir, "observer.sock");
+  if (!windows) fs.chmodSync(socketDir, 0o700);
+  const socketPath = windows
+    ? `\\\\.\\pipe\\mtk-outgoing-${process.pid}-${Date.now()}`
+    : path.join(socketDir, "observer.sock");
   fs.writeFileSync(configPath, JSON.stringify({socket_path: socketPath}));
   const dispose = await mainApi.start(appUserData);
-  assert.equal(fs.lstatSync(socketPath).isSocket(), true, "observer binds the configured Unix socket");
+  if (windows) {
+    assert.equal(await canConnect(socketPath), true, "observer binds the configured Windows named pipe");
+  } else {
+    assert.equal(fs.lstatSync(socketPath).isSocket(), true, "observer binds the configured Unix socket");
+  }
 
   const delayedId = "22222222-2222-4222-8222-222222222222";
   const delayed = mainApi.lookup({requestId: "request-1", transmissionId: delayedId,
@@ -373,7 +386,9 @@ try {
   await send(socketPath, `${JSON.stringify(delayedEvent)}\n`, 2);
   assert.deepEqual(await delayed, delayedEvent, "lookup bridges the socket/stdout event-order race");
   const delayedCache = path.join(cacheDirectory, `${delayedId}.json`);
-  assert.equal(fs.statSync(delayedCache).mode & 0o777, 0o600, "accepted event cache file is private");
+  if (!windows) {
+    assert.equal(fs.statSync(delayedCache).mode & 0o777, 0o600, "accepted event cache file is private");
+  }
   assert.deepEqual(JSON.parse(fs.readFileSync(delayedCache, "utf8")), delayedEvent,
     "accepted event is durably cached without changing Tinrelay output");
   const responses = [];
@@ -428,9 +443,11 @@ try {
   };
   const anchorDirectory = path.join(appUserData, "mechanics-toolkit", "tinrelay", localShip,
     "outgoing-anchors");
-  assert.equal(fs.statSync(anchorDirectory).mode & 0o777, 0o700, "turn-anchor directory is private");
-  assert.equal(fs.statSync(path.join(anchorDirectory, fs.readdirSync(anchorDirectory)[0])).mode & 0o777, 0o600,
-    "turn-anchor bucket is private");
+  if (!windows) {
+    assert.equal(fs.statSync(anchorDirectory).mode & 0o777, 0o700, "turn-anchor directory is private");
+    assert.equal(fs.statSync(path.join(anchorDirectory, fs.readdirSync(anchorDirectory)[0])).mode & 0o777, 0o600,
+      "turn-anchor bucket is private");
+  }
 
   const duplicate = {...delayedEvent, body: "conflicting duplicate"};
   await send(socketPath, `${JSON.stringify(duplicate)}\n`);
@@ -450,7 +467,11 @@ try {
 
   dispose();
   await tick();
-  assert.equal(fs.existsSync(socketPath), false, "observer removes only its socket on disposal");
+  if (windows) {
+    assert.equal(await canConnect(socketPath), false, "observer closes only its named pipe on disposal");
+  } else {
+    assert.equal(fs.existsSync(socketPath), false, "observer removes only its socket on disposal");
+  }
 
   const restarted = mainApiFactory();
   const disposeRestarted = await restarted.start(appUserData);
@@ -511,6 +532,8 @@ try {
 } finally {
   if (originalHome == null) delete process.env.HOME;
   else process.env.HOME = originalHome;
+  if (originalUserProfile == null) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = originalUserProfile;
   fs.rmSync(scratch, {recursive: true, force: true});
   fs.rmSync(socketDir, {recursive: true, force: true});
 }
@@ -519,7 +542,7 @@ process.stdout.write(`${JSON.stringify({
   state: "green",
   contract: "tinrelay-outgoing-observer-v1",
   cli: "ordinary-tinrelay-send-stdout-unchanged",
-  observer: "private-configured-unix-socket",
+  observer: windows ? "private-configured-windows-named-pipe" : "private-configured-unix-socket",
   restartContinuity: "bounded-private-source-task-turn-anchors",
   correlation: "transmission-id",
   acceptedState: "relay-accepted-not-delivered",
@@ -550,6 +573,22 @@ function send(socketPath, text, splitAt = null) {
     });
     socket.on("error", reject);
     socket.on("close", resolve);
+  });
+}
+
+function canConnect(socketPath) {
+  return new Promise(resolve => {
+    let complete = false;
+    const finish = value => {
+      if (complete) return;
+      complete = true;
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(value);
+    };
+    const socket = net.createConnection(socketPath, () => finish(true));
+    socket.once("error", () => finish(false));
+    const timer = setTimeout(() => finish(false), 250);
   });
 }
 

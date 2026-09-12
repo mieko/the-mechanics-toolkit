@@ -796,6 +796,7 @@ function MTKoutboundReceiptRecord(e){
   return e;
 }
 function MTKoutboundReceiptHash(e){return MTKoutboundReceiptCrypto.createHash("sha256").update(e).digest("hex")}
+function MTKoutboundReceiptPrivate(e){return process.platform==="win32"||(e.mode&63)===0}
 function MTKoutboundReceiptPrepare(){
   if(MTKoutboundReceiptDir!=null)return!0;
   try{
@@ -803,7 +804,7 @@ function MTKoutboundReceiptPrepare(){
     MTKoutboundReceiptFs.mkdirSync(e,{recursive:!0,mode:448});
     MTKoutboundReceiptFs.chmodSync(e,448);
     let t=MTKoutboundReceiptFs.lstatSync(e);
-    if(!t.isDirectory()||(t.mode&63)!==0)return!1;
+    if(!t.isDirectory()||!MTKoutboundReceiptPrivate(t))return!1;
     MTKoutboundReceiptDir=e;
     MTKoutboundReceiptMigrating=!0;
     MTKoutboundReceiptMigrateLegacy();
@@ -824,7 +825,7 @@ function MTKoutboundReceiptTaskDir(e,t){
     try{MTKoutboundReceiptFs.mkdirSync(n,{mode:448}),r=!0,i=MTKoutboundReceiptFs.lstatSync(n)}catch{return null}
   }
   try{MTKoutboundReceiptFs.chmodSync(n,448),i=MTKoutboundReceiptFs.lstatSync(n)}catch{return null}
-  if(!i.isDirectory()||(i.mode&63)!==0)return null;
+  if(!i.isDirectory()||!MTKoutboundReceiptPrivate(i))return null;
   if(r&&!MTKoutboundReceiptMigrating)MTKoutboundReceiptPruneBuckets(n);
   return n;
 }
@@ -836,7 +837,7 @@ function MTKoutboundReceiptReadFile(e){
   let t,n;
   try{
     t=MTKoutboundReceiptFs.lstatSync(e);
-    if(!t.isFile()||(t.mode&63)!==0||t.size<2||t.size>MTKoutboundReceiptMaxBytes)return null;
+    if(!t.isFile()||!MTKoutboundReceiptPrivate(t)||t.size<2||t.size>MTKoutboundReceiptMaxBytes)return null;
     n=MTKoutboundReceiptFs.readFileSync(e,"utf8");
   }catch{return null}
   if(!n.endsWith("\n")||n.slice(0,-1).includes("\n")||n.includes("\r"))return null;
@@ -868,7 +869,7 @@ function MTKoutboundReceiptRemoveBucket(e){
   let t;
   try{
     t=MTKoutboundReceiptFs.lstatSync(e);
-    if(!t.isDirectory()||(t.mode&63)!==0)return!1;
+    if(!t.isDirectory()||!MTKoutboundReceiptPrivate(t))return!1;
     let n=MTKoutboundReceiptFs.readdirSync(e);
     if(n.some(e=>!/^[0-9a-f]{64}\.json$/.test(e)))return!1;
     for(let t of n){let n=MTKoutboundReceiptPath.join(e,t),r=MTKoutboundReceiptFs.lstatSync(n);if(!r.isFile())return!1}
@@ -884,7 +885,7 @@ function MTKoutboundReceiptPruneBuckets(e){
     for(let n of MTKoutboundReceiptFs.readdirSync(MTKoutboundReceiptDir)){
       if(!/^[0-9a-f]{64}$/.test(n))continue;
       let r=MTKoutboundReceiptPath.join(MTKoutboundReceiptDir,n),i=MTKoutboundReceiptFs.lstatSync(r);
-      i.isDirectory()&&(i.mode&63)===0&&t.push({path:r,mtime:i.mtimeMs});
+      i.isDirectory()&&MTKoutboundReceiptPrivate(i)&&t.push({path:r,mtime:i.mtimeMs});
     }
   }catch{return}
   t.sort((t,n)=>t.path===e?1:n.path===e?-1:t.mtime-n.mtime||t.path.localeCompare(n.path));

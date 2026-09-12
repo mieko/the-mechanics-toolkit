@@ -1,0 +1,34 @@
+{
+  "enabledPatches": [
+    "cross-task-attribution",
+    "runtime-json-reload",
+    "task-visual-palette",
+    "reasoning-retention",
+    "model-identity-guard",
+    "sidebar-action-collapse",
+    "task-attention-policy",
+    "terminal-toggle",
+    "outgoing-message-receipt",
+    "wait-thread-roster",
+    "tinrelay-pointer-presentation",
+    "native-app-tools-peer-authorization",
+    "renderer-patch-registry",
+    "safe-start-readiness"
+  ],
+  "workspaceRoot": "C:\\absolute\\path\\to\\your\\workspace",
+  "tinrelay": {
+    "client": "C:\\absolute\\path\\to\\tinrelay.exe",
+    "localShip": "example-ship"
+  },
+  "windows": {
+    "candidateVersion": "1.0.0.1",
+    "knownGoodVersion": "1.0.0.2",
+    "makeAppx": "C:\\absolute\\path\\to\\makeappx.exe",
+    "signTool": "C:\\absolute\\path\\to\\signtool.exe",
+    "signingCertificateThumbprint": "0000000000000000000000000000000000000000",
+    "codexBinaries": {
+      "native": "C:\\absolute\\path\\to\\patched\\codex.exe",
+      "wsl": "C:\\absolute\\path\\to\\patched\\codex"
+    }
+  }
+}

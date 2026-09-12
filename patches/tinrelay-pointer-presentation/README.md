@@ -91,13 +91,23 @@ Its complete shape is:
 {"socket_path":"/absolute/path/to/private/observer.sock"}
 ```
 
-The socket's immediate parent must already exist without group or world permission bits. Codex
+On Windows the same field carries one local named-pipe name instead:
+
+```json
+{"socket_path":"\\\\.\\pipe\\tinrelay-SHIP-outgoing"}
+```
+
+The POSIX socket's immediate parent must already exist without group or world permission bits. A
+Windows value must be a single name below `\\.\pipe\`; the observer closes that exact pipe with
+its owning Desktop process rather than treating it as a filesystem object. Codex
 accepts one newline-terminated UTF-8 `tinrelay-outgoing-observer-v1` event of at most 20 KiB per
 connection. It keeps at most 256 accepted events in memory and as atomic, mode-`0600` JSON files
 under `mechanics-toolkit/tinrelay/SHIP/outgoing-presentations` inside Electron's private user-data
-directory; the cache directory is mode `0700`. Source-turn anchors live in a sibling private
-`outgoing-anchors` directory. They retain up to 256 presentations per source task, up to 8 MiB per
-task, with a 64-task global safety valve. The two caches therefore create bounded local plaintext
+directory; the cache directory is mode `0700`. Windows relies on that user-data tree's inherited
+user ACL because Node does not expose meaningful POSIX mode bits on NTFS. Source-turn anchors live
+in a sibling private `outgoing-anchors` directory. They retain up to 256 presentations per source
+task, up to 8 MiB per task, with a 64-task global safety valve. The two caches therefore create
+bounded local plaintext
 copies of recently sent bodies.
 
 On lookup Codex checks memory, then the exact UUID-named cache file, then waits up to 750 ms for a

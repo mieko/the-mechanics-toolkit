@@ -19,7 +19,8 @@ but packaging, signing, process discovery, application shutdown, terminal rescue
 native-module behavior do not. A platform is qualified only by its own runbook and receipt.
 
 - [macOS](macos.md) — implemented
-- Windows — not yet implemented or qualified
+- [Windows](windows.md) — ARM64 signed-MSIX staging and a complete broken-app supervisor recovery
+  cycle qualified; ordinary cross-version rollback provenance remains open
 - [Linux](linux.md) — Ubuntu ARM64 healthy DEB adoption and real-task CLI quiescence qualified;
   recovery gates pending
 

@@ -9,6 +9,7 @@ import { sourcePatchDefinition, sourcePatchDefinitions } from "../src/source-pat
 import { applySourcePatch, sourcePatchState } from "../src/source-patch.mjs";
 import { stageApp } from "../src/stage-app.mjs";
 import {stageDeb} from "../src/stage-deb.mjs";
+import {stageMsix} from "../src/stage-msix.mjs";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const [command, ...args] = process.argv.slice(2);
@@ -21,6 +22,14 @@ if (command === "inspect" && args.length === 1) {
   print(stageApp({sourceApp: args[0], destinationApp: args[1], configPath: args[3], repositoryRoot: root}));
 } else if (command === "stage-deb" && args.length === 4 && args[2] === "--config") {
   print(stageDeb({sourceDeb: args[0], destinationDeb: args[1], configPath: args[3], repositoryRoot: root}));
+} else if (command === "stage-msix" && args.length === 5 && args[3] === "--config") {
+  print(stageMsix({
+    sourceApp: args[0],
+    candidateMsix: args[1],
+    knownGoodMsix: args[2],
+    configPath: args[4],
+    repositoryRoot: root
+  }));
 } else if (command === "patch" && (args.length === 3 || args.length === 5)) {
   const [patchName, action, patchRoot, ...patchArgs] = args;
   const definition = patchDefinition(patchName);
@@ -52,6 +61,7 @@ if (command === "inspect" && args.length === 1) {
       "  mechanics-toolkit diagnose CHATGPT_APP\n" +
       "  mechanics-toolkit stage SOURCE_CHATGPT_APP STAGED_CHATGPT_APP --config TOOLKIT_CONFIG\n" +
       "  mechanics-toolkit stage-deb SOURCE_CHATGPT_DEB STAGED_CHATGPT_DEB --config TOOLKIT_CONFIG\n" +
+      "  mechanics-toolkit stage-msix INSTALLED_CHATGPT_APP CANDIDATE_MSIX KNOWN_GOOD_MSIX --config TOOLKIT_CONFIG\n" +
       "  mechanics-toolkit patch PATCH_NAME check|apply PATCH_ROOT [--config TOOLKIT_CONFIG]\n" +
       "  mechanics-toolkit source-patch list\n" +
       "  mechanics-toolkit source-patch PATCH_NAME check|apply CODEX_CHECKOUT"

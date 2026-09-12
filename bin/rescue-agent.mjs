@@ -13,12 +13,15 @@ import {
   resumeModelArguments,
   waitForApplicationQuiescence,
   waitForCodexStateQuiescence,
-  waitForRepairTurnCompletion
+  waitForRepairTurnCompletion,
+  writePrivateJson
 } from "../src/safe-start.mjs";
 import {
+  applicationLayout,
   closeOwnedRescueTerminal,
   confirmRepairFallback,
   replaceApplicationWithVerifiedSource,
+  resolveCli,
   rescueStopHookOverride,
   rescueTerminalClosureRequired
 } from "../src/restart-platform.mjs";
@@ -117,12 +120,14 @@ if (configuration.knownGood != null && state.knownGoodRestoreAttempted !== true)
         targetApp: configuration.app,
         source: configuration.knownGood
       }, {platform: configuration.platform});
+      configuration = installedConfiguration(configuration, restored);
       state = saveRescueState({
         phase: "known-good-restored",
         knownGoodRestoreAttempted: true,
         candidateInstalled: false,
         candidateAdoptionDisabled: true,
-        restoredKnownGood: restored
+        restoredKnownGood: restored,
+        configuration
       });
       returnToDesktop(state, [
         "Known-working Codex restored.",
@@ -182,21 +187,9 @@ function prompt(state) {
 function saveRescueState(updates) {
   const current = rescueState();
   const next = {...current, ...updates, updatedAt: new Date().toISOString()};
-  const temporary = `${stateFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: 0o600,
-    flag: "wx"
-  });
-  fs.renameSync(temporary, stateFile);
+  writePrivateJson(stateFile, next);
   const latestFile = path.join(path.dirname(path.dirname(stateFile)), "latest.json");
-  const latestTemporary = `${latestFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  fs.writeFileSync(latestTemporary, `${JSON.stringify(next, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: 0o600,
-    flag: "wx"
-  });
-  fs.renameSync(latestTemporary, latestFile);
+  writePrivateJson(latestFile, next);
   return next;
 }
 
@@ -209,7 +202,8 @@ function launchReturnSupervisor() {
       cwd: configuration.cwd,
       detached: true,
       stdio: ["ignore", log, log],
-      env: process.env
+      env: process.env,
+      windowsHide: configuration.platform === "win32"
     });
   } finally {
     fs.closeSync(log);
@@ -257,6 +251,16 @@ function banner(lines) {
   const width = Math.max(...lines.map(line => line.length), 48);
   const rule = "═".repeat(width);
   process.stdout.write(`\n${rule}\n${lines.join("\n")}\n${rule}\n\n`);
+}
+
+function installedConfiguration(current, installed) {
+  const layout = applicationLayout(installed.app, current.platform);
+  return {
+    ...current,
+    app: installed.app,
+    executable: layout.executable,
+    cli: resolveCli(layout.cli, {platform: current.platform})
+  };
 }
 
 async function requireApplicationQuiescence(configuration) {

@@ -10,8 +10,12 @@ const build = path.join(root, ".vite/build");
 const renderer = fs.readFileSync(uniqueAsset(assets, /^app-initial-.*\.js$/), "utf8");
 const main = fs.readFileSync(uniqueAsset(build, /^main-.*\.js$/), "utf8");
 
-assert.ok(main.includes("if(!N(t))return;s.type===`ready`&&P();"),
+assert.ok(main.includes("if(!N(t))return;s.type===`ready`&&(()=>{"),
   "the trusted stock ready message invokes Codex's existing relaunch-marker writer");
+assert.ok(main.includes("e.startsWith(`--tmtk-safe-start-marker=`)"),
+  "Windows activation can carry its launch-only marker without an inherited environment");
+assert.ok(main.includes("i.startsWith(r)&&n.length===2&&/^[0-9a-z-]+$/.test(n[0])"),
+  "the Windows marker is bounded to one of this user's TMTK rescue incidents");
 assert.ok([
   "Tie=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`",
   "Doe=`CODEX_ELECTRON_DEV_RELAUNCH_MARKER_PATH`"

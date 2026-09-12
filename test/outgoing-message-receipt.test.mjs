@@ -349,6 +349,8 @@ const mainEnds = [
 ].filter(index => index > mainStart);
 assert.ok(mainEnds.length >= 1, "localized durable receipt main helper");
 const mainHelper = main.slice(mainStart, Math.min(...mainEnds));
+assert.ok(mainHelper.includes('process.platform==="win32"||(e.mode&63)===0'),
+  "Windows relies on its inherited user-data ACL instead of unavailable POSIX mode bits");
 const mainHandlerStart = main.indexOf("case`mtk-outbound-receipt-remember`:");
 const mainListHandlerStart = main.indexOf("case`mtk-outbound-receipts-list`:", mainHandlerStart);
 const mainHandlerEnd = main.indexOf("case`", mainListHandlerStart + 5);
@@ -413,11 +415,16 @@ try {
   assert.deepEqual(makeCache().list("source-thread"), [first], "new main-process instance reconstructs the receipt");
   const cacheDir = path.join(cacheScratch, "mechanics-toolkit", "task-message-receipts");
   const taskDir = sourceThreadId => path.join(cacheDir, createHash("sha256").update(sourceThreadId).digest("hex"));
-  assert.equal(fs.statSync(cacheDir).mode & 0o077, 0, "cache directory is private");
-  assert.equal(fs.statSync(taskDir("source-thread")).mode & 0o077, 0, "task bucket is private");
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(cacheDir).mode & 0o077, 0, "cache directory is private");
+    assert.equal(fs.statSync(taskDir("source-thread")).mode & 0o077, 0, "task bucket is private");
+  }
   const files = fs.readdirSync(taskDir("source-thread")).filter(name => name.endsWith(".json"));
   assert.equal(files.length, 1);
-  assert.equal(fs.statSync(path.join(taskDir("source-thread"), files[0])).mode & 0o077, 0, "cache file is private");
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(path.join(taskDir("source-thread"), files[0])).mode & 0o077, 0,
+      "cache file is private");
+  }
   assert.deepEqual(cache.remember({...first, prompt: "conflicting rewrite"}), first, "first call identity wins");
   fs.writeFileSync(path.join(taskDir("source-thread"), "f".repeat(64) + ".json"), "not-json\n", {mode: 0o600});
   assert.deepEqual(makeCache().list("source-thread"), [first], "corrupt cache entry is ignored");

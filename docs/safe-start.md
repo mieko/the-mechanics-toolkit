@@ -29,6 +29,20 @@ Those two vendor paths may name the same DEB for a same-build repatch. During an
 `--candidate-source` names the newer offered vendor package while `--known-good` preserves the
 older package that is still installed and known to work.
 
+On the qualified Windows same-inner-build route, provide the signed candidate and the separately
+preserved, higher-version MSIX that reproduces the application currently installed and working:
+
+```powershell
+node bin/tmtk-restart `
+  --candidate C:\path\to\candidate.msix `
+  --known-good C:\path\to\known-good.msix `
+  -- C:\Program Files\WindowsApps\OpenAI.Codex_VERSION_ARCH__2p2nqsd0c76g0
+```
+
+This does not yet describe an ordinary cross-version Windows upgrade. The current stager derives
+both outputs from one source package; candidate preparation fails before restart unless the supplied
+known-good MSIX reproduces the currently installed inner version, build, and ASAR.
+
 An agent can prepend incident-specific instructions to the automatic rescue briefing:
 
 ```sh
@@ -58,9 +72,10 @@ pre-adoption rollback to offer. The command:
 3. records the task's stored project directory rather than trusting the subprocess's incidental
    `PWD`;
 4. when `--candidate` is present, verifies it and secures the exact known-working rollback inside
-   the private incident directory: a captured `.app` on macOS, or the supplied `--known-good` DEB
-   on Linux after proving that it matches the currently installed inner app; Linux separately
-   proves that `--candidate-source` is the pristine vendor DEB named by the candidate receipt;
+   the private incident directory: a captured `.app` on macOS, the supplied `--known-good` DEB on
+   Linux after proving that it matches the currently installed inner app, or the supplied MSIX on
+   Windows after proving that it reproduces the installed app; Linux separately proves that
+   `--candidate-source` is the pristine vendor DEB named by the candidate receipt;
 5. returns control to the invoking agent immediately while the detached supervisor presents a
    blocking native dialog with **Don't Restart** and **Relaunch Codex**;
 6. after **Relaunch Codex**, asks the exact platform application identity at the target executable
@@ -98,30 +113,34 @@ The rollback source is not inferred from filenames, neighboring applications, or
 On macOS it is the exact canonical application inspected and copied before candidate adoption. On
 Linux `--candidate-source` must be the pristine vendor DEB identified by the candidate receipt,
 while `--known-good` must be the vendor DEB whose inner identity matches the currently installed
-application. The candidate and known-good rollback are copied into the private incident and
-reverified before use; the candidate source is evidence and need not be the installed version. A
-restored vendor build may predate
+application. On Windows the known-good MSIX must reproduce the installed inner identity and carry
+the same package family, publisher, architecture, and application ID at a higher outer package
+version. The known-good rollback is copied into the private incident and reverified before use;
+Linux also copies its candidate, while the candidate source remains evidence and need not be the
+installed version. A restored vendor build may predate
 TMTK's readiness marker, so the fallback accepts either real renderer readiness or an otherwise
 clean launch that remains alive for ten seconds and records which boundary it observed. An early
 exit opens the terminal line; rollback never loops.
 
 A supervised adoption retains at most one full known-working rollback set. After a new adoption
-secures its rollback, TMTK removes only older toolkit-owned `known-good.app`, `known-good.deb`, and
-`candidate.deb` payloads from private incident directories and preserves their small state, logs,
-and diagnostics. TMTK never deletes the explicitly supplied source paths or anything in a
+secures its rollback, TMTK removes only older toolkit-owned `known-good.app`, `known-good.deb`,
+`candidate.deb`, and `known-good.msix` payloads from private incident directories and preserves
+their small state, logs, and diagnostics. TMTK never deletes the explicitly supplied source paths or anything in a
 maintainer's `.work` directory because it does not own those paths.
 
-The macOS confirmation uses `assets/TheMechanicsToolkit.icns` when the retained toolkit checkout
-contains it and falls back to the native note icon otherwise. The icon is presentation, not a
-runtime dependency or part of the application-signing boundary.
+The macOS and Windows confirmations use `assets/TheMechanicsToolkit.icns` and
+`assets/TheMechanicsToolkit.ico` respectively when the retained toolkit checkout contains them and
+fall back to a native icon otherwise. The icon is presentation, not a runtime dependency or part
+of the application-signing boundary.
 
 The repair turns are sequential continuations of the same task, not disposable agents. The
 supervisor freezes the task's recorded model and reasoning effort when it is armed, then passes
 both explicitly to every automatic and interactive resume. It refuses before asking Desktop to
-quit if that substrate identity cannot be established. Neither adapter scans the process table for
+quit if that substrate identity cannot be established. No adapter scans the process table for
 names containing `Codex` or `ChatGPT`: macOS uses the exact `com.openai.codex` bundle identity and
 target executable; Linux compares `/proc/PID/exe` to the exact resolved Desktop and bundled-CLI
-executables. Task handoff follows only this command's parent chain to the exact bundled CLI and
+executables; Windows uses exact installed-package, executable-path, and ancestor identities. Task
+handoff follows only this command's parent chain to the exact bundled CLI and
 freezes that PID. After Desktop
 quits, that one invoking CLI must exit. If it remains, the supervisor asks the person to close its
 existing terminal or session and does not launch a second copy of the task.
@@ -176,6 +195,12 @@ escalation. The agent must explain that TMTK needs private out-of-project superv
 detached lifetime across Desktop/task shutdown, and authority to install the authorized package
 before asking the person to enable Full Access.
 
+On Windows, TMTK uses a WPF dialog, exact installed-package and executable identity, a verified
+cached native `codex.exe`, `IApplicationActivationManager`, and an incident-scoped scheduled task
+for owned PowerShell closure. Desktop relaunch is blocked until the closure marker exists and that
+exact scheduled task has been removed. The final activation includes the original task deep link;
+the qualified broken-app cycle returned to that task after restoring the known-working MSIX.
+
 Automatic and interactive repair deliberately use Codex's unsandboxed escape-line mode because a
 failed Desktop application may need repair at the canonical application/package path. That authority comes
 only from the initiating task and user's existing scope. Diagnostic JSON, application output, and
@@ -217,7 +242,8 @@ const latest = JSON.parse(fs.readFileSync(
 ));
 if (latest.repairAttemptsUsed !== 3 || latest.knownGoodRestoreAttempted === true ||
     (typeof latest.configuration?.knownGood?.app !== "string" &&
-      typeof latest.configuration?.knownGood?.deb !== "string")) {
+      typeof latest.configuration?.knownGood?.deb !== "string" &&
+      typeof latest.configuration?.knownGood?.msix !== "string")) {
   throw new Error("latest TMTK incident is not an exhausted rescue with an unused rollback");
 }
 const stateFile = path.join(latest.incidentDirectory, "state.json");
@@ -228,7 +254,8 @@ NODE
 node bin/rescue-agent.mjs "$state_file"
 ```
 
-Do not pass `known-good.app` back through `tmtk-restart --candidate`: candidate adoption captures
+Do not pass `known-good.app`, `known-good.deb`, or `known-good.msix` back through
+`tmtk-restart --candidate`: candidate adoption captures
 the current canonical app as a new rollback and is the wrong lifecycle for restoring an existing
 incident. The re-entry above reuses the frozen receipt, performs the normal verified replacement,
 and returns through the supervisor's strict CLI-exit and terminal-close handoff.
@@ -294,7 +321,9 @@ do not require zsh or another POSIX shell. Bundle layout, process discovery, app
 diagnostic locations, default terminal choice, and terminal opening live together in a narrow
 platform adapter. The macOS adapter is implemented and qualified. The Linux DEB adapter has one
 exact Ubuntu ARM64 healthy-adoption and real-task CLI/Desktop non-overlap qualification; its
-selected live-feature and deliberate failure/recovery gates remain open. Unsupported platforms fail before changing
-application lifecycle state; a Windows or RPM port must add its own adapter rather than loosening
-the existing identity checks. Treat the JSON file as private local
+selected live-feature and deliberate failure/recovery gates remain open. The Windows ARM64 adapter
+has exact signed-MSIX staging and one complete broken-app rescue/restoration qualification; ordinary
+cross-version rollback provenance remains open. Unsupported platforms fail before changing
+application lifecycle state; an RPM or another platform port must add its own adapter rather than
+loosening the existing identity checks. Treat the JSON file as private local
 configuration and do not commit task IDs, paths, prompts, or secrets to this public repository.

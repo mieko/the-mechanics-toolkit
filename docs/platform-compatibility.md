@@ -103,6 +103,25 @@ application did not automatically navigate to that task, and this receipt does n
 still-open per-feature live checks or controlled-failure gates in
 [`qualification/linux.md`](../qualification/linux.md).
 
+## Windows build 8881 implementation checkpoint
+
+The Windows 11 ARM64 checkpoint uses Store package
+`OpenAI.Codex_26.908.4834.0_arm64__2p2nqsd0c76g0`, whose inner application is
+`26.908.40834`, Codex build `8881`, Electron `42.3.0`. Its pristine ASAR SHA-256 is
+`565c348c9b736b920d08fb647a3246189d959bf10ef81905ec6b7d20dcb792aa`. The complete
+14-patch Windows ASAR fleet passed exact source inspection, catalog-order application, focused
+probes, byte-identical second application, native payload preservation, MakeAppx reconstruction,
+SignTool verification, and full re-extraction. Windows uses the same semantic patch owners as the
+frontier macOS port; only actual generated-owner and runtime differences are platform-profiled.
+
+The adapter also passed a complete deliberately broken supervisor cycle on Windows 11 Pro ARM64:
+native WPF consent, exact invoking-CLI exit, signed MSIX installation, exact AUMID/PID activation,
+three bounded repair turns in the original task, incident-scoped PowerShell closure receipts,
+repair exhaustion, **Restore Known-Working**, exact task deep-link return, renderer readiness, and
+absence of toolkit-owned terminals, helpers, or scheduled tasks. Exact artifacts and the remaining
+cross-version rollback boundary are recorded in
+[`qualification/windows.md`](../qualification/windows.md).
+
 ## What is shared
 
 The CPU architecture does not create another JavaScript port for the packages inspected here.
@@ -149,15 +168,14 @@ order, syntax checks, focused behavioral probes, byte-identical reapplication, a
 checks. Because the JavaScript and CSS are byte-identical between Windows architectures, this is
 also generated-code evidence for Windows ARM64.
 
-This is **not** Windows package or live qualification. Important remaining platform boundaries
-include:
+This was **not** Windows package or live qualification. Important boundaries at that historical
+build-8378 checkpoint included:
 
 - `macos-menu-title` is deliberately macOS-only;
 - native app-tools peer authorization repairs a macOS signing-chain condition and the inspected
   Windows package does not ship its `browser-use-peer-authorization.node` module;
-- Tinrelay's outgoing observer currently requires a POSIX filesystem socket, POSIX permission
-  modes, and `lstat().isSocket()`; it needs a Windows named-pipe transport profile;
-- Windows has no restart-supervisor lifecycle or terminal adapter; and
+- Tinrelay's outgoing observer still required a Windows named-pipe transport profile;
+- no Windows restart-supervisor lifecycle or terminal adapter had been implemented; and
 - standalone-output integration currently knows only the macOS bundle layout. Windows ships both
   native `codex.exe` and Linux `codex` binaries for WSL paths, so the required replacement set must
   be established before integration can claim to repair every Windows execution mode.
@@ -205,26 +223,30 @@ The current staging path copies a pristine `.app`, transforms and repacks `app.a
 re-extracts it for post-pack probes. It is the qualified macOS adapter; Linux has a separate
 implemented DEB adapter below.
 
-### Windows: signed package boundary, not implemented
+### Windows: local signed MSIX staging and recovery implemented
 
 Electron 42 can validate ASAR integrity on Windows by storing the ASAR header hash in an
-`Integrity` / `ElectronAsar` executable resource. The inspected `ChatGPT.exe` did not expose that
-resource, and its ASAR header hash was not present as an ASCII resource value, so build `8378`
-appears not to enable Electron's optional embedded seal on Windows. A Windows adapter must inspect
-this rather than assume it remains disabled.
+`Integrity` / `ElectronAsar` executable resource. The inspected build-8881 `ChatGPT.exe` did not
+expose that resource. The adapter inspects the optional seal and fails closed if its shape changes
+rather than assuming it remains disabled.
 
 The official MSIX does carry `AppxBlockMap.xml` and an `AppxSignature.p7x` signature over the
 package. Editing only `app.asar` would invalidate that package layer even when Electron's optional
 seal is absent.
 
-A Windows adapter must repack the ASAR, update its executable resource when present, rebuild the
-MSIX block map, and choose an honest installation identity and signing route. Microsoft documents
-both ordinary [MSIX signing](https://learn.microsoft.com/en-us/windows/msix/package/sign-app-package-using-signtool)
-and a Windows 11 [unsigned-development package](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package)
-route. The latter requires a special publisher identity, cannot retain the identity of the signed
-Store package, often requires administrator installation for executable content, and is explicitly
-not a general distribution route. TMTK must not silently turn that development mechanism into its
-adoption policy.
+The Windows stager preserves the exact package family and application identity, applies the shared
+ASAR fleet, compares the native and non-owned payloads, rebuilds the block map with MakeAppx, and
+signs monotonically versioned candidate and recovery packages with an explicitly trusted local
+qualification certificate through SignTool. The result is a local qualification/adoption artifact,
+not a Microsoft Store package or a distributable OpenAI update. The supervisor installs it only
+after native consent and verifies the exact installed package, executable, ASAR, and activation PID.
+
+The current staging command derives both outputs from one selected source package. It therefore
+supports same-inner-build qualification but does not yet preserve an older installed build while
+staging a newer offered build. At adoption time the supplied known-working MSIX must reproduce the
+currently installed inner version, build, and ASAR and have the same package identity; a mismatch
+fails before the restart dialog. This refusal is the honest current boundary, not cross-version
+upgrade support.
 
 Electron's exact platform seal formats are documented in
 [ASAR Integrity](https://www.electronjs.org/docs/latest/tutorial/asar-integrity).

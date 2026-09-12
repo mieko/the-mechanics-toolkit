@@ -14,6 +14,7 @@ does not install, replace, launch, publish, or deploy it.
   tool, plus the macOS system tools `codesign`, `ditto`, and `PlistBuddy`.
 
 Linux DEB inputs and tools are specified in [Linux DEB staging and adoption](#linux-deb-staging-and-adoption).
+Windows MSIX inputs and tools are specified in [Windows MSIX staging and adoption](#windows-msix-staging-and-adoption).
 
 Configuration-backed patches read their ordinary sections from the same file. The palette requires
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array
@@ -110,6 +111,40 @@ private incident before the restart dialog. Installation and restoration use `dp
 with PolicyKit elevation for an ordinary desktop user, followed by exact package and inner-app
 verification. A future higher version from the vendor APT repository may replace the local rebuild.
 RPM staging is not implemented.
+
+### Windows MSIX staging and adoption
+
+Windows staging runs on Windows against one exact installed or extracted `OpenAI.Codex` package
+root. Start from [`toolkit.windows.example.json`](../toolkit.windows.example.json); its values are
+placeholders, not a runnable local configuration. The config's `windows` object supplies four-part
+`candidateVersion` and `knownGoodVersion` values, absolute `makeAppx` and `signTool` paths, a trusted
+SHA-1 signing-certificate thumbprint, and both native and WSL Codex binaries when the
+standalone-output repair is selected.
+
+```powershell
+node bin/toolkit.mjs stage-msix `
+  $InstalledPackageRoot $CandidateMsix $KnownGoodMsix `
+  --config $ToolkitConfig
+```
+
+The command preserves the exact package family and application identity, applies and verifies the
+selected ASAR fleet, compares native and non-owned payloads, rebuilds the MSIX block map, signs both
+outputs, and fully re-extracts them for verification. These are locally signed qualification and
+adoption packages, not Microsoft Store artifacts or distributable OpenAI updates.
+
+The qualified supervisor route is:
+
+```powershell
+node bin/tmtk-restart `
+  --candidate $CandidateMsix --known-good $KnownGoodMsix `
+  -- $InstalledPackageRoot
+```
+
+The current stager derives both outputs from the same source package. It is qualified for
+same-inner-build lifecycle testing, including a complete broken-app rescue and restoration, but not
+for preserving an older installed build while staging a newer offered build. Adoption rechecks that
+the supplied known-good package reproduces the currently installed inner identity and fails before
+restart when it does not. See [`qualification/windows.md`](../qualification/windows.md).
 
 The staging command removes its own extracted-ASAR scratch tree on both success and failure. The
 explicit destination candidate remains operator-owned. The restart supervisor bounds its private

@@ -26,6 +26,51 @@ try {
   const mismatch = spawnSync(process.execPath, [script, "check", app, "--config", config], {encoding: "utf8"});
   assert.notEqual(mismatch.status, 0);
   assert.match(mismatch.stderr, /does not match bundle version/);
+
+  const windowsApp = path.join(scratch, "windows-package");
+  const windowsResources = path.join(windowsApp, "app/resources");
+  const bundledNative = path.join(windowsResources, "codex.exe");
+  const bundledWsl = path.join(windowsResources, "codex");
+  const replacementNative = path.join(scratch, "patched-codex.exe");
+  const replacementWsl = path.join(scratch, "patched-codex-wsl");
+  fs.mkdirSync(windowsResources, {recursive: true});
+  fs.writeFileSync(path.join(windowsApp, "AppxManifest.xml"), `<?xml version="1.0"?>
+<Package>
+  <Identity Name="OpenAI.Codex" Publisher="CN=50BDFD77-8903-4850-9FFE-6E8522F64D5B"
+    Version="26.908.4834.1" ProcessorArchitecture="arm64" ResourceId="" />
+  <Applications>
+    <Application Id="App" Executable="app\\ChatGPT.exe"
+      EntryPoint="Windows.FullTrustApplication">
+    </Application>
+  </Applications>
+</Package>`);
+  for (const [target, marker] of [
+    [bundledNative, "stock-native"],
+    [bundledWsl, "stock-wsl"],
+    [replacementNative, "patched-native"],
+    [replacementWsl, "patched-wsl"]
+  ]) writeFakeCodex(target, marker, "codex-cli 0.154.0-alpha.6.2");
+  const windowsConfig = path.join(scratch, "windows-toolkit.json");
+  fs.writeFileSync(windowsConfig, JSON.stringify({
+    windows: {codexBinaries: {native: replacementNative, wsl: replacementWsl}}
+  }));
+
+  const windowsCheck = run("check", windowsApp, windowsConfig);
+  assert.equal(windowsCheck.state, "needs-apply");
+  assert.deepEqual(windowsCheck.targets, ["app/resources/codex.exe", "app/resources/codex"]);
+  assert.equal(run("apply", windowsApp, windowsConfig).state, "applied");
+  assert.equal(fs.readFileSync(bundledNative, "utf8"), fs.readFileSync(replacementNative, "utf8"));
+  assert.equal(fs.readFileSync(bundledWsl, "utf8"), fs.readFileSync(replacementWsl, "utf8"));
+  assert.equal(run("apply", windowsApp, windowsConfig).state, "applied");
+
+  writeFakeCodex(replacementWsl, "wrong-wsl", "codex-cli 0.154.0");
+  const wslMismatch = spawnSync(
+    process.execPath,
+    [script, "check", windowsApp, "--config", windowsConfig],
+    {encoding: "utf8"}
+  );
+  assert.notEqual(wslMismatch.status, 0);
+  assert.match(wslMismatch.stderr, /does not match bundle version/);
 } finally {
   fs.rmSync(scratch, {recursive: true, force: true});
 }

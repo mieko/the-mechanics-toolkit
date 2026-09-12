@@ -16,7 +16,9 @@ one bounded repair in an explicit target, and fail closed when the structure cha
   separate authority seams.
 - Staging must target a new, non-live artifact, must never launch it, and must remove only the new
   partial destination it created on failure. On macOS that means a `.app` outside `/Applications`;
-  on Linux it means a nonexistent output DEB rather than package-owned files under `/usr/lib`.
+  on Linux it means a nonexistent output DEB rather than package-owned files under `/usr/lib`;
+  on Windows it means nonexistent output MSIX files built from an explicit package root, never an
+  in-place edit under `WindowsApps`.
   Candidate adoption belongs only to the restart supervisor: it requires an explicit operator
   action, verifies the platform's exact rollback before replacement, and preserves that
   known-working artifact through live acceptance.

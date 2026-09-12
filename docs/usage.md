@@ -148,8 +148,10 @@ That form detects and rescues launch failure but has no pre-adoption app to rest
 
 For macOS, copy [`toolkit.example.json`](../toolkit.example.json) to the ignored
 `toolkit.local.json`. For the exact Linux build-8881 13-patch fleet, start from
-[`toolkit.linux.example.json`](../toolkit.linux.example.json). The examples contain fictional
-absolute paths and are not runnable until the agent replaces the applicable values.
+[`toolkit.linux.example.json`](../toolkit.linux.example.json); for the exact Windows build-8881
+14-patch fleet, start from [`toolkit.windows.example.json`](../toolkit.windows.example.json). The
+examples contain fictional absolute paths and are not runnable until the agent replaces the
+applicable values.
 `enabledPatches` selects the staged fleet; the catalog
 applies it in dependency-safe order regardless of array order. Every staged fleet must include
 `safe-start-readiness` for supervised adoption and `renderer-patch-registry`, which publishes the
@@ -163,7 +165,9 @@ Configuration-backed patches use these values:
   partition policy. Keep the certificate and private key local—only the identity name belongs in the
   ignored configuration. See [stable local signing](local-signing.md) for the trust boundary;
 - `codexBinary` names a separately built App Server/Core executable when a source repair must be
-  integrated into the staged desktop package;
+  integrated into a macOS or Linux staged desktop package. Windows instead uses
+  `windows.codexBinaries.native` and `windows.codexBinaries.wsl` because the package contains both
+  execution modes;
 - `workspaceRoot` locates `.codex/task-visual-palette.json` and
   `.codex/task-attention-policy.json`;
 - reasoning retention consumes exact task opt-ins from the visual palette;
@@ -238,32 +242,49 @@ node bin/toolkit.mjs stage-deb /path/to/chatgpt_amd64.deb \
   /path/to/chatgpt_amd64_tmtk.deb --config /path/to/toolkit.local.json
 ```
 
+For Windows MSIX packages, from Windows:
+
+```powershell
+node bin/toolkit.mjs stage-msix `
+  $InstalledPackageRoot $CandidateMsix $KnownGoodMsix `
+  --config $ToolkitConfig
+```
+
 Linux staging supports ASAR-scope patches only. It emits an explicit local rebuild with version
 `SOURCE+tmtk1`, omits the vendor `_gpgorigin` signature member, and records the authenticated source
 DEB hash and selected fleet in its package receipt. Before staging, `gpgv` verifies that source
 signature against the trusted ChatGPT APT keyring already present on the system. RPM is not
 implemented.
 
+Windows staging supports the complete ASAR fleet and, when configured, the paired native/WSL Codex
+binary replacement. It preserves the package identity, rebuilds the block map with MakeAppx, and
+signs monotonically versioned local qualification packages with SignTool and an explicitly trusted
+certificate. It does not produce a Microsoft Store artifact. The current same-source staging route
+is not an ordinary cross-version upgrade path; read
+[`qualification/windows.md`](../qualification/windows.md) before adoption.
+
 The destination's parent must exist and the destination must not. macOS staging refuses a
-destination inside `/Applications`; Linux staging requires a new `.deb` destination rather than a
-package-owned path under `/usr/lib`. Neither modifies or launches the source, and each removes only
-the new destination it created if static proof fails.
+destination inside `/Applications`; Linux requires a new `.deb` rather than a package-owned path
+under `/usr/lib`; Windows requires new candidate and known-good `.msix` destinations rather than an
+in-place edit under `WindowsApps`. None modifies or launches the source, and each removes only the
+new destination it created if static proof fails.
 
 The shared fleet gate requires every selected patch to begin pristine, applies the fleet in
 dependency-safe order, runs syntax and behavioral probes, proves byte-identical second application,
 preserves the source's exact native payload and executable modes, repacks the ASAR, and repeats
 verification after packing. macOS staging then updates Electron's integrity seal and signs the
 candidate with the configured identity (ad-hoc by default). Linux staging instead rebuilds the DEB
-as an explicitly unsigned local TMTK package with source provenance pinned in its receipt.
+as an explicitly unsigned local TMTK package with source provenance pinned in its receipt. Windows
+rebuilds and locally signs the complete MSIX package layer.
 
-When a selected repair includes a rebuilt App Server/Core, set `codexBinary` to the absolute path
-of the verified build. The `standalone-output-compaction` desktop integration requires the vendor
-and replacement executables to report the same `codex-cli` version, copies the replacement into the
-candidate at `Contents/Resources/codex`, and verifies its SHA-256 before the full bundle is signed.
-No compiled binary is stored in this repository.
+When a selected repair includes a rebuilt App Server/Core, configure the absolute replacement path
+or paths described above. The `standalone-output-compaction` desktop integration requires each
+vendor and replacement executable to report the same `codex-cli` version, copies the replacements
+into their platform package locations, and verifies their SHA-256 values before the outer package
+is finalized. No compiled binary is stored in this repository.
 
 A green result is a statically verified candidate, not permission to adopt it and not evidence of
-live behavior. The candidate name is a staging convention, not a second installed application;
-adoption preserves the one canonical `/Applications/ChatGPT.app` identity. See
+live behavior. The candidate is a staging artifact, not a second installed application; adoption
+preserves the platform's one canonical installed package identity. See
 [preparing a patched Codex update](update-workflow.md) and [staging and authority](staging.md) for
 the exact boundaries.
