@@ -356,6 +356,13 @@ assert.equal(await bootstrapApi.accept(scope, [owner], { initial: false }, () =>
   "a complete valid external save is accepted");
 assert.equal(bridgeRoom.style.get("--mtk-room-dark"), api.MTKmatchPalette(replacementLoaded, "", protectedTaskId).dark.canvas,
   "accepted palette is applied immediately");
+const replacementRule = api.MTKmatchPalette(replacementLoaded, "", protectedTaskId);
+assert.equal(bridgeSidebar.style.get("--mtk-sidebar-chip"), replacementRule.color,
+  "accepted rule-color reload repaints the project sidebar chip immediately");
+assert.equal(bridgeRecent.style.get("--mtk-sidebar-chip"), replacementRule.color,
+  "accepted rule-color reload repaints the loose-task sidebar chip immediately");
+assert.equal(bridgeSidebar.style.get("--mtk-row-selected-dark"), replacementRule.dark.selected,
+  "accepted rule-color reload republishes the selected-row palette immediately");
 assert.equal(bootstrapApi.reasoning(engineRule.taskId), true, "accepted reload republishes exact-ID reasoning policy");
 
 for (const contract of [

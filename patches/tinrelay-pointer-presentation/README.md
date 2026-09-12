@@ -79,7 +79,7 @@ The client executable and local ship live in ignored toolkit configuration:
 
 `client` must be an absolute non-root path. `localShip` must be a lowercase DNS-style ship name.
 
-Tinrelay owns the optional outgoing observer configuration at:
+Outgoing cards require Tinrelay's observer configuration at:
 
 ```text
 ~/.config/tinrelay/SHIP/outgoing-observer.json

@@ -215,15 +215,16 @@ is acceptable.
 ## Make ordinary Tinrelay sends visible
 
 The outgoing-presentation patch does not replace or wrap Tinrelay. Agents keep using ordinary
-`tinrelay --ship SHIP send`, with its complete body on standard input. A compatible Tinrelay
-client optionally reports each accepted send to a private Unix socket configured at
+`tinrelay --ship SHIP send`, with its complete body on standard input. Outgoing cards require a
+compatible Tinrelay client to report each accepted send to a private Unix socket configured at
 `~/.config/tinrelay/SHIP/outgoing-observer.json`; Codex correlates that event with the unchanged
 acceptance JSON by transmission ID. The patch keeps a bounded private presentation cache under
 Codex's application-support directory so an existing task can reconstruct the same outgoing card
 after an app restart. This is local presentation continuity, not a Tinrelay sent archive or proof
 of remote delivery.
 
-The observer configuration and exact event contract belong to Tinrelay. See the unified
+Without that file, incoming presentation still works and accepted sends remain stock command
+results. The observer configuration and exact event contract belong to Tinrelay. See the unified
 [Tinrelay presentation patch](../patches/tinrelay-pointer-presentation/) for the Codex-side trust
 boundary and verification of both directions.
 

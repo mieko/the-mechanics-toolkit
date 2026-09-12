@@ -222,6 +222,10 @@ the conversation without pretending it originated in Codex. Incoming and outgoin
 opposing animated radio wakes, support Markdown and long-message expansion, show `local@ship`
 routes, and reappear after a restart.
 
+Outgoing cards require Tinrelay's private outgoing-observer configuration; without it, incoming
+presentation still works and accepted sends retain their stock command result. The ordinary setup
+is in [usage](docs/usage.md#make-ordinary-tinrelay-sends-visible).
+
 ![A two-way Tinrelay exchange rendered inline in a color-mapped Codex room, with distinct incoming and outgoing radio-wake cards](patches/tinrelay-pointer-presentation/tinrelay-exchange-browser-render.webp)
 
 The ship names shown in Tinrelay documentation media are reserved examples registered for that
