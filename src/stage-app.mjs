@@ -2,9 +2,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { inspectAppBundle, sha256File } from "./app-bundle.mjs";
+import { inspectAppBundle } from "./app-bundle.mjs";
 import { asarHeaderSha256 } from "./asar-integrity.mjs";
-import { patchDefinition, patchDefinitions } from "./patch-catalog.mjs";
+import {
+  applyPatchFleet,
+  equalRecords,
+  readToolkitConfig,
+  recordDifferences,
+  selectedPatches,
+  treeSnapshot,
+  verifyPatchFleet
+} from "./stage-patch-fleet.mjs";
 
 const terminalHelperRelative = "node_modules/node-pty/build/Release/spawn-helper";
 const expectedNativePackages = Object.freeze([
@@ -15,13 +23,16 @@ const expectedNativePackages = Object.freeze([
 ]);
 
 export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}) {
+  if (process.platform !== "darwin") {
+    throw new Error("macOS application staging requires macOS");
+  }
   const source = path.resolve(sourceApp);
   const destination = path.resolve(destinationApp);
   const configFile = path.resolve(configPath);
   const repository = path.resolve(repositoryRoot);
   const asar = path.join(repository, "node_modules/.bin/asar");
   requireFile(asar, "repository-local asar CLI; run npm install");
-  const config = readConfig(configFile);
+  const config = readToolkitConfig(configFile);
   const signingIdentity = configuredSigningIdentity(config);
   const selected = selectedPatches(config.enabledPatches);
   const hasAsarPatches = selected.some(definition => definition.scope === "asar");
@@ -56,26 +67,15 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     const extracted = path.join(scratch, "extracted");
     run(asar, ["extract", copied.archive.path, extracted]);
     const roots = {app: destination, asar: extracted};
-    const initialChecks = checkPatches(selected, roots, configFile, repository);
-    const unexpected = initialChecks.filter(result => result.output.state !== "needs-apply");
-    if (unexpected.length > 0) {
-      const states = unexpected.map(result => `${result.name}=${result.output.state}`).join(", ");
-      throw new Error(`Source app is not pristine for selected patches: ${states}`);
-    }
-
-    const applied = applyPatches(selected, roots, configFile, repository);
-    const targets = changedTargets(applied);
-    syntaxCheckTargets(extracted, asarTargets(applied));
-    runProbes(selected, roots, config, repository);
-    const firstTree = treeSnapshot(extracted);
-    const firstAppTargets = patchTargetSnapshot(applied.filter(result => result.scope === "app"));
-    const secondApplied = applyPatches(selected, roots, configFile, repository);
-    if (!equalRecords(firstTree, treeSnapshot(extracted))) {
-      throw new Error("Second patch application changed the extracted tree");
-    }
-    if (!equalRecords(firstAppTargets, patchTargetSnapshot(secondApplied.filter(result => result.scope === "app")))) {
-      throw new Error("Second patch application changed staged application metadata");
-    }
+    const fleet = applyPatchFleet({
+      selected,
+      roots,
+      configFile,
+      config,
+      repository,
+      sourceLabel: "Source app"
+    });
+    const targets = fleet.changedTargets;
 
     if (hasAsarPatches) {
       restoreUnpackedModes(extracted, sourceNativeSnapshot);
@@ -126,12 +126,13 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
     const verified = path.join(scratch, "verified");
     run(asar, ["extract", finalInspection.archive.path, verified]);
     const finalRoots = {app: destination, asar: verified};
-    const finalChecks = checkPatches(selected, finalRoots, configFile, repository);
-    if (!finalChecks.every(result => result.output.state === "applied")) {
-      throw new Error("Final staged application does not satisfy every selected patch");
-    }
-    syntaxCheckTargets(verified, asarTargets(applied));
-    runProbes(selected, finalRoots, config, repository);
+    const finalChecks = verifyPatchFleet({
+      selected,
+      roots: finalRoots,
+      configFile,
+      config,
+      repository
+    });
 
     const sourceAfter = inspectAppBundle(source);
     if (sourceAfter.archive.sha256 !== sourceBefore.archive.sha256 || sourceAfter.signature.state !== "valid" ||
@@ -163,48 +164,12 @@ export function stageApp({sourceApp, destinationApp, configPath, repositoryRoot}
   }
 }
 
-function readConfig(file) {
-  let config;
-  try {
-    config = JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch (error) {
-    throw new Error(`Cannot read toolkit config: ${error.message}`);
-  }
-  if (config == null || typeof config !== "object" || Array.isArray(config)) {
-    throw new Error("Toolkit config must be a JSON object");
-  }
-  const allowed = new Set(["codexBinary", "enabledPatches", "signingIdentity", "workspaceRoot", "tinrelay"]);
-  const unknown = Object.keys(config).filter(key => !allowed.has(key));
-  if (unknown.length > 0) throw new Error(`Unknown toolkit config keys: ${unknown.join(", ")}`);
-  return config;
-}
-
 function configuredSigningIdentity(config) {
   if (config.signingIdentity === undefined) return "-";
   if (typeof config.signingIdentity !== "string" || config.signingIdentity.trim() === "") {
     throw new Error("Toolkit config signingIdentity must be a nonempty string");
   }
   return config.signingIdentity;
-}
-
-function selectedPatches(names) {
-  if (!Array.isArray(names) || names.length === 0 || names.some(name => typeof name !== "string")) {
-    throw new Error("Toolkit config enabledPatches must be a nonempty array of patch names");
-  }
-  if (new Set(names).size !== names.length) throw new Error("Toolkit config enabledPatches contains duplicates");
-  const unknown = names.filter(name => patchDefinition(name) == null);
-  if (unknown.length > 0) throw new Error(`Unknown enabled patches: ${unknown.join(", ")}`);
-  const selected = patchDefinitions.filter(definition => names.includes(definition.name));
-  for (const infrastructure of ["renderer-patch-registry", "safe-start-readiness"]) {
-    if (!names.includes(infrastructure)) {
-      throw new Error(`Staged patch fleets must include ${infrastructure}`);
-    }
-  }
-  for (const definition of selected) {
-    const missing = definition.requires.filter(name => !names.includes(name));
-    if (missing.length > 0) throw new Error(`${definition.name} requires: ${missing.join(", ")}`);
-  }
-  return selected;
 }
 
 function validatePaths(source, destination) {
@@ -217,108 +182,6 @@ function validatePaths(source, destination) {
   if (insideApplications(canonicalDestination)) {
     throw new Error("Staging destination must remain outside /Applications");
   }
-}
-
-function checkPatches(selected, roots, configFile, repository) {
-  return selected.map(definition => ({
-    name: definition.name,
-    scope: definition.scope,
-    root: roots[definition.scope],
-    output: patchCommand(definition, "check", roots[definition.scope], configFile, repository)
-  }));
-}
-
-function applyPatches(selected, roots, configFile, repository) {
-  return selected.map(definition => {
-    const root = roots[definition.scope];
-    const output = patchCommand(definition, "apply", root, configFile, repository);
-    if (output.state !== "applied") throw new Error(`${definition.name} apply returned ${output.state}`);
-    return {name: definition.name, scope: definition.scope, root, output};
-  });
-}
-
-function patchCommand(definition, action, extracted, configFile, repository) {
-  const args = [path.join(repository, definition.script), action, extracted];
-  if (definition.config) args.push("--config", configFile);
-  return jsonCommand(process.execPath, args, `${definition.name} ${action}`);
-}
-
-function runProbes(selected, roots, config, repository) {
-  for (const definition of selected) {
-    const args = [path.join(repository, definition.probe), roots[definition.scope]];
-    if (definition.probeWorkspaceRoot) args.push(path.resolve(config.workspaceRoot));
-    run(process.execPath, args);
-  }
-}
-
-function changedTargets(results) {
-  const targets = [];
-  for (const {output} of results) {
-    if (typeof output.target === "string") targets.push(output.target);
-    if (Array.isArray(output.targets)) targets.push(...output.targets);
-  }
-  return [...new Set(targets)].sort();
-}
-
-function asarTargets(results) {
-  return changedTargets(results.filter(result => result.scope === "asar"));
-}
-
-function patchTargetSnapshot(results) {
-  const snapshot = {};
-  for (const result of results) {
-    const targets = typeof result.output.target === "string"
-      ? [result.output.target]
-      : result.output.targets ?? [];
-    if (targets.length === 0) throw new Error(`${result.name} app patch did not report a changed target`);
-    for (const target of targets) {
-      const file = path.join(result.root, target);
-      requireFile(file, `${result.name} changed target ${target}`);
-      const stat = fs.statSync(file);
-      snapshot[`${result.name}:${target}`] = {sha256: sha256File(file), mode: stat.mode & 0o777};
-    }
-  }
-  return snapshot;
-}
-
-function syntaxCheckTargets(extracted, targets) {
-  for (const target of targets.filter(target => target.endsWith(".js"))) {
-    const file = path.join(extracted, target);
-    requireFile(file, `changed module ${target}`);
-    const result = spawnSync(process.execPath, ["--input-type=module", "--check"], {
-      encoding: "utf8",
-      input: fs.readFileSync(file),
-      maxBuffer: 64 * 1024 * 1024
-    });
-    if (result.status !== 0) {
-      const output = result.stderr || result.stdout;
-      const summary = output.match(/SyntaxError:[^\n]*/)?.[0] ?? output.trim().slice(-1000);
-      throw new Error(`module syntax check failed for ${target}: ${summary}`);
-    }
-  }
-}
-
-function treeSnapshot(root) {
-  const snapshot = {};
-  walk(root, file => {
-    const relative = path.relative(root, file);
-    const stat = fs.lstatSync(file);
-    snapshot[relative] = stat.isSymbolicLink()
-      ? {type: "symlink", target: fs.readlinkSync(file)}
-      : {type: "file", sha256: sha256File(file), mode: stat.mode & 0o777};
-  });
-  return snapshot;
-}
-
-function equalRecords(left, right) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function recordDifferences(left, right) {
-  const names = [...new Set([...Object.keys(left), ...Object.keys(right)])].sort();
-  const changed = names.filter(name => JSON.stringify(left[name]) !== JSON.stringify(right[name]));
-  return changed.slice(0, 8).map(name => `${name} (${JSON.stringify(left[name])} -> ${JSON.stringify(right[name])})`).join(", ") +
-    (changed.length > 8 ? `, plus ${changed.length - 8} more` : "");
 }
 
 function exactGlob(paths, prefix = "") {
@@ -417,15 +280,6 @@ function verifyNativePackages(unpacked) {
   }
 }
 
-function jsonCommand(program, args, label) {
-  const result = run(program, args);
-  try {
-    return JSON.parse(result.stdout);
-  } catch {
-    throw new Error(`${label} returned invalid JSON`);
-  }
-}
-
 function run(program, args) {
   const result = spawnSync(program, args, {encoding: "utf8", maxBuffer: 64 * 1024 * 1024});
   if (result.status !== 0) {
@@ -444,15 +298,5 @@ function requireDirectory(target, label) {
 function requireFile(target, label) {
   if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
     throw new Error(`Missing ${label}: ${target}`);
-  }
-}
-
-function walk(directory, visit) {
-  const entries = fs.readdirSync(directory, {withFileTypes: true})
-    .sort((left, right) => left.name.localeCompare(right.name));
-  for (const entry of entries) {
-    const target = path.join(directory, entry.name);
-    if (entry.isDirectory()) walk(target, visit);
-    else visit(target);
   }
 }

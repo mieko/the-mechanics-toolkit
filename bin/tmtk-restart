@@ -4,7 +4,12 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const {application, candidate, prompt} = parseArguments(process.argv.slice(2));
+if (process.env.TMTK_AUTOMATIC_REPAIR === "1") {
+  fail("tmtk-restart: automatic repair turns cannot arm another supervisor", 1);
+}
+
+const {application, candidate, candidateSource, knownGood, prompt} =
+  parseArguments(process.argv.slice(2));
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const supervisor = path.join(directory, "safe-start-supervisor.mjs");
@@ -15,7 +20,9 @@ const supervisorArguments = [
   application,
   rescueFile,
   prompt ?? "",
-  candidate ?? ""
+  candidate ?? "",
+  candidateSource ?? "",
+  knownGood ?? ""
 ];
 const result = spawnSync(process.execPath, supervisorArguments, {
   stdio: "inherit",
@@ -32,6 +39,8 @@ function fail(message, code) {
 function parseArguments(values) {
   const positional = [];
   let candidate = null;
+  let candidateSource = null;
+  let knownGood = null;
   let prompt = null;
   let options = true;
   for (let index = 0; index < values.length; index += 1) {
@@ -46,6 +55,14 @@ function parseArguments(values) {
       if (candidate != null || index + 1 >= values.length) usage();
       candidate = values[index += 1];
       if (candidate.trim() === "") usage();
+    } else if (options && value === "--candidate-source") {
+      if (candidateSource != null || index + 1 >= values.length) usage();
+      candidateSource = values[index += 1];
+      if (candidateSource.trim() === "") usage();
+    } else if (options && value === "--known-good") {
+      if (knownGood != null || index + 1 >= values.length) usage();
+      knownGood = values[index += 1];
+      if (knownGood.trim() === "") usage();
     } else if (options && value.startsWith("-")) {
       usage();
     } else {
@@ -53,9 +70,12 @@ function parseArguments(values) {
     }
   }
   if (positional.length !== 1) usage();
-  return {application: positional[0], candidate, prompt};
+  if ((candidateSource != null || knownGood != null) && candidate == null) usage();
+  return {application: positional[0], candidate, candidateSource, knownGood, prompt};
 }
 
 function usage() {
-  fail("usage: tmtk-restart [--candidate STAGED_APP] [--prompt TEXT] [--] /Applications/ChatGPT.app", 2);
+  fail("usage: tmtk-restart [--candidate STAGED_APP] [--candidate-source SOURCE_DEB] " +
+    "[--known-good ROLLBACK_DEB] " +
+    "[--prompt TEXT] [--] CHATGPT_APPLICATION_ROOT", 2);
 }

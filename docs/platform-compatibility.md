@@ -6,11 +6,33 @@ are answered:
 
 1. does its transform recognize the generated code for this exact desktop build and platform;
 2. does the repaired behavior mean the same thing on that platform; and
-3. can the result be repacked, integrity-sealed, installed, launched, and recovered safely there?
+3. can the result be repacked with honest platform integrity/provenance, then installed, launched,
+   and recovered safely there?
 
 A green answer to the first question is not evidence for the other two. Qualification should name
 the desktop's **inner application version and Codex build**, operating system, architecture, package
 format, and the highest gate actually exercised.
+
+## Repository ownership map
+
+TMTK does not carry three copies of every feature:
+
+```text
+patches/<feature>/                 shared behavior and exact generated-code transforms
+patches/<feature>/profiles/        only proven platform-specific owner shapes
+src/platforms/<platform>.mjs       lifecycle, process identity, dialogs, launch, and handoff
+src/<platform-package>.mjs         package inspection, adoption, and rollback
+src/stage-<package>.mjs            package-specific staging, integrity, and signing
+qualification/<platform>.md        platform-owned live runbook and evidence contract
+```
+
+The ordinary port order is semantic first, adaptation second. One maintainer establishes the new
+feature behavior and changed generated-code owners on a frontier package. Platform maintainers then
+apply that exact fleet to their official packages, reusing identical profiles and adding a narrow
+profile only where the bytes differ. Shared supervisor transitions stay shared; each adapter owns
+only the operating-system mechanism that fulfills them. Each platform still qualifies its own
+package, architecture, dialogs, installation, recovery, and live behavior before making a support
+claim.
 
 ## Measured build 8378 packages
 
@@ -36,6 +58,50 @@ Official distribution references:
 - [Codex Desktop overview](https://learn.chatgpt.com/docs/app)
 - [Windows installation](https://learn.chatgpt.com/docs/windows/windows-app)
 - [Linux installation and supported package formats](https://learn.chatgpt.com/docs/linux/linux-app)
+
+## Linux build 8881 implementation checkpoint
+
+The current official DEBs inspected on 2026-09-11 have outer and inner version
+`26.908.40834`, Codex build `8881`, and Electron `42.3.0`:
+
+| Architecture | Untouched DEB SHA-256 | Source ASAR SHA-256 |
+| --- | --- | --- |
+| AMD64 | `da37b8e7bcefaaea019c478cacbe6c73ee1ddd15e0e1ebb3c7ef0a42dd818ac2` | `6c371cc96c2cf201c0777ddd54085f156efbb5347cbb21667cd8e67ec1bb36d3` |
+| ARM64 | `bae5c5ca585625a116a8877dedc455e4c27ca02063ea93dbd6a0506ed6a12d31` | `a2ac9375f964d13563fd16954e6dd70426b78622f505927b718a43d5eace8251` |
+
+The exact package layout is `/usr/bin/chatgpt` -> `../lib/chatgpt/codex-launcher`, with Desktop
+at `/usr/lib/chatgpt/ChatGPT`, `resources/app.asar`, and the bundled CLI at
+`resources/codex`. TMTK checks those exact owners and compares the outer DEB, Linux package
+metadata, and inner ASAR identity instead of treating the launcher name as application identity.
+
+The ARM64 package now recognizes the complete 13-patch Linux fleet: runtime JSON reload, safe-start
+readiness, renderer registry, cross-task attribution, model identity guard, outgoing-message
+receipts, reasoning retention, sidebar collapse, task attention policy, task visual palette,
+terminal toggle, TinRelay presentation, and wait-thread roster. Shared transforms select exact
+Linux build-8881 owner profiles only where the generated code differs. The macOS-only menu-title
+and native app-tools authorization patches remain unsupported rather than being made to match a
+platform where their owned surfaces do not exist.
+
+The source-only `stage-deb` adapter produced and re-extracted local
+`26.908.40834+tmtk1` candidates for both architectures, preserving native payloads, executable
+modes, inner version/build, and all non-owned package files. The initial AMD64 package-mechanics
+proof used a three-patch candidate; it is not a full-fleet claim. The final ARM64 13-patch
+candidate has SHA-256
+`8737719adee28bae1c0060a08799da914d1d99f26e6b636597ba7faaf88dec07` and inner ASAR SHA-256
+`86caf4376a7045d1c4d43fb8367c22ef9913a22a48a68f2c99195050fa69e000`. It records its pristine
+DEB hash and selected fleet in both DEB control fields and an inner receipt.
+
+The final ARM64 candidate passed the healthy live path on Ubuntu 24.04.5 GNOME/Wayland on
+2026-09-12. A genuine GPT-5.6 Luna task froze its exact task ID, catalog directory, model, reasoning
+effort, and bundled-CLI ancestor. After the invoking CLI exited and the Codex databases accepted a
+writer, Zenity supplied the restart choice, GNOME PolicyKit authorized the verified package,
+`dpkg-query` reported `26.908.40834+tmtk1 arm64`, and the installed inner application and payload
+hashes matched the candidate receipt. The directly launched Desktop process reached its private
+renderer-ready marker. The preserved task reopened from Recents with its previous reasoning and
+model selection intact, and no supervisor, rescue agent, or toolkit-owned terminal remained. The
+application did not automatically navigate to that task, and this receipt does not qualify the
+still-open per-feature live checks or controlled-failure gates in
+[`qualification/linux.md`](../qualification/linux.md).
 
 ## What is shared
 
@@ -70,7 +136,7 @@ transforms—not byte offsets—and can survive changed chunk filenames or minif
 the owned code shape is still recognized. They are not source-level universal patches, and a
 matcher must never be widened merely because another platform carries the same build number.
 
-## Current transform results
+## Build 8378 transform results
 
 Every result below is a read-only check against a pristine extracted build-`8378` ASAR unless a
 stronger gate is named.
@@ -91,7 +157,7 @@ include:
   Windows package does not ship its `browser-use-peer-authorization.node` module;
 - Tinrelay's outgoing observer currently requires a POSIX filesystem socket, POSIX permission
   modes, and `lstat().isSocket()`; it needs a Windows named-pipe transport profile;
-- the restart supervisor has only a macOS lifecycle/terminal adapter; and
+- Windows has no restart-supervisor lifecycle or terminal adapter; and
 - standalone-output integration currently knows only the macOS bundle layout. Windows ships both
   native `codex.exe` and Linux `codex` binaries for WSL paths, so the required replacement set must
   be established before integration can claim to repair every Windows execution mode.
@@ -136,7 +202,8 @@ the current pristine profiles and remain unqualified.
 
 The current staging path copies a pristine `.app`, transforms and repacks `app.asar`, updates the
 `ElectronAsarIntegrity` header hash in `Info.plist`, signs the complete candidate, verifies it, and
-re-extracts it for post-pack probes. This is the only implemented and qualified package adapter.
+re-extracts it for post-pack probes. It is the qualified macOS adapter; Linux has a separate
+implemented DEB adapter below.
 
 ### Windows: signed package boundary, not implemented
 
@@ -162,20 +229,43 @@ adoption policy.
 Electron's exact platform seal formats are documented in
 [ASAR Integrity](https://www.electronjs.org/docs/latest/tutorial/asar-integrity).
 
-### Linux: package rebuild required, not implemented
+### Linux: DEB rebuild, healthy adoption, and real-task quiescence qualified; recovery pending
 
 Electron does not provide the macOS/Windows embedded ASAR-header validation feature on Linux. The
 official DEB nevertheless carries package provenance and installs a signed APT repository for
-future updates. The inspected DEB includes a `_gpgorigin` member and maintainer scripts that install
-OpenAI's repository key and source. A transformed local DEB would no longer be the vendor package;
+future updates. The inspected DEB includes an embedded `_gpgorigin` OpenPGP signature and maintainer
+scripts that install OpenAI's repository key and source. The adapter verifies that signature over
+the raw `debian-binary`, control archive, and data archive with `gpgv` and the already-installed
+trusted ChatGPT APT keyring. A transformed local DEB would no longer be the vendor package;
 it must be rebuilt honestly, and a later repository update may replace it.
 
-A Linux adapter should support both official DEB and RPM formats, rebuild package metadata around
-the transformed ASAR, preserve executable modes and native payload, and state how future package
-updates interact with the local repair. Patching `/usr/lib/chatgpt/resources/app.asar` in place is
-not a sufficient toolkit workflow: it requires elevated mutation of package-owned files, leaves
-package-manager state misleading, and is easy for the next update to overwrite. Only DEB payloads
-were inspected in this pass; RPM packaging remains a separate qualification target.
+The DEB adapter rebuilds package metadata around the transformed ASAR, preserves executable modes
+and native payload, changes the package version to `SOURCE+tmtk1`, and identifies the result as a
+local TMTK rebuild. It deliberately omits the vendor package's `_gpgorigin` signature member. The
+vendor repository remains configured. Apt correctly treats the same-version vendor package as
+older than `SOURCE+tmtk1`, while a later higher vendor version sorts above the local repair and may
+replace it. Reinstalling the pristine package for rollback is therefore an explicit verified dpkg
+action rather than an ordinary same-version apt upgrade.
+
+Supervised adoption names three roles explicitly: the rebuilt candidate, the authenticated newer
+vendor DEB named by its receipt, and the authenticated package matching the currently installed
+known-working application. The last two may be different builds during an upgrade. TMTK verifies
+all three, copies only the candidate and rollback into the private incident before asking the
+application to quit, installs through `dpkg` (using PolicyKit when not already root), verifies dpkg
+identity and the installed application hashes, and retains the rollback for known-working
+restoration. This keeps dpkg's ownership database truthful; TMTK never patches
+`/usr/lib/chatgpt/resources/app.asar` in place.
+On the qualified Desktop build, a genuine initiating task required explicit **Full Access**: the
+ordinary task sandbox made `~/.codex/tmtk-rescue` read-only and invocation-scoped escalation was
+unavailable. The agent must explain that requirement and its scope before asking the person to
+enable it.
+
+Only DEB packaging is implemented. Healthy ARM64 adoption, exact real-task context, and
+CLI/Desktop non-overlap are qualified on the exact Ubuntu, desktop/session, and application build
+above. RPM packaging,
+selected live feature inspection, controlled renderer failures, terminal rescue, and known-good
+restoration remain separate qualification targets; do not broaden that measured result into a
+general Linux support claim.
 
 ## Porting and qualification order
 

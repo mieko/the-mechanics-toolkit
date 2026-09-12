@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { inspectAppBundle } from "./app-bundle.mjs";
-import { applicationIsRunning, applicationLayout, defaultTerminal, resolveApplication } from "./restart-platform.mjs";
+import {
+  applicationIsRunning,
+  applicationLayout,
+  defaultTerminal,
+  prepareCandidateAdoption as preparePlatformCandidateAdoption,
+  resolveApplication
+} from "./restart-platform.mjs";
 
 const taskIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const runtimeDatabaseNames = [
@@ -124,6 +130,25 @@ export function verifiedApplicationSource(applicationArgument, targetApp, {
   };
 }
 
+export function prepareCandidateAdoption({
+  candidatePath,
+  candidateSourcePath = null,
+  knownGoodPath = null,
+  configuration,
+  incidentDirectory,
+  appInspector = inspectAppBundle
+}) {
+  return preparePlatformCandidateAdoption({
+    candidatePath,
+    candidateSourcePath,
+    knownGoodPath,
+    configuration,
+    incidentDirectory,
+    appInspector,
+    verifyApplicationSource: verifiedApplicationSource
+  }, {platform: configuration.platform});
+}
+
 export function pruneSupersededKnownGoodApps(rescueRootArgument, keepIncidentDirectory) {
   const rescueRoot = path.resolve(rescueRootArgument);
   const keep = path.resolve(keepIncidentDirectory);
@@ -139,17 +164,20 @@ export function pruneSupersededKnownGoodApps(rescueRootArgument, keepIncidentDir
     .sort();
   for (const incident of incidents) {
     if (incident === keep) continue;
-    const knownGood = path.join(incident, "known-good.app");
-    let stat;
-    try {
-      stat = fs.lstatSync(knownGood);
-    } catch (error) {
-      if (error?.code === "ENOENT") continue;
-      throw error;
+    for (const name of ["known-good.app", "known-good.deb", "candidate.deb"]) {
+      const rollbackPayload = path.join(incident, name);
+      let stat;
+      try {
+        stat = fs.lstatSync(rollbackPayload);
+      } catch (error) {
+        if (error?.code === "ENOENT") continue;
+        throw error;
+      }
+      const expectedType = name.endsWith(".app") ? stat.isDirectory() : stat.isFile();
+      if (!expectedType) continue;
+      fs.rmSync(rollbackPayload, {recursive: stat.isDirectory(), force: true});
+      removed.push(rollbackPayload);
     }
-    if (!stat.isDirectory()) continue;
-    fs.rmSync(knownGood, {recursive: true, force: true});
-    removed.push(knownGood);
   }
   return removed;
 }
@@ -157,6 +185,66 @@ export function pruneSupersededKnownGoodApps(rescueRootArgument, keepIncidentDir
 function isContained(relative) {
   return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(relative);
+}
+
+export function acquireRescueLease(incidentDirectory, {
+  ownerPid = process.pid,
+  processChecker = processExists,
+  token = crypto.randomUUID(),
+  fileSystem = fs
+} = {}) {
+  if (typeof incidentDirectory !== "string" || incidentDirectory.trim() === "") {
+    throw new Error("rescue incident directory is required");
+  }
+  if (!Number.isInteger(ownerPid) || ownerPid <= 0) {
+    throw new Error("rescue owner PID is invalid");
+  }
+  if (typeof token !== "string" || token === "") {
+    throw new Error("rescue owner token is invalid");
+  }
+  const file = path.join(path.resolve(incidentDirectory), "rescue-agent.lock");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let descriptor;
+    try {
+      descriptor = fileSystem.openSync(file, "wx", 0o600);
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      const existing = readRescueLease(file, fileSystem);
+      if (processChecker(existing.pid)) {
+        throw new Error(`rescue already active for this incident (pid ${existing.pid})`);
+      }
+      try {
+        fileSystem.unlinkSync(file);
+      } catch (unlinkError) {
+        if (unlinkError?.code !== "ENOENT") throw unlinkError;
+      }
+      continue;
+    }
+    try {
+      fileSystem.writeFileSync(descriptor, `${JSON.stringify({pid: ownerPid, token})}\n`);
+    } catch (error) {
+      fileSystem.closeSync(descriptor);
+      fileSystem.rmSync(file, {force: true});
+      throw error;
+    }
+    fileSystem.closeSync(descriptor);
+    return {
+      file,
+      release() {
+        let existing;
+        try {
+          existing = readRescueLease(file, fileSystem);
+        } catch (error) {
+          if (error?.code === "ENOENT") return;
+          throw error;
+        }
+        if (existing.pid === ownerPid && existing.token === token) {
+          fileSystem.rmSync(file, {force: true});
+        }
+      }
+    };
+  }
+  throw new Error("rescue ownership changed while recovering a stale incident lease");
 }
 
 export function automaticRepairPrompt(basePrompt, attempt, maximumAttempts = 3) {
@@ -169,9 +257,36 @@ export function automaticRepairPrompt(basePrompt, attempt, maximumAttempts = 3) 
   }
   return `This is attempt ${attempt}/${maximumAttempts} to repair the failed Codex launch. ` +
     "This session is not interactive with the user: do not ask questions or wait for input. " +
+    "Do not run rescue-agent.mjs, open-rescue.command, or tmtk-restart from inside this rescue. " +
     "Work autonomously from the available evidence, make the smallest causal repair, verify it, " +
     "and finish the turn. The supervisor will then launch the real Codex Desktop application and " +
     `accept only renderer readiness.\n\n${basePrompt}`;
+}
+
+function readRescueLease(file, fileSystem) {
+  let value;
+  try {
+    value = JSON.parse(fileSystem.readFileSync(file, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") throw error;
+    throw new Error(`cannot verify existing rescue ownership: ${error.message}`);
+  }
+  if (!Number.isInteger(value?.pid) || value.pid <= 0 ||
+      typeof value?.token !== "string" || value.token === "") {
+    throw new Error("cannot verify existing rescue ownership: invalid lease");
+  }
+  return value;
+}
+
+function processExists(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "ESRCH") return false;
+    if (error?.code === "EPERM") return true;
+    throw error;
+  }
 }
 
 export function interactiveRescuePrompt(basePrompt, maximumAttempts = 3) {

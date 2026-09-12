@@ -13,22 +13,25 @@ import {
   confirmTaskHandoff,
   launchApplication,
   openRescueTerminal,
+  releaseApplicationLaunch,
   replaceApplicationWithVerifiedSource,
   requestApplicationQuit
 } from "../src/restart-platform.mjs";
 import {
   loadRescueFile,
+  prepareCandidateAdoption,
   pruneSupersededKnownGoodApps,
   rescueConfiguration,
   rescuePrompt,
-  verifiedApplicationSource,
   waitForCodexStateQuiescence,
   waitForReadiness
 } from "../src/safe-start.mjs";
 
-const [mode, argument, auxiliaryArgument, promptArgument, candidateArgument] = process.argv.slice(2);
+const [mode, argument, auxiliaryArgument, promptArgument, candidateArgument,
+  candidateSourceArgument, knownGoodArgument] = process.argv.slice(2);
 if (mode === "launch") {
-  launch(argument, auxiliaryArgument, promptArgument, candidateArgument);
+  launch(argument, auxiliaryArgument, promptArgument, candidateArgument, candidateSourceArgument,
+    knownGoodArgument);
 } else if (mode === "supervise") {
   process.exitCode = await supervise(argument, {
     confirmRestart: true,
@@ -41,10 +44,13 @@ if (mode === "launch") {
     rescuePid: requiredPid(auxiliaryArgument)
   }) ? 0 : 1;
 } else {
-  fail("usage: safe-start-supervisor.mjs launch APPLICATION_ROOT RESCUE_JSON [PROMPT] [CANDIDATE] | supervise STATE_FILE | retry STATE_FILE RESCUE_PID", 2);
+  fail("usage: safe-start-supervisor.mjs launch APPLICATION_ROOT RESCUE_JSON [PROMPT] " +
+    "[CANDIDATE] [CANDIDATE_SOURCE] [KNOWN_GOOD] | supervise STATE_FILE | " +
+    "retry STATE_FILE RESCUE_PID", 2);
 }
 
-function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath) {
+function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath,
+  candidateSourcePath, knownGoodPath) {
   const userHome = os.homedir();
   let configuration;
   try {
@@ -65,18 +71,17 @@ function launch(applicationRoot, rescueFilePath, invocationPrompt, candidatePath
   fs.mkdirSync(incidentDirectory, {mode: 0o700});
   try {
     if (typeof candidatePath === "string" && candidatePath.trim() !== "") {
-      const candidate = verifiedApplicationSource(candidatePath, configuration.app, {
-        platform: configuration.platform
+      const {candidate, knownGood} = prepareCandidateAdoption({
+        candidatePath,
+        candidateSourcePath,
+        knownGoodPath,
+        configuration,
+        incidentDirectory
       });
-      const backupApp = path.join(incidentDirectory, "known-good.app");
-      const current = verifiedApplicationSource(configuration.app, backupApp, {
-        platform: configuration.platform
-      });
-      const knownGood = replaceApplicationWithVerifiedSource({
-        targetApp: backupApp,
-        source: current
-      }, {platform: configuration.platform});
       configuration = {...configuration, candidate, knownGood};
+    } else if ([candidateSourcePath, knownGoodPath].some(value =>
+      typeof value === "string" && value.trim() !== "")) {
+      throw new Error("--candidate-source and --known-good require --candidate");
     }
   } catch (error) {
     fs.rmSync(incidentDirectory, {recursive: true, force: true});
@@ -268,9 +273,9 @@ async function supervise(stateFile, {
         : configuration.timeoutSeconds * 1_000
     });
     if (result.kind === "ready") {
-      // `open -W` is only our LaunchServices-aware lifetime proxy. Once the
-      // renderer is ready, stop waiting without terminating the launched app.
-      child.kill();
+      // Release only the platform's launch waiter. Linux owns the exact app
+      // process directly, while macOS owns a LaunchServices lifetime proxy.
+      releaseApplicationLaunch(child, configuration.platform);
       save({phase: "ready", readyAt: new Date().toISOString()});
       return true;
     }
@@ -284,7 +289,7 @@ async function supervise(stateFile, {
       // The app captured before adoption may predate TMTK's renderer marker.
       // It was already running successfully when captured, so after a clean
       // restore an alive LaunchServices child is the honest fallback boundary.
-      child.kill();
+      releaseApplicationLaunch(child, configuration.platform);
       save({
         phase: "known-good-restored-running",
         knownGoodRunningAt: new Date().toISOString(),
@@ -316,9 +321,17 @@ async function supervise(stateFile, {
 }
 
 function discardUnusedKnownGood(configuration, state) {
-  if (state.candidateInstalled === true || typeof configuration.knownGood?.app !== "string") return;
-  const backup = path.resolve(configuration.knownGood.app);
-  const incident = path.resolve(state.incidentDirectory);
+  if (state.candidateInstalled === true) return;
+  for (const value of [configuration.knownGood?.app, configuration.knownGood?.deb,
+    configuration.candidate?.deb]) {
+    discardIncidentPayload(value, state.incidentDirectory);
+  }
+}
+
+function discardIncidentPayload(value, incidentDirectory) {
+  if (typeof value !== "string") return;
+  const backup = path.resolve(value);
+  const incident = path.resolve(incidentDirectory);
   const relative = path.relative(incident, backup);
   if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return;
   fs.rmSync(backup, {recursive: true, force: true});
@@ -364,7 +377,8 @@ function rescue(reason, currentState, save, {openTerminal}) {
     save({
       rescueTerminalOpened: opened.opened,
       rescueTerminalError: opened.error,
-      rescueTerminalApplicationOwned: opened.applicationOwned
+      rescueTerminalApplicationOwned: opened.applicationOwned,
+      rescueTerminalPid: opened.terminalPid ?? null
     });
   }
   return false;

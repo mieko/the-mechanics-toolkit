@@ -7,6 +7,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+if (process.platform !== "darwin") {
+  process.stdout.write("macOS menu title transform probe skipped on this platform\n");
+  process.exit(0);
+}
+
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const patch = path.join(repository, "patches/macos-menu-title/patch.mjs");
 const probe = path.join(repository, "test/macos-menu-title.test.mjs");

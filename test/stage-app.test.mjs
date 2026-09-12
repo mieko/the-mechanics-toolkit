@@ -9,6 +9,11 @@ import { inspectAppBundle } from "../src/app-bundle.mjs";
 import { asarHeaderSha256 } from "../src/asar-integrity.mjs";
 import { patchDefinitions } from "../src/patch-catalog.mjs";
 
+if (process.platform !== "darwin") {
+  process.stdout.write("macOS application staging probe skipped on this platform\n");
+  process.exit(0);
+}
+
 const repository = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const toolkit = path.join(repository, "bin/toolkit.mjs");
 const asar = path.join(repository, "node_modules/.bin/asar");

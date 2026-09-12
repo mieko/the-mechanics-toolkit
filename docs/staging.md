@@ -3,7 +3,7 @@
 The staging command builds evidence, not permission. It creates a new, disposable candidate and
 does not install, replace, launch, publish, or deploy it.
 
-## Inputs
+## macOS inputs
 
 - a valid `com.openai.codex` source bundle whose code signature and Electron ASAR-header seal pass;
 - a nonexistent destination outside `/Applications`, under an existing directory;
@@ -12,6 +12,8 @@ does not install, replace, launch, publish, or deploy it.
   verified same-version executable;
 - dependencies installed with `npm install`, including the pinned repository-local Electron ASAR
   tool, plus the macOS system tools `codesign`, `ditto`, and `PlistBuddy`.
+
+Linux DEB inputs and tools are specified in [Linux DEB staging and adoption](#linux-deb-staging-and-adoption).
 
 Configuration-backed patches read their ordinary sections from the same file. The palette requires
 cross-task attribution in the selection. Patch order comes from the toolkit catalog, not from array
@@ -43,9 +45,11 @@ the command:
 5. applies the transforms again and compares every extracted file, symlink, and mode;
 6. requires the exact recognized native-package set, preserves its complete tree, repacks it, and
    verifies the node-pty helper is executable;
-7. updates Electron's raw ASAR-header SHA-256 value and signs the candidate with the configured
-   identity (ad-hoc by default);
-8. verifies bundle identity, version/build preservation, integrity, and signature;
+7. on macOS, updates Electron's raw ASAR-header SHA-256 value and signs the candidate with the
+   configured identity (ad-hoc by default); on Linux, writes explicit local-rebuild control fields
+   and a receipt without claiming the vendor signature;
+8. verifies the platform package identity and version/build preservation, plus the macOS integrity
+   seal and signature where applicable;
 9. extracts the packed result and reruns patch checks, syntax checks, and behavioral probes.
 
 Failure removes only the new destination that this invocation created. The source is never a write
@@ -66,6 +70,46 @@ It verifies the candidate and current app, captures the current app as a private
 rollback, and does not replace anything until the person clicks **Relaunch Codex**. Do not retain a
 separately named live copy with the same bundle identifier. Neither adoption nor launch is implied
 by a successful stage.
+
+### Linux DEB staging and adoption
+
+Linux DEB staging uses the same config and selected-patch contract, but its inputs and output are
+packages rather than application directories:
+
+```sh
+node bin/toolkit.mjs stage-deb /path/to/chatgpt_amd64.deb \
+  /path/to/chatgpt_amd64_tmtk.deb --config "$CONFIG"
+```
+
+The command requires `dpkg-deb`, `ar`, `gpgv`, the trusted ChatGPT APT keyring at
+`/usr/share/keyrings/chatgpt-archive-keyring.gpg`, an authenticated official `chatgpt` DEB, and a
+nonexistent destination. Before extraction for mutation, it verifies the DEB's embedded
+`_gpgorigin` signature over its raw archive members against that already-installed APT keyring. It
+then extracts the package without installing it. It accepts ASAR-scope patches only, preserves the
+unpacked native tree and all non-owned package payloads, writes an explicit TMTK package receipt,
+and rebuilds a local `SOURCE+tmtk1` DEB. The source stays byte-identical. A green
+`staged-deb-static-proof-green` result still means `installed: false` and `launched: false`.
+If a future official package is signed by a key absent from the currently trusted keyring, staging
+fails closed. Refresh that trust only through OpenAI's authenticated APT/vendor acquisition path;
+TMTK does not import a key from the package it is trying to authenticate and has no bypass flag.
+
+Supervised Linux adoption names the candidate's pristine source separately from the rollback that
+matches the currently installed application:
+
+```sh
+bin/tmtk-restart --candidate /path/to/chatgpt_amd64_tmtk.deb \
+  --candidate-source /path/to/new-chatgpt_amd64.deb \
+  --known-good /path/to/installed-chatgpt_amd64.deb /usr/lib/chatgpt
+```
+
+Both receipt-free DEBs must pass the same embedded-signature check against the trusted APT keyring.
+The candidate receipt must identify `--candidate-source` by version, architecture, and SHA-256, and
+the currently installed inner application must match `--known-good`. The source and rollback may
+be different releases during an ordinary upgrade. TMTK copies the candidate and rollback into its
+private incident before the restart dialog. Installation and restoration use `dpkg`,
+with PolicyKit elevation for an ordinary desktop user, followed by exact package and inner-app
+verification. A future higher version from the vendor APT repository may replace the local rebuild.
+RPM staging is not implemented.
 
 The staging command removes its own extracted-ASAR scratch tree on both success and failure. The
 explicit destination candidate remains operator-owned. The restart supervisor bounds its private

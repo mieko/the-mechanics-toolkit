@@ -14,7 +14,7 @@ export function diagnoseApp({app, home = os.homedir(), inspect = inspectAppBundl
   return {
     state: "diagnostic-report",
     generatedAt: new Date().toISOString(),
-    app: inspect(app),
+    app: inspect(app, {platform}),
     desktopLog: desktopLogEvidence(locations.desktopLogs, resolvedHome),
     rendererErrors: rendererErrorEvidence(locations.rendererScope, resolvedHome)
   };

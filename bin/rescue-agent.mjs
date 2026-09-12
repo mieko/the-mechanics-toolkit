@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  acquireRescueLease,
   automaticRepairPrompt,
   explicitResumeEnvironment,
   interactiveRescuePrompt,
@@ -18,7 +19,8 @@ import {
   closeOwnedRescueTerminal,
   confirmRepairFallback,
   replaceApplicationWithVerifiedSource,
-  rescueStopHookOverride
+  rescueStopHookOverride,
+  rescueTerminalClosureRequired
 } from "../src/restart-platform.mjs";
 
 const stateFile = process.argv[2];
@@ -26,7 +28,15 @@ if (stateFile == null) fail("usage: rescue-agent.mjs STATE_FILE", 2);
 const maximumAttempts = 3;
 const supervisor = path.join(path.dirname(fileURLToPath(import.meta.url)), "safe-start-supervisor.mjs");
 const stopHook = path.join(path.dirname(fileURLToPath(import.meta.url)), "rescue-turn-stop.mjs");
-let {configuration} = rescueState();
+const initialState = rescueState();
+let lease;
+try {
+  lease = acquireRescueLease(initialState.incidentDirectory);
+} catch (error) {
+  fail(`TMTK rescue refused concurrent incident ownership: ${error.message}`, 1);
+}
+process.once("exit", () => lease.release());
+let {configuration} = initialState;
 
 process.stdout.write(`TMTK is repairing task ${configuration.taskId} in ${configuration.cwd}\n`);
 
@@ -61,7 +71,7 @@ for (let attempt = firstAttempt; attempt <= maximumAttempts; attempt += 1) {
   ], {
     cwd: configuration.cwd,
     stdio: "inherit",
-    env: explicitResumeEnvironment(process.env)
+    env: {...explicitResumeEnvironment(process.env), TMTK_AUTOMATIC_REPAIR: "1"}
   });
   const completion = await waitForRepairTurnCompletion({
     child,
@@ -210,8 +220,10 @@ function launchReturnSupervisor() {
 }
 
 function returnToDesktop(state, lines) {
-  const closureRequired = process.env.TMTK_RESCUE_TERMINAL_OWNED === "1" &&
-    configuration.terminalApp === "Terminal";
+  const closureRequired = rescueTerminalClosureRequired({
+    terminalApp: configuration.terminalApp,
+    environment: process.env
+  }, {platform: configuration.platform});
   const closureMarker = path.join(state.incidentDirectory, `return-${crypto.randomUUID()}-terminal-closed`);
   fs.rmSync(closureMarker, {force: true});
   saveRescueState({

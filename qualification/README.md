@@ -20,6 +20,7 @@ native-module behavior do not. A platform is qualified only by its own runbook a
 
 - [macOS](macos.md) — implemented
 - Windows — not yet implemented or qualified
-- Linux — not yet implemented or qualified
+- [Linux](linux.md) — Ubuntu ARM64 healthy DEB adoption and real-task CLI quiescence qualified;
+  recovery gates pending
 
 Transform recognition on another package is portability evidence, not platform qualification.

@@ -11,8 +11,20 @@ fs.appendFileSync(record, `${JSON.stringify({
   args,
   cwd: process.cwd(),
   threadId: process.env.CODEX_THREAD_ID ?? null,
-  sessionId: process.env.CODEX_SESSION_ID ?? null
+  sessionId: process.env.CODEX_SESSION_ID ?? null,
+  automaticRepair: process.env.TMTK_AUTOMATIC_REPAIR ?? null
 })}\n`);
+
+if (process.env.RESCUE_REENTRY_TOOL != null) {
+  const attempt = spawnSync(process.execPath, [process.env.RESCUE_REENTRY_TOOL, "/not-an-application"], {
+    encoding: "utf8",
+    env: process.env
+  });
+  fs.writeFileSync(process.env.RESCUE_REENTRY_RESULT, `${JSON.stringify({
+    status: attempt.status,
+    stderr: attempt.stderr
+  })}\n`);
+}
 
 if (!args.includes("--dangerously-bypass-hook-trust")) process.exit(0);
 const taskId = args[args.indexOf("--dangerously-bypass-hook-trust") + 3];

@@ -14,17 +14,20 @@ one bounded repair in an explicit target, and fail closed when the structure cha
   application. Source-patch commands may modify only an explicitly supplied Codex Git checkout at
   the exact qualified revision. Building, application staging, installation, and launch remain
   separate authority seams.
-- The staging command must refuse a destination inside `/Applications`, must never launch it, and
-  must remove a newly created partial destination on failure. Candidate adoption belongs only to
-  the restart supervisor: it requires an explicit operator action, captures and verifies the
-  current canonical app first, and preserves that known-working copy through live acceptance.
+- Staging must target a new, non-live artifact, must never launch it, and must remove only the new
+  partial destination it created on failure. On macOS that means a `.app` outside `/Applications`;
+  on Linux it means a nonexistent output DEB rather than package-owned files under `/usr/lib`.
+  Candidate adoption belongs only to the restart supervisor: it requires an explicit operator
+  action, verifies the platform's exact rollback before replacement, and preserves that
+  known-working artifact through live acceptance.
 - Prefer acquiring an offered vendor application before interrupting the running app. Keep that
   vendor bundle untouched, stage and prove the complete selected fleet while the current app stays
   available, then ask for one final quit-and-relaunch seam.
-- Do not install stock and patched copies side by side under different filenames while both retain
-  `com.openai.codex`. The patched candidate may be named `ChatGPT-MechanicsToolkit.app` while staged
-  and unlaunched, but the adopted application occupies the canonical `/Applications/ChatGPT.app`
-  path. Preserve the pristine vendor installer or another non-live recovery artifact instead.
+- On macOS, do not install stock and patched copies side by side under different filenames while
+  both retain `com.openai.codex`. The patched candidate may be named
+  `ChatGPT-MechanicsToolkit.app` while staged and unlaunched, but the adopted application occupies
+  the canonical `/Applications/ChatGPT.app` path. Preserve the pristine vendor installer or another
+  non-live recovery artifact instead.
 - Match semantic owners and complete structural contracts. Unknown, partial, duplicated, or split
   ownership fails closed; never broaden a matcher merely to make a new build pass.
 - Keep local names, task IDs, ship identities, absolute user paths, and private policy out of source.
@@ -39,6 +42,14 @@ one bounded repair in an explicit target, and fail closed when the structure cha
 - Give each patch one directory under `patches/` with its transform and a `README.md` that states
   purpose, current state, owned seam, compatibility evidence, verification, and non-goals. The root
   README is the fleet-wide instrument panel; patch READMEs are the maintenance logs.
+- Keep each user-visible repair owned by that one patch directory across operating systems. Shared
+  generated-JavaScript profiles stay in the patch's main transform; when an observed platform build
+  genuinely has a different owner shape, put only that exact profile under the patch's
+  `profiles/` directory. Do not clone the fleet into macOS, Linux, and Windows patch trees.
+- Keep package formats, application identity, signing, process discovery, dialogs, launch, and
+  rescue-terminal behavior under `src/platforms/` and the platform package/staging modules. Keep
+  live evidence and operator procedures under `qualification/<platform>.md`. A shared supervisor
+  invariant must not be reimplemented independently by each adapter.
 - Give each App Server/Core repair one directory under `source-patches/` with its exact diff and a
   `README.md` that states the upstream tag/commit, behavior, tests, build command, integration seam,
   and non-goals. Do not fold Rust source application into the desktop staging transform.

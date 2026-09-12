@@ -142,6 +142,10 @@ export function launchApplication({app, marker, appLog, processLauncher = spawn}
   return child;
 }
 
+export function releaseApplicationLaunch(child) {
+  child.kill();
+}
+
 export function applicationIsRunning(executable, {processRunner = spawnSync} = {}) {
   const script = String.raw`
 ObjC.import("AppKit");
@@ -271,6 +275,13 @@ export function rescueStopHookOverride({nodeExecutable, hookScript, receiptFile,
   return `hooks.Stop=[{hooks=[{type="command",command=${JSON.stringify(command)},timeout=30,statusMessage="Finishing rescue turn"}]}]`;
 }
 
+export function rescueTerminalClosureRequired({
+  terminalApp,
+  environment = process.env
+} = {}) {
+  return environment.TMTK_RESCUE_TERMINAL_OWNED === "1" && terminalApp === "Terminal";
+}
+
 export function closeOwnedRescueTerminal({
   terminalApp,
   applicationOwned = false,
@@ -333,6 +344,38 @@ return "closed"
   child.once("error", () => {});
   child.unref();
   return {scheduled: true, tty: targetTty};
+}
+
+export function prepareCandidateAdoption({
+  candidatePath,
+  candidateSourcePath,
+  knownGoodPath,
+  configuration,
+  incidentDirectory,
+  appInspector,
+  verifyApplicationSource
+}) {
+  if (candidateSourcePath != null && candidateSourcePath.trim() !== "") {
+    throw new Error("--candidate-source is only valid for package-based candidate adoption");
+  }
+  if (knownGoodPath != null && knownGoodPath.trim() !== "") {
+    throw new Error("--known-good is only valid for package-based candidate adoption");
+  }
+  const candidate = verifyApplicationSource(candidatePath, configuration.app, {
+    platform: configuration.platform,
+    appInspector
+  });
+  const backupApp = path.join(incidentDirectory, "known-good.app");
+  const current = verifyApplicationSource(configuration.app, backupApp, {
+    platform: configuration.platform,
+    appInspector
+  });
+  const knownGood = replaceApplicationWithVerifiedSource({
+    targetApp: backupApp,
+    source: current,
+    appInspector
+  });
+  return {candidate, knownGood};
 }
 
 export function replaceApplicationWithVerifiedSource({

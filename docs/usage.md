@@ -6,8 +6,9 @@ installs, replaces, launches, or rolls back an application.
 
 ## Requirements
 
-The current patch-staging workflow targets macOS and requires Node.js 24 LTS or a newer supported
-release. The generated-code and packaging boundaries measured on Windows and Linux are recorded in
+The current patch-staging workflow supports macOS application bundles and Linux DEB packages, and
+requires Node.js 24 LTS or a newer supported release. The generated-code and packaging boundaries
+measured on Windows and Linux are recorded in
 [`platform-compatibility.md`](platform-compatibility.md); transform recognition alone is not package
 or live qualification. Install the pinned local Electron ASAR dependency and run the repository
 checks:
@@ -18,7 +19,10 @@ npm run check
 npm test
 ```
 
-The macOS staging path also uses the system `codesign`, `ditto`, and `PlistBuddy` tools.
+The macOS staging path also uses the system `codesign`, `ditto`, and `PlistBuddy` tools. Linux DEB
+staging uses `dpkg-deb`, `ar`, `gpgv`, and the already-installed trusted ChatGPT APT keyring. One
+exact Ubuntu ARM64 build has completed healthy live adoption;
+the remaining Linux VM gates still control any broader DEB qualification claim.
 
 ## Inspect an application
 
@@ -36,6 +40,16 @@ node bin/toolkit.mjs inspect /path/to/ChatGPT.app
 
 Inspection reports bundle identity, version and build, complete ASAR SHA-256, Electron's raw-header
 integrity value, and code-signature validity.
+
+On Linux, inspect the exact package-owned application directory:
+
+```sh
+node bin/toolkit.mjs inspect /usr/lib/chatgpt
+```
+
+Linux inspection validates the production package metadata against the inner ASAR and reports the
+Desktop executable, ASAR, and bundled-CLI hashes. Package provenance is verified from the DEB at
+staging/adoption time rather than inferred from the installed directory.
 
 ## Diagnose a failed launch or renderer
 
@@ -62,14 +76,35 @@ bin/tmtk-restart --candidate /path/to/ChatGPT-MechanicsToolkit.app \
   /Applications/ChatGPT.app
 ```
 
-Before arming, the command verifies both applications and copies the current canonical app into its
-private incident directory as the exact known-working rollback. It then arms a detached supervisor
-and returns immediately. On macOS, a blocking dialog offers **Don't Restart** and **Relaunch
-Codex**. The invoking agent should finish its response without polling or waiting; the person
-clicks **Relaunch Codex** after every active agent reaches a safe stopping point. **Don't Restart**
-leaves the running application untouched and discards the unused rollback copy. Only **Relaunch
-Codex** authorizes the supervisor to quit the current app, copy the verified candidate into the
-canonical path, verify it again, and launch it.
+Linux DEB adoption names its pristine candidate source and installed rollback separately:
+
+```sh
+bin/tmtk-restart --candidate /path/to/chatgpt_amd64_tmtk.deb \
+  --candidate-source /path/to/new-chatgpt_amd64.deb \
+  --known-good /path/to/installed-chatgpt_amd64.deb /usr/lib/chatgpt
+```
+
+The Linux adapter proves that the candidate receipt names `--candidate-source` and that the
+installed inner app matches `--known-good`. Those packages may describe different builds during
+an upgrade. It copies the candidate and rollback into the private incident, uses the best
+available native dialog and terminal, installs through `dpkg` with PolicyKit elevation when
+needed, and verifies both receipt-free DEBs' embedded origin signatures plus the installed package
+and payload hashes. On the qualified Linux Desktop
+build, run this from a task whose person has explicitly enabled **Full Access** after the agent
+explains why TMTK must write private state outside the project, survive task/Desktop exit, and
+install the authorized package. The ordinary task sandbox made the rescue root read-only and
+invocation-scoped escalation was unavailable. See
+[`qualification/linux.md`](../qualification/linux.md) for the exact qualified gate and remaining
+boundaries.
+
+On macOS, before arming, the command verifies both applications and copies the current canonical
+app into its private incident directory as the exact known-working rollback. It then arms a
+detached supervisor and returns immediately. A blocking dialog offers **Don't Restart** and
+**Relaunch Codex**. The invoking agent should finish its response without polling or waiting; the
+person clicks **Relaunch Codex** after every active agent reaches a safe stopping point. **Don't
+Restart** leaves the running application untouched and discards the unused rollback copy. Only
+**Relaunch Codex** authorizes the supervisor to quit the current app, adopt the verified candidate,
+verify it again, and launch it.
 
 On macOS, the quit gate identifies Desktop by the exact `com.openai.codex` bundle identity and
 target executable path. It also records only the exact bundled Codex CLI in the invoking command's
@@ -91,23 +126,31 @@ After Desktop returns, the task's project directory may not be the TMTK checkout
 command through its absolute retained-checkout path rather than assuming the current directory.
 
 After three unsuccessful repair-and-relaunch turns, the supervisor offers **Restore
-Known-Working** and **Open Terminal Line with Agent**. Restore copies the exact pre-adoption app
-back into the canonical path, verifies it, closes the owned rescue terminal, and launches it after
-the same strict single-writer handoff. The terminal choice keeps the same task open as an ordinary
+Known-Working** and **Open Terminal Line with Agent**. Restore reinstalls the exact platform
+rollback, verifies it, closes any platform-owned rescue surface, and launches it after the same
+strict single-writer handoff. The terminal choice keeps the same task open as an ordinary
 interactive Codex CLI session. A plain supervised restart remains available when there is no
-candidate to adopt:
+candidate to adopt. On macOS:
 
 ```sh
 bin/tmtk-restart /Applications/ChatGPT.app
+```
+
+On Linux:
+
+```sh
+bin/tmtk-restart /usr/lib/chatgpt
 ```
 
 That form detects and rescues launch failure but has no pre-adoption app to restore automatically.
 
 ## Local configuration
 
-Copy [`toolkit.example.json`](../toolkit.example.json) to the ignored `toolkit.local.json`, or use
-another private path. The example contains fictional absolute paths and is not runnable until the
-agent replaces the applicable values. `enabledPatches` selects the staged fleet; the catalog
+For macOS, copy [`toolkit.example.json`](../toolkit.example.json) to the ignored
+`toolkit.local.json`. For the exact Linux build-8881 13-patch fleet, start from
+[`toolkit.linux.example.json`](../toolkit.linux.example.json). The examples contain fictional
+absolute paths and are not runnable until the agent replaces the applicable values.
+`enabledPatches` selects the staged fleet; the catalog
 applies it in dependency-safe order regardless of array order. Every staged fleet must include
 `safe-start-readiness` for supervised adoption and `renderer-patch-registry`, which publishes the
 installed patch inventory and optional cross-patch capabilities after the other transforms run.
@@ -188,15 +231,30 @@ node bin/toolkit.mjs stage /path/to/Pristine-ChatGPT.app \
   --config /path/to/toolkit.local.json
 ```
 
-The destination's parent must exist and the destination must not. Staging refuses `/Applications`,
-never modifies or launches the source, and removes only the new destination it created if static
-proof fails.
+For Linux DEB packages:
 
-The command requires every selected patch to begin pristine, applies the fleet in dependency-safe
-order, runs syntax and behavioral probes, proves byte-identical second application, preserves the
-source's exact native payload and executable modes, repacks the ASAR, updates Electron's integrity
-seal, signs the candidate with the configured identity (ad-hoc by default), and repeats verification
-after packing.
+```sh
+node bin/toolkit.mjs stage-deb /path/to/chatgpt_amd64.deb \
+  /path/to/chatgpt_amd64_tmtk.deb --config /path/to/toolkit.local.json
+```
+
+Linux staging supports ASAR-scope patches only. It emits an explicit local rebuild with version
+`SOURCE+tmtk1`, omits the vendor `_gpgorigin` signature member, and records the authenticated source
+DEB hash and selected fleet in its package receipt. Before staging, `gpgv` verifies that source
+signature against the trusted ChatGPT APT keyring already present on the system. RPM is not
+implemented.
+
+The destination's parent must exist and the destination must not. macOS staging refuses a
+destination inside `/Applications`; Linux staging requires a new `.deb` destination rather than a
+package-owned path under `/usr/lib`. Neither modifies or launches the source, and each removes only
+the new destination it created if static proof fails.
+
+The shared fleet gate requires every selected patch to begin pristine, applies the fleet in
+dependency-safe order, runs syntax and behavioral probes, proves byte-identical second application,
+preserves the source's exact native payload and executable modes, repacks the ASAR, and repeats
+verification after packing. macOS staging then updates Electron's integrity seal and signs the
+candidate with the configured identity (ad-hoc by default). Linux staging instead rebuilds the DEB
+as an explicitly unsigned local TMTK package with source provenance pinned in its receipt.
 
 When a selected repair includes a rebuilt App Server/Core, set `codexBinary` to the absolute path
 of the verified build. The `standalone-output-compaction` desktop integration requires the vendor

@@ -152,9 +152,10 @@ from the open-source Codex App Server/Core. Those are different products and dif
 seams:
 
 - [`patches/`](patches/) transforms an explicitly supplied Codex Desktop package: extracted ASAR
-  JavaScript, bundle metadata, or—in one integration step—the bundled `Contents/Resources/codex`
-  executable. These patches are staged together and the resulting macOS app is signed as one
-  candidate.
+  JavaScript, platform package metadata, or—on macOS in one integration step—the bundled
+  `Contents/Resources/codex` executable. The selected ASAR fleet stages into one macOS application
+  candidate or one Linux DEB candidate; each platform adapter owns its package integrity and
+  adoption boundary.
 - [`source-patches/`](source-patches/) applies exact diffs to an explicitly supplied checkout of
   [OpenAI Codex](https://github.com/openai/codex). The agent inspects the source, applies or ports
   the repair, runs its focused Rust tests, and builds a new `codex` executable. Nothing in this
@@ -169,7 +170,7 @@ and live acceptance remain separate actions.
 ## Codex Desktop package patches
 
 The desktop package fleet is currently qualified on **macOS ARM64** against
-**Codex Desktop `26.908.31457` (`8690`)**. That exact fleet passed static proof, supervised
+**Codex Desktop `26.908.40834` (`8881`)**. That exact fleet passed static proof, supervised
 installation, real renderer readiness, and selected live message-path checks.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence
 and remaining live-acceptance boundaries; patch READMEs describe their own behavior and focused
@@ -206,7 +207,7 @@ desktop-package transforms above.
 
 | Source patch | Qualified source | What it repairs |
 | --- | --- | --- |
-| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.154.0-alpha.6.1` / Desktop `26.908.31457` (`8690`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
+| [Standalone-output compaction](source-patches/standalone-output-compaction/) | Codex `rust-v0.154.0-alpha.6.2` / Desktop `26.908.40834` (`8881`) | Preserves the current externally sourced agent-to-agent instruction when that turn triggers compaction, without manufacturing a user message or retaining ordinary paired tool output. |
 
 ## See the patches
 
@@ -310,6 +311,10 @@ from Codex's local catalog rather than trusting `PWD`, and it gives a freshly si
 wait for a person at a macOS Keychain prompt. On macOS, the detached supervisor first blocks behind
 an explicit **Don't Restart** / **Relaunch Codex** dialog so active agents can reach a safe stopping
 point and the person—not a race—chooses when the application closes.
+
+The Linux DEB adapter uses the same supervisor protocol with desktop-native dialogs, exact `/proc`
+executable identity, PolicyKit-backed package installation, and a Linux terminal handoff. Its exact
+qualified and still-open gates live in [the Linux runbook](qualification/linux.md).
 
 ### Native app-tools peer authorization
 

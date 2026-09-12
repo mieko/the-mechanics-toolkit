@@ -19,12 +19,15 @@ import {
   diagnosticLocations,
   launchApplication,
   openRescueTerminal,
+  releaseApplicationLaunch,
   replaceApplicationWithVerifiedSource,
   requestApplicationQuit,
   rescueStopHookOverride,
+  rescueTerminalClosureRequired,
   resolveApplication
 } from "../src/restart-platform.mjs";
 import {
+  acquireRescueLease,
   automaticRepairPrompt,
   codexRuntimeDatabaseFiles,
   explicitResumeEnvironment,
@@ -56,6 +59,39 @@ try {
   const fallbackCwd = path.join(scratch, "fallback-project");
   fs.mkdirSync(catalogCwd);
   fs.mkdirSync(fallbackCwd);
+
+  const rescueLeaseIncident = path.join(scratch, "rescue-lease-incident");
+  fs.mkdirSync(rescueLeaseIncident);
+  const firstLease = acquireRescueLease(rescueLeaseIncident, {
+    ownerPid: 101,
+    processChecker: pid => pid === 101,
+    token: "first"
+  });
+  assert.throws(() => acquireRescueLease(rescueLeaseIncident, {
+    ownerPid: 202,
+    processChecker: pid => pid === 101,
+    token: "second"
+  }), /rescue already active for this incident \(pid 101\)/);
+  firstLease.release();
+  assert.equal(fs.existsSync(firstLease.file), false);
+
+  const staleLease = acquireRescueLease(rescueLeaseIncident, {
+    ownerPid: 303,
+    processChecker: () => false,
+    token: "stale"
+  });
+  const replacementLease = acquireRescueLease(rescueLeaseIncident, {
+    ownerPid: 404,
+    processChecker: () => false,
+    token: "replacement"
+  });
+  staleLease.release();
+  assert.equal(fs.existsSync(replacementLease.file), true,
+    "a stale owner's cleanup cannot remove its replacement's lease");
+  replacementLease.release();
+
+  const automaticPrompt = automaticRepairPrompt("Inspect the evidence.\n", 1, 3);
+  assert.match(automaticPrompt, /Do not run rescue-agent\.mjs, open-rescue\.command, or tmtk-restart/);
 
   const dialogCalls = [];
   const confirmed = confirmApplicationRestart({platform: "darwin", processRunner(command, arguments_, options) {
@@ -228,7 +264,12 @@ try {
   });
   assert.equal(defaultTerminal("darwin"), "Terminal");
   const launchCalls = [];
-  const launchChild = {unrefCalled: false, unref() { this.unrefCalled = true; }};
+  const launchChild = {
+    killCalled: false,
+    unrefCalled: false,
+    kill() { this.killCalled = true; },
+    unref() { this.unrefCalled = true; }
+  };
   assert.equal(launchApplication({
     app,
     marker: path.join(scratch, "launch-services.ready"),
@@ -249,6 +290,8 @@ try {
   ]);
   assert.deepEqual(launchCalls[0].options, {detached: true, stdio: "ignore"});
   assert.equal(launchChild.unrefCalled, true);
+  releaseApplicationLaunch(launchChild, "darwin");
+  assert.equal(launchChild.killCalled, true, "macOS releases only its open -W lifetime proxy");
   const knownGoodApp = path.join(scratch, "hidden/known-good.app");
   const replacementTarget = path.join(scratch, "Applications/Replacement.app");
   fs.mkdirSync(knownGoodApp, {recursive: true});
@@ -292,17 +335,27 @@ try {
   for (const incident of [retainedIncident, oldIncidentA, oldIncidentB]) {
     fs.mkdirSync(path.join(incident, "known-good.app"), {recursive: true});
     fs.writeFileSync(path.join(incident, "known-good.app/payload"), path.basename(incident));
+    fs.writeFileSync(path.join(incident, "known-good.deb"), path.basename(incident));
+    fs.writeFileSync(path.join(incident, "candidate.deb"), path.basename(incident));
     fs.writeFileSync(path.join(incident, "state.json"), "{}\n");
   }
   fs.writeFileSync(path.join(oldIncidentB, "not-an-app"), "preserve");
   assert.deepEqual(pruneSupersededKnownGoodApps(retentionRoot, retainedIncident), [
     path.join(oldIncidentA, "known-good.app"),
-    path.join(oldIncidentB, "known-good.app")
+    path.join(oldIncidentA, "known-good.deb"),
+    path.join(oldIncidentA, "candidate.deb"),
+    path.join(oldIncidentB, "known-good.app"),
+    path.join(oldIncidentB, "known-good.deb"),
+    path.join(oldIncidentB, "candidate.deb")
   ]);
   assert.equal(fs.existsSync(path.join(retainedIncident, "known-good.app/payload")), true,
     "the newest known-working rollback remains available");
   assert.equal(fs.existsSync(path.join(oldIncidentA, "known-good.app")), false,
     "an older full application rollback is removed");
+  assert.equal(fs.existsSync(path.join(oldIncidentA, "known-good.deb")), false,
+    "an older DEB rollback is removed");
+  assert.equal(fs.existsSync(path.join(oldIncidentA, "candidate.deb")), false,
+    "an older staged candidate is removed");
   assert.equal(fs.existsSync(path.join(oldIncidentA, "state.json")), true,
     "old incident metadata remains available");
   assert.equal(fs.readFileSync(path.join(oldIncidentB, "not-an-app"), "utf8"), "preserve",
@@ -352,6 +405,10 @@ try {
   assert.match(hookOverride, /^hooks\.Stop=\[\{hooks=\[\{type="command",/);
   assert.match(hookOverride, /\\"'\\"/, "the platform adapter safely quotes apostrophes for its command shell");
   assert.match(hookOverride, /statusMessage="Finishing rescue turn"/);
+  assert.equal(rescueTerminalClosureRequired({
+    terminalApp: "Terminal",
+    environment: {TMTK_RESCUE_TERMINAL_OWNED: "1"}
+  }, {platform: "darwin"}), true);
   const terminalOpenCalls = [];
   const terminalOpened = openRescueTerminal({
     terminalApp: "Terminal",
@@ -429,7 +486,7 @@ try {
     desktopLogs: path.join(scratch, "Library/Logs/com.openai.codex"),
     rendererScope: path.join(scratch, "Library/Application Support/Codex/sentry/scope_v3.json")
   });
-  assert.throws(() => resolveApplication(app, "linux"), /not yet qualified for linux/);
+  assert.equal(resolveApplication(app, "linux"), app);
 
   const rescueFile = path.join(scratch, "RESCUE-AGENT.json");
   fs.writeFileSync(rescueFile, `${JSON.stringify({taskId, cwd: fallbackCwd, model, reasoningEffort, readyTimeoutSeconds: 90})}\n`);
@@ -567,7 +624,7 @@ try {
   assert.equal(launchStatus(null).launched, false);
 
   assert.throws(() => applicationIsRunning("/some/Codex", {platform: "linux"}),
-    /not yet qualified for linux/);
+    /could not resolve Linux application executable/);
   const applicationStateCalls = [];
   assert.equal(applicationIsRunning(applicationExecutable, {
     platform: "darwin",
@@ -660,8 +717,10 @@ try {
     assert.equal(source.includes("/usr/bin/sqlite3"), false, `${file} does not require a system SQLite CLI`);
   }
 
+  if (process.platform === "darwin") {
   const fakeCli = path.join(scratch, "fake-codex.mjs");
   const rescueResult = path.join(scratch, "rescue-result.jsonl");
+  const reentryResult = path.join(scratch, "reentry-result.json");
   const promptFile = path.join(scratch, "prompt.txt");
   const incidentDirectory = path.join(scratch, "incident");
   const stateFile = path.join(incidentDirectory, "state.json");
@@ -695,7 +754,9 @@ try {
     env: {
       ...process.env,
       RESCUE_RESULT: rescueResult,
-      RESCUE_TEST_CODEX_HOME: path.join(scratch, "rescue-codex-home")
+      RESCUE_TEST_CODEX_HOME: path.join(scratch, "rescue-codex-home"),
+      RESCUE_REENTRY_TOOL: path.join(repository, "bin/tmtk-restart"),
+      RESCUE_REENTRY_RESULT: reentryResult
     }
   });
   assert.equal(resumed.status, 0, resumed.stderr || resumed.stdout);
@@ -724,6 +785,10 @@ try {
     "rescue starts directly in the catalog cwd without shell cd");
   assert.equal(invocation.threadId, null);
   assert.equal(invocation.sessionId, null);
+  assert.equal(invocation.automaticRepair, "1");
+  const reentry = readJson(reentryResult);
+  assert.equal(reentry.status, 1);
+  assert.match(reentry.stderr, /automatic repair turns cannot arm another supervisor/);
 
   const failedApp = path.join(scratch, "Applications/BrokenChatGPT.app");
   const failedExecutable = path.join(failedApp, "Contents/MacOS/ChatGPT");
@@ -779,6 +844,11 @@ try {
     taskId
   ]);
   assert.match(failedInvocations[0].args[7], /^All 3 non-interactive repair attempts failed\./);
+  assert.equal(failedInvocations[0].automaticRepair, null,
+    "the final interactive escape line may deliberately arm a later restart");
+  } else {
+    process.stdout.write("macOS rescue process integration probe skipped on this platform\n");
+  }
   process.stdout.write("safe-start behavior probe passed\n");
 } finally {
   fs.rmSync(scratch, {recursive: true, force: true});

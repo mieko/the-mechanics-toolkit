@@ -1,0 +1,22 @@
+{
+  "enabledPatches": [
+    "cross-task-attribution",
+    "runtime-json-reload",
+    "task-visual-palette",
+    "reasoning-retention",
+    "model-identity-guard",
+    "sidebar-action-collapse",
+    "task-attention-policy",
+    "terminal-toggle",
+    "outgoing-message-receipt",
+    "wait-thread-roster",
+    "tinrelay-pointer-presentation",
+    "safe-start-readiness",
+    "renderer-patch-registry"
+  ],
+  "workspaceRoot": "/absolute/path/to/your/workspace",
+  "tinrelay": {
+    "client": "/absolute/path/to/tinrelay",
+    "localShip": "example-ship"
+  }
+}

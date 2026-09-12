@@ -2,11 +2,22 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { asarHeaderSha256 } from "./asar-integrity.mjs";
+import { asarHeaderSha256, readAsarFile } from "./asar-integrity.mjs";
 
 const bundleIdentifier = "com.openai.codex";
 
-export function inspectAppBundle(app, { verifySignature = true } = {}) {
+export function inspectAppBundle(app, {
+  verifySignature = true,
+  platform = process.platform
+} = {}) {
+  if (platform === "linux") return inspectLinuxApplication(app);
+  if (platform !== "darwin") {
+    throw new Error(`Codex application inspection is not yet qualified for ${platform}`);
+  }
+  return inspectMacosAppBundle(app, {verifySignature});
+}
+
+function inspectMacosAppBundle(app, {verifySignature}) {
   const resolvedApp = path.resolve(app);
   requireDirectory(resolvedApp, "application bundle");
 
@@ -50,6 +61,64 @@ export function inspectAppBundle(app, { verifySignature = true } = {}) {
   };
 }
 
+function inspectLinuxApplication(app) {
+  const resolvedApp = path.resolve(app);
+  requireDirectory(resolvedApp, "application directory");
+
+  const executable = path.join(resolvedApp, "ChatGPT");
+  const archive = path.join(resolvedApp, "resources/app.asar");
+  const cli = path.join(resolvedApp, "resources/codex");
+  const metadataFile = path.join(resolvedApp, "resources/linux-package-metadata.json");
+  requireExecutable(executable, "ChatGPT executable");
+  requireFile(archive, "app.asar");
+  requireExecutable(cli, "bundled Codex CLI");
+  requireFile(metadataFile, "Linux package metadata");
+
+  const metadata = readJson(metadataFile, "Linux package metadata");
+  const application = readJsonBuffer(readAsarFile(archive, "package.json"), "ASAR package.json");
+  if (metadata.codexAppBrand !== "chatgpt" || metadata.codexBuildFlavor !== "prod") {
+    throw new Error("Refusing non-production ChatGPT Linux application");
+  }
+  if (application.name !== "openai-codex-electron" || application.desktopName !== "chatgpt.desktop") {
+    throw new Error("Refusing non-Codex Linux application archive");
+  }
+  if (typeof metadata.version !== "string" || metadata.version === "" ||
+      application.version !== metadata.version) {
+    throw new Error("Linux package and inner application versions disagree");
+  }
+  if (!/^\d+$/.test(String(application.codexBuildNumber))) {
+    throw new Error("Linux application has an invalid Codex build number");
+  }
+
+  return {
+    app: resolvedApp,
+    identifier: "chatgpt",
+    version: application.version,
+    build: String(application.codexBuildNumber),
+    archive: {
+      path: archive,
+      sha256: sha256File(archive),
+      headerSha256: asarHeaderSha256(archive)
+    },
+    executable: {path: executable, sha256: sha256File(executable)},
+    cli: {path: cli, sha256: sha256File(cli)},
+    asarIntegrity: {
+      state: "not-applicable",
+      detail: "Electron does not embed an ASAR integrity seal on Linux"
+    },
+    signature: {
+      state: "not-applicable",
+      detail: "Linux trust is carried by the installed distribution package"
+    },
+    package: {
+      format: "deb",
+      name: "chatgpt",
+      version: metadata.version,
+      state: "directory-inspection"
+    }
+  };
+}
+
 function inspectSignature(app) {
   const result = spawnSync("/usr/bin/codesign", ["--verify", "--deep", "--strict", app], {
     encoding: "utf8"
@@ -90,6 +159,31 @@ function requireDirectory(target, label) {
 function requireFile(target, label) {
   if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
     throw new Error(`Missing ${label}: ${target}`);
+  }
+}
+
+function requireExecutable(target, label) {
+  requireFile(target, label);
+  try {
+    fs.accessSync(target, fs.constants.X_OK);
+  } catch {
+    throw new Error(`Non-executable ${label}: ${target}`);
+  }
+}
+
+function readJson(file, label) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`Could not read ${label}: ${error.message}`);
+  }
+}
+
+function readJsonBuffer(buffer, label) {
+  try {
+    return JSON.parse(buffer.toString("utf8"));
+  } catch (error) {
+    throw new Error(`Could not read ${label}: ${error.message}`);
   }
 }
 

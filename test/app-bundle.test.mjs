@@ -6,6 +6,11 @@ import os from "node:os";
 import path from "node:path";
 import { inspectAppBundle } from "../src/app-bundle.mjs";
 
+if (process.platform !== "darwin") {
+  process.stdout.write("macOS application bundle inspection probe skipped on this platform\n");
+  process.exit(0);
+}
+
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-app-test-"));
 try {
   const app = path.join(scratch, "ChatGPT.app");
