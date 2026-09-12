@@ -173,7 +173,7 @@ The desktop package fleet is currently qualified against **Codex Desktop `26.908
 on **macOS ARM64**, **Ubuntu ARM64**, and **Windows 11 ARM64**, with different platform-owned
 acceptance boundaries. macOS passed the complete static fleet, supervised installation, renderer
 readiness, and selected live message paths. Ubuntu passed the complete 13-patch package and healthy
-supervisor adoption. Windows passed the complete 14-patch signed-MSIX package and a deliberately
+supervisor adoption. Windows passed the complete 13-patch signed-MSIX package and a deliberately
 broken three-turn rescue with known-working restoration; its ordinary cross-version rollback
 provenance remains open.
 The fleet-wide [extraction ledger](docs/extraction-ledger.md) owns the exact current-build evidence

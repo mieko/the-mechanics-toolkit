@@ -40,7 +40,8 @@ export function stageMsix({
   platform = process.platform,
   processRunner = spawnSync,
   appInspector = inspectApplication,
-  sourceInspector = inspectApplicationSource
+  sourceInspector = inspectApplicationSource,
+  scratchParent = os.tmpdir()
 }) {
   if (platform !== "win32") throw new Error("MSIX staging must run on Windows");
   const source = path.resolve(sourceApp);
@@ -78,7 +79,7 @@ export function stageMsix({
   ], processRunner);
   requirePrerequisiteMatch(prerequisites, sourceBefore, windows);
 
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "mechanics-toolkit-msix-"));
+  const scratch = fs.mkdtempSync(path.join(scratchParent, "mechanics-toolkit-msix-"));
   const temporaryCandidate = temporaryPackagePath(candidate);
   const temporaryKnownGood = temporaryPackagePath(knownGood);
   let candidateCreated = false;

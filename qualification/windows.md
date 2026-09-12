@@ -16,7 +16,10 @@ The installed ASAR SHA-256 is
 inspection found no `Integrity` / `ElectronAsar` resource in `ChatGPT.exe`; the signed MSIX block
 map is therefore the package's ASAR integrity boundary for this build.
 
-The complete 14-patch Windows ASAR fleet staged successfully from that package. The candidate is
+The measured qualification artifact staged 14 ASAR transforms, including the macOS-only native
+app-tools authorization transform. The inspected Windows package has no native authorization
+module for that transform to repair, so the supported Windows fleet and public example contain the
+remaining 13 patches. The measured candidate is
 `OpenAI.Codex_26.908.4834.4_arm64__2p2nqsd0c76g0`, with package SHA-256
 `c65df444d002c5ea0cb7a0a475ed21a0831b6cfafbd1dbc35ced58f48f8671cb` and ASAR SHA-256
 `81683240a58ba64edb58603473687f681ea54b05fd2088dcf234602e1ad50a2d`. The separately rebuilt
@@ -77,7 +80,7 @@ This is a local qualification and adoption route, not a distributable OpenAI upd
 the official package family and publisher identity while signing the rebuilt packages with an
 explicitly trusted qualification certificate. It does not claim Microsoft Store provenance.
 
-The standalone-output source repair is not part of the 14-patch checkpoint. The official Windows
+The standalone-output source repair is not part of this ASAR checkpoint. The official Windows
 package contains both native `app/resources/codex.exe` and WSL `app/resources/codex`; selecting
 that repair requires separately built, same-version replacements for both files. The Windows
 stager rejects a partial replacement set.

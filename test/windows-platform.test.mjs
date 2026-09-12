@@ -539,7 +539,9 @@ try {
     [...helperSource.matchAll(/CoCreateInstance\(ref classId, IntPtr\.Zero, 1/g)].length,
     2
   );
-  assert.match(helperSource, /New-ScheduledTaskPrincipal[^\n]+\$env:COMPUTERNAME/);
+  assert.match(helperSource, /WindowsIdentity\]::GetCurrent\(\)\.Name/);
+  assert.match(helperSource, /New-ScheduledTaskPrincipal -UserId \$identityName/);
+  assert.doesNotMatch(helperSource, /\$env:COMPUTERNAME\\\$env:USERNAME/);
   assert.match(helperSource, /-LogonType Interactive -RunLevel Limited/);
   assert.match(helperSource, /Unregister-ScheduledTask -TaskName \$taskLiteral/);
   assert.match(helperSource, /Test-SameFile \$observed \$packaged \$expectedHash/);

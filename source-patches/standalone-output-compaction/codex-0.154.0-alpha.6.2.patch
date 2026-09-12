@@ -7,7 +7,7 @@ index 4aacc97d10..5309df3c84 100644
  pub use codex_prompts::SUMMARY_PREFIX;
  const COMPACT_USER_MESSAGE_MAX_TOKENS: usize = 20_000;
 +pub(crate) const MAX_RETAINED_EXTERNAL_INPUT_TOKENS: i64 = 10_000;
- 
+
  /// Controls whether compaction replacement history must include initial context.
  ///
 @@ -603,7 +604,8 @@ pub(crate) fn is_summary_message(message: &str) -> bool {
@@ -60,11 +60,11 @@ index 4aacc97d10..5309df3c84 100644
 +    let insertion_index = last_real_input_index
          .or(last_user_or_summary_index)
          .or(last_compaction_index);
- 
+
 @@ -667,6 +673,10 @@ pub(crate) fn insert_initial_context_before_last_real_user_or_summary(
      compacted_history
  }
- 
+
 +pub(crate) fn is_standalone_function_call_output(item: &ResponseItem) -> bool {
 +    matches!(item, ResponseItem::FunctionCallOutput { call_id: None, .. })
 +}
@@ -136,7 +136,7 @@ index c1dde7d9d6..33e4a601a3 100644
 +    assert_eq!(should_keep_compacted_history_item(&standalone), true);
 +    assert_eq!(should_keep_compacted_history_item(&paired), false);
 +}
- 
+
  #[test]
  fn rewritten_output_preserves_harness_metadata() {
 diff --git a/codex-rs/core/src/compact_remote_v2.rs b/codex-rs/core/src/compact_remote_v2.rs
@@ -165,7 +165,7 @@ index f02e2db678..a8ff895757 100644
  const MAX_REMOTE_COMPACTION_V2_STREAM_RETRIES: u64 = 2;
 @@ -538,6 +539,10 @@ fn v2_history_item_groups(
  }
- 
+
  fn is_retained_for_remote_compaction_v2(item: &ResponseItem) -> bool {
 +    if is_standalone_function_call_output(item) {
 +        return estimate_item_token_count(item) <= MAX_RETAINED_EXTERNAL_INPUT_TOKENS;
@@ -181,7 +181,7 @@ index f02e2db678..a8ff895757 100644
 -            && estimate_item_token_count(item) <= MAX_RETAINED_AGENT_MESSAGE_TOKENS;
 +            && estimate_item_token_count(item) <= MAX_RETAINED_EXTERNAL_INPUT_TOKENS;
      }
- 
+
      let ResponseItem::Message { role, .. } = item else {
 @@ -753,6 +758,7 @@ mod tests {
      use super::*;
@@ -192,7 +192,7 @@ index f02e2db678..a8ff895757 100644
      use codex_protocol::models::MessagePhase;
      use pretty_assertions::assert_eq;
 @@ -819,6 +825,14 @@ mod tests {
- 
+
      #[test]
      fn build_v2_compacted_history_filters_to_installed_retention_shape() {
 +        let standalone_output = ResponseItem::FunctionCallOutput {
@@ -223,7 +223,7 @@ index f02e2db678..a8ff895757 100644
                  id: None,
                  encrypted_content: "old".to_string(),
 @@ -850,7 +873,11 @@ mod tests {
- 
+
          assert_eq!(
              raw(history),
 -            vec![message("user", "user", /*phase*/ None), output]
@@ -234,7 +234,7 @@ index f02e2db678..a8ff895757 100644
 +            ]
          );
      }
- 
+
 diff --git a/codex-rs/core/src/compact_tests.rs b/codex-rs/core/src/compact_tests.rs
 index 72fa09a1e8..0912111e08 100644
 --- a/codex-rs/core/src/compact_tests.rs
@@ -250,7 +250,7 @@ index 72fa09a1e8..0912111e08 100644
 @@ -742,6 +743,47 @@ fn insert_initial_context_before_last_real_user_or_summary_keeps_summary_last()
      assert_eq!(refreshed, expected);
  }
- 
+
 +#[test]
 +fn insert_initial_context_before_standalone_function_output() {
 +    let older_user = user_message("older user");

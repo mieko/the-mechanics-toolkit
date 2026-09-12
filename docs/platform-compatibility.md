@@ -109,10 +109,13 @@ The Windows 11 ARM64 checkpoint uses Store package
 `OpenAI.Codex_26.908.4834.0_arm64__2p2nqsd0c76g0`, whose inner application is
 `26.908.40834`, Codex build `8881`, Electron `42.3.0`. Its pristine ASAR SHA-256 is
 `565c348c9b736b920d08fb647a3246189d959bf10ef81905ec6b7d20dcb792aa`. The complete
-14-patch Windows ASAR fleet passed exact source inspection, catalog-order application, focused
-probes, byte-identical second application, native payload preservation, MakeAppx reconstruction,
-SignTool verification, and full re-extraction. Windows uses the same semantic patch owners as the
-frontier macOS port; only actual generated-owner and runtime differences are platform-profiled.
+13-patch Windows-supported ASAR fleet passed exact source inspection, catalog-order application,
+focused probes, byte-identical second application, native payload preservation, MakeAppx
+reconstruction, SignTool verification, and full re-extraction. The measured artifact also carried
+the macOS-only native app-tools authorization transform; because the Windows package has no owned
+native authorization module, that transform is excluded from the public Windows fleet. Windows
+uses the same semantic patch owners as the frontier macOS port; only actual generated-owner and
+runtime differences are platform-profiled.
 
 The adapter also passed a complete deliberately broken supervisor cycle on Windows 11 Pro ARM64:
 native WPF consent, exact invoking-CLI exit, signed MSIX installation, exact AUMID/PID activation,

@@ -133,7 +133,11 @@ function Start-IndependentTask([string]$TaskName, [string]$TaskScript) {
     '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded
   ) -join ' '
   $taskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $taskArguments
-  $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" `
+  $identityName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+  if ([String]::IsNullOrWhiteSpace($identityName)) {
+    throw "could not resolve the current Windows identity"
+  }
+  $principal = New-ScheduledTaskPrincipal -UserId $identityName `
     -LogonType Interactive -RunLevel Limited
   try {
     Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Principal $principal -Force |

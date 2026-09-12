@@ -149,7 +149,7 @@ That form detects and rescues launch failure but has no pre-adoption app to rest
 For macOS, copy [`toolkit.example.json`](../toolkit.example.json) to the ignored
 `toolkit.local.json`. For the exact Linux build-8881 13-patch fleet, start from
 [`toolkit.linux.example.json`](../toolkit.linux.example.json); for the exact Windows build-8881
-14-patch fleet, start from [`toolkit.windows.example.json`](../toolkit.windows.example.json). The
+13-patch fleet, start from [`toolkit.windows.example.json`](../toolkit.windows.example.json). The
 examples contain fictional absolute paths and are not runnable until the agent replaces the
 applicable values.
 `enabledPatches` selects the staged fleet; the catalog
