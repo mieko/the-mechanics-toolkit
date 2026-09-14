@@ -6,7 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mieko/the-mechanics-toolkit.git"
+    "url": "git+https://github.com/tinrelay/the-mechanics-toolkit.git"
   },
   "type": "module",
   "bin": {

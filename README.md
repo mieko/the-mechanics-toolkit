@@ -61,7 +61,7 @@ published commit in a separate worktree instead. Then follow the simple selectio
 For an exact pre-qualified macOS build, the ordinary agent-operated path is:
 
 ```sh
-git clone https://github.com/mieko/the-mechanics-toolkit.git
+git clone https://github.com/tinrelay/the-mechanics-toolkit.git
 cd the-mechanics-toolkit
 npm install
 cp toolkit.example.json toolkit.local.json
