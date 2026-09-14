@@ -188,7 +188,7 @@ unnamed Codex build.
 
 | Patch | What changes for the person using Codex |
 | --- | --- |
-| [Tinrelay presentation](patches/tinrelay-pointer-presentation/) | Verified incoming and accepted outgoing [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/mieko/tinrelay)) transmissions become readable radio messages inside the conversation. |
+| [Tinrelay presentation](patches/tinrelay-pointer-presentation/) | Verified incoming and accepted outgoing [Tinrelay](https://tinrelay.space/) ([repo](https://github.com/tinrelay/tinrelay)) transmissions become readable radio messages inside the conversation. |
 | [Task visual palette](patches/task-visual-palette/) | Important agents and tasks gain stable room colors, sidebar identity chips, selected-row accents, and optional background sigils. |
 | [Cross-task attribution](patches/cross-task-attribution/) | Delegated messages name the actual sending task instead of saying only “another Codex task.” |
 | [Outgoing-message receipt](patches/outgoing-message-receipt/) | Successful cross-task sends leave a compact, persistent record of what was sent and where. |
