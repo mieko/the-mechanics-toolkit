@@ -17,6 +17,9 @@ const localName = names.filter(name => /^local-conversation-thread-(?!turn-entri
 assert.equal(localName.length, 1, "unique renderer-owning local-conversation-thread asset");
 const local = read(localName[0]);
 const build7345 = app.includes("UHrendererCurrentKeys=UHrendererTail(d,UHrendererTailLimit)");
+const build8881 = app.includes(
+  "UHrendererWindowActive=UHrendererTailLimit!=null&&((f?.length??0)+(g?.length??0)>UHrendererTailLimit)"
+);
 
 if (!app.includes("UHrendererTail=(e,t)=>")) {
   const selectorContracts = app.includes("cRo=zy(Q,({conversationId:e,isBackgroundSubagentsEnabled:t},{get:n})=>{") ? [
@@ -50,11 +53,12 @@ if (!app.includes("UHrendererTail=(e,t)=>")) {
 const tailSource = "UHrendererTail=(e,t)=>e==null||t==null||e.length<=t?e:t<=0?[]:e.slice(-t)";
 const projectionSource = "UHrendererProjection=(e,t)=>{let n=UHrendererTail(e.visibleTurnEntries,t);return n===e.visibleTurnEntries?e:{...e,historyTimeline:null,latestVisibleTurnId:n.at(-1)?.turnId??null,visibleTurnEntries:n}}";
 assert.equal(count(app, tailSource), 1, "one renderer-tail helper");
-assert.equal(count(app, projectionSource), build7345 ? 0 : 1, "final projection helper matches selector generation");
-assert.ok(build7345 ? app.includes(`,UHrendererTail,qCs,`) : app.includes(`,${tailSource},${projectionSource},`),
+assert.equal(count(app, projectionSource), build7345 || build8881 ? 0 : 1,
+  "final projection helper matches selector generation");
+assert.ok(build7345 || build8881 ? app.includes(",UHrendererTail,") : app.includes(`,${tailSource},${projectionSource},`),
   "helpers remain declarations inside the selector's existing var owner");
 assert.ok(!app.includes(",function UHrendererTail"), "function declarations cannot split the var owner");
-if (!build7345) assert.match(app, /var [$A-Z_a-z][$\w]*(?:,[$A-Z_a-z][$\w]*)*,UHrendererTail,UHrendererProjection,[$A-Z_a-z][$\w]*(?:,[$A-Z_a-z][$\w]*)*=[$A-Z_a-z][$\w]*\(\(\(\)=>\{/,
+if (!build7345 && !build8881) assert.match(app, /var [$A-Z_a-z][$\w]*(?:,[$A-Z_a-z][$\w]*)*,UHrendererTail,UHrendererProjection,[$A-Z_a-z][$\w]*(?:,[$A-Z_a-z][$\w]*)*=[$A-Z_a-z][$\w]*\(\(\(\)=>\{/,
   "helper assignments have declarations in the owning initialization group");
 const { UHrendererTail, UHrendererProjection } = Function(
   `var ${tailSource},${projectionSource};return {UHrendererTail,UHrendererProjection}`
@@ -112,7 +116,15 @@ assert.equal(accumulatedTail.length, 1500, "loaded pages cannot grow the mounted
 assert.equal(accumulatedTail[0].turnId, "paged-1005");
 assert.equal(accumulatedTail.at(-1).turnId, "paged-2504");
 
-const selectorContracts = build7345 ? [
+const selectorContracts = build8881 ? [
+  "f=n(EV,s),UHrendererCurrentKeys=UHrendererTail(f,UHrendererTailLimit),p=UHrendererCurrentKeys?.flatMap(",
+  "UHrendererParentLimit=UHrendererTailLimit==null?null:Math.max(0,UHrendererTailLimit-(UHrendererCurrentKeys?.length??0))",
+  "UHrendererParentKeys=UHrendererTail(g,UHrendererParentLimit)",
+  "UHrendererWindowActive=UHrendererTailLimit!=null&&((f?.length??0)+(g?.length??0)>UHrendererTailLimit)",
+  "m=!UHrendererWindowActive&&",
+  "_=o!=null&&h==null?UHrendererParentKeys?.flatMap(",
+  "turnEntityKeys:UHrendererCurrentKeys?.map("
+] : build7345 ? [
   "UHrendererCurrentKeys=UHrendererTail(d,UHrendererTailLimit)",
   "f=UHrendererCurrentKeys?.flatMap(",
   "UHrendererParentLimit=UHrendererTailLimit==null?null:Math.max(0,UHrendererTailLimit-(UHrendererCurrentKeys?.length??0))",
@@ -134,8 +146,9 @@ const selectorContracts = build7345 ? [
 for (const contract of selectorContracts) assert.ok(app.includes(contract), `selector contract: ${contract}`);
 
 assert.equal(count(local, "const UH_RENDERER_TURN_LIMIT=1500;"), 1);
-assert.equal(count(local, "rendererTailLimit:UH_RENDERER_TURN_LIMIT"), 4,
-  "initial render, mounted search, reveal, and eager local UI consumers share the bound");
+const mountedSelectorCalls = 4;
+assert.equal(count(local, "rendererTailLimit:UH_RENDERER_TURN_LIMIT"), mountedSelectorCalls,
+  "every mounted local UI selector consumer shares the bound");
 assert.ok(local.includes("searchPersisted:"), "bounded component still owns mounted persisted search");
 assert.ok(local.includes("getConversationState:"), "mounted search consumes the bounded selector");
 
@@ -162,6 +175,8 @@ process.stdout.write(`${JSON.stringify({
   activeAndDelegatedContainersIntact: true,
   accumulatedPaginationBounded: true,
   stockOlderPageOwnerPreserved: true,
+  upstreamTransportPaginationPreserved: true,
+  mountedSelectorCalls,
   mountedSearchScope: "bounded-renderer-tail",
   transcriptExportScope: "full"
 }, null, 2)}\n`);

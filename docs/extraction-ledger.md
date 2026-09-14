@@ -13,7 +13,7 @@ record. This ledger is not a promise to publish every historical experiment.
 | ASAR raw-header integrity | Extracted, fixture-tested, and used by the build-8881 full-fleet stage | Record the next accepted build |
 | Read-only app inspection | Extracted, fixture-tested, and exercised against pristine and staged build 8881 | Record the next accepted build |
 | Safe restart and rescue | Extracted; build-8881 healthy candidate adoption and renderer readiness green on macOS and Ubuntu ARM64 with exact package/CLI identity and no overlapping task runtime; build-8576 real failed-launch return and build-8378 real blank-renderer rescue also green on macOS | Linux controlled-failure recovery, plus living React recovery-page exhaustion and known-working rollback, remain separate capability evidence |
-| Terminal toggle | Extracted; build-8881 static stage and build-8109 live use green | Live-accept on build 8881 |
+| Terminal toggle | Extracted; build-8881 static stage and current live use green | Record the next accepted build |
 | Staging, repacking, package integrity | Extracted; macOS synthetic and build-8109/8378/8576/8690/8881 stages green; Linux build-8881 DEB origin verification and ARM64 full-fleet rebuild green; both build-8881 candidates completed healthy installation and launch | Record the next accepted build |
 | Native app-tools peer authorization | Extracted; current main-process profile red/green; build-8881 native task messaging in both directions green | Record the next accepted build |
 | Standalone-output compaction source | Exact Codex 0.154.0-alpha.6.2 source diff, before/after hashes, focused compaction tests green, and native arm64 release binary built | Live-accept a task-message-triggered compaction boundary |
@@ -22,31 +22,34 @@ record. This ledger is not a promise to publish every historical experiment.
 | Outgoing send receipt | Extracted; build-8881 causal-order probe and live task-message rendering green; build-8576 restart reconstruction green | Exercise restart reconstruction on build 8881 |
 | Wait-thread roster | Extracted; build-8881 names, links, colors, and multi-target behavior live-accepted | Record the next accepted build |
 | Runtime JSON reload | Extracted; build-8881 static stage and build-8109 live save green | Live-accept on build 8881 |
-| Task palette | Extracted; build-8881 static stage and build-8109 live use green | Live-accept on build 8881 |
+| Task palette | Extracted; build-8881 static stage and current live chips, room colors, and background marks green | Live-accept JSON reload across both room and sidebar surfaces |
 | Reasoning retention | Extracted; build-8881 static stage and build-8109 live use green | Live-accept on build 8881 |
-| Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8881 full-fleet stage and build-8109 live acceptance green | Live-accept mismatch alarm and recovery on build 8881 |
-| macOS menu title | Extracted; bundle-metadata fixture and mixed-scope staging red/green | Read `Codex` in the live macOS menu bar |
+| Model identity guard | Extracted; exact-task policy and locked-composer behavior; build-8881 full-fleet stage and current live protection green | Exercise the Dictate false-alarm regression specifically |
+| macOS menu title | Extracted; bundle-metadata fixture, mixed-scope staging red/green, and build-8881 live menu bar green | Record the next accepted build |
 | Task attention policy | Extracted; build-8881 static stage and live mute behavior green | Record the next accepted build |
 | Tinrelay presentation | Extracted as one patch; build-8881 shared-bus, outgoing-order, restart, and pagination probes plus live incoming/outgoing loopback rendering green; build-8576 restart reconstruction live-accepted | Exercise later-pagination reconstruction on build 8881 |
 | Sidebar action collapse | Extracted; build-8881 static stage and live use green | Record the next accepted build |
 | Patch registry | Extracted; per-realm API, build-8881 full-fleet composition, and current live task-message/Tinrelay consumers green | Record the next accepted build |
 | Task supervisor | Extracted and fixture-tested; benched and excluded from the example fleet | Requalify only if a real current use returns |
 | Full-history drain suppression | Extracted and fixture-tested; dormant upstream-owned | Requalify only if eager local resume draining returns |
-| Renderer turn window | Extracted and fixture-tested; dormant upstream-owned | Requalify only if mounted rendering becomes unbounded again |
+| Renderer turn window | Reactivated after real build-8881 tasks took 30–90 seconds to switch; current scope-aware selector port and pristine-ASAR probes green | Live-accept task switching with the 1,500-turn mounted window |
 
 ## Current build qualification
 
 Codex Desktop `26.908.40834` (build `8881`) for macOS ARM64 was inspected and staged on macOS
-`26.6.2` (`25G83`) from a pristine vendor update on 2026-09-12. The complete selected
+`26.6.2` (`25G83`) from a pristine vendor update, then re-staged and adopted with the current
+17-patch fleet on 2026-09-14. The complete selected
 desktop-package fleet—including the separately built Codex 0.154.0-alpha.6.2 binary—passed every
 focused probe before and after repacking, remained byte-identical on a second application,
 preserved the native package tree and executable helper, and produced a valid code signature and
 ASAR seal. The accepted ASAR SHA-256 is
-`36bd09de4714b8c20bf8b54d169b074df68a6dff0ca1f24389358b71784c6ba3`. The supervisor installed that
+`93fd2edeeac84d892f6ccefa06ee69230b609e0df38c5d0080233865fb647948`. The supervisor installed that
 exact candidate at the canonical path, proved its signature and ASAR seal, observed real renderer
 readiness, and returned to the originating task without an overlapping CLI writer. Native
-task-to-task messages then rendered in both directions, and a real same-ship Tinrelay loopback
-rendered both outgoing and incoming. Build-8881 regression probes additionally cover the split
+task-to-task messages rendered in both directions, a wait roster named its real tasks, and an
+explicitly addressed same-ship Tinrelay loopback rendered and reached routed state. Live use also
+accepted sidebar collapse, task-palette chips/room colors/background marks, model protection, the
+macOS menu title, and terminal toggle. Build-8881 regression probes additionally cover the split
 renderer message bus, renderer-store capture, outgoing-radio hoist order, restart/pagination
 persistence, and composed registry ownership. Build `8881` is therefore the current qualified
 fleet; the table keeps narrower live boundaries visible where they would strengthen rather than

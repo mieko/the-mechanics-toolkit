@@ -128,6 +128,8 @@ function inspectState() {
     "n.packages?.taskVisualPalette",
     "MTKoutboundHover",
     "MTKoutboundFormattedText",
+    "Actions:MTKactions",
+    "timestampHoverOnly:!0",
     "interactive:!0",
     "delayDuration:800",
     'maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))"',
@@ -144,7 +146,9 @@ function inspectState() {
     'subscribe("mtk-outbound-receipt-remember-result"',
     'dispatchMessage("mtk-outbound-receipts-list"',
     'subscribe("mtk-outbound-receipts-result"',
-    "MTKoutboundReceipt as MTKoutboundReceipt"
+    "MTKoutboundReceipt as MTKoutboundReceipt",
+    "recordedAtMs:e.recordedAtMs",
+    "Actions:"
   ];
   const mainMarkers = [
     "const MTKoutboundReceiptContract=",
@@ -282,7 +286,20 @@ function buildHelper(send, useDedicatedTitleSelector = false) {
   const helper = String.raw`
 function MTKoutboundArguments(e){return e!=null&&typeof e==="object"&&!Array.isArray(e)&&typeof e.threadId==="string"&&e.threadId.length>0&&typeof e.prompt==="string"&&(e.hostId===void 0||typeof e.hostId==="string")?e:null}function MTKoutboundLabel(e){if(typeof e!=="string"||e.trim().length===0)return null;let t=e.trim(),n=t.indexOf(" — ");return n>0?t.slice(0,n).trim():t}function MTKoutboundPreview(e){let t=e.split(/\r?\n/).map(e=>e.trim()).find(e=>e.length>0)??"(empty message)";return t.length<=180?t:t.slice(0,179)+"…"}function MTKoutboundTaskColor(e,t){try{let n=globalThis.__MTK_PATCH_REGISTRY__;if(n?.apiVersion!==1)return null;let r=n.packages?.taskVisualPalette;if(r?.version!==1||typeof r.resolveTaskColor!=="function")return null;let i=r.resolveTaskColor({taskId:e,title:t});return typeof i==="string"&&/^#[0-9A-Fa-f]{6}$/.test(i)?i.toUpperCase():null}catch{return null}}function MTKoutboundNavigate(e){let t=${send.normalize}(e);${send.hostBridge}.dispatchHostMessage({type:"navigate-to-route",path:${send.routeFlag}()?${send.newRoute}(t):${send.oldRoute}(t)})}function MTKOutboundMessageReceipt({item:e}){let t=MTKoutboundStoreHook(MTKoutboundStoreScope),n=MTKoutboundArguments(e.arguments);if(n==null)return null;let r=n.hostId==null||n.hostId==="local"?MTKoutboundLocalThreadKey(n.threadId):MTKoutboundRemoteThreadKey(n.threadId),i=t.get(MTKoutboundTaskAtom,r),a=${title}i?.kind==="local"?(i.conversation?.title??i.catalogTitle??i.summary?.title):i?.kind==="remote"?i.task?.title:null${titleEnd},o=i?.kind==="local"?(i.conversation?.cwd??i.cwd??i.summary?.cwd):void 0,s=MTKoutboundLabel(a)??"Task "+n.threadId.slice(0,8)+"…",c=MTKoutboundTaskColor(n.threadId,a),l=c==null?void 0:{color:"color-mix(in srgb, "+c+" 68%, var(--color-text) 32%)"},u=e.completed?e.success===!1?"Failed to send to":"Sent to":"Sending to",d=MTKoutboundPreview(n.prompt),f=e=>{e.preventDefault(),e.stopPropagation(),MTKoutboundNavigate(n.threadId)},p=(0,${send.jsx}.jsxs)("div",{"data-mtk-outgoing-message-receipt":!0,className:"self-start flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface-secondary/40 px-3 py-2 text-size-chat text-text-tertiary",style:{maxWidth:"min(42rem,92%)"},children:[(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"↗"}),(0,${send.jsx}.jsx)("span",{className:"shrink-0",children:u}),(0,${send.jsx}.jsx)("button",{"aria-label":"Open "+(a??s),className:"min-w-0 shrink-0 rounded-sm font-medium text-text-secondary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",onClick:f,style:l,type:"button",children:s}),(0,${send.jsx}.jsx)("span",{"aria-hidden":!0,className:"shrink-0",children:"·"}),(0,${send.jsx}.jsx)("span",{className:"min-w-0 flex-1 truncate text-text-tertiary/90",children:d})]});return(0,${send.jsx}.jsx)(MTKoutboundHover,{align:"start",closeOnTriggerBlur:!1,delayDuration:800,interactive:!0,side:"top",sideOffset:6,skipDelayKey:"outbound-message-preview",tooltipMaxWidth:"min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))",variant:"rich",tooltipContent:(0,${send.jsx}.jsx)("div",{className:"min-w-0 text-start",style:{maxHeight:"min(420px, var(--radix-tooltip-content-available-height, 420px), calc(100vh - 16px))",overflowY:"auto",padding:"0.75rem",userSelect:"text"},children:(0,${send.jsx}.jsx)(MTKoutboundFormattedText,{cwd:o,externalLinkContextMenuConversationId:n.threadId,hostId:n.hostId??"local",text:n.prompt})}),children:p})}function MTKrenderOutboundMessage(e,t,n,r=!0,i){let a=MTKoutboundArguments(e.arguments);if(t==="row"&&a!=null){if(e.completed&&e.success===!0&&typeof e.callId==="string"&&e.callId.length>0&&i!=null&&typeof i.conversationId==="string"&&i.conversationId.length>0&&typeof i.turnId==="string"&&i.turnId.length>0&&typeof globalThis.__MTK_OUTBOUND_REMEMBER__==="function"){let t={callId:e.callId,contract:"outgoing-message-receipt-v1",prompt:a.prompt,recordedAtMs:Date.now(),sourceThreadId:i.conversationId,sourceTurnId:i.turnId,targetHostId:a.hostId??"local",targetThreadId:a.threadId};if(globalThis.__MTK_OUTBOUND_REMEMBER__(t)===!0)return null}return(0,${send.jsx}.jsx)(MTKOutboundMessageReceipt,{item:e})}return ${send.genericRender}(e,t,n,r)}
 `;
-  const themed = helper.replace(legacyTaskColorFunction, themedTaskColorFunctions).replace(legacyTaskColorStyle, themedTaskColorStyle);
+  const withActions = helper
+    .replace(
+      "function MTKOutboundMessageReceipt({item:e})",
+      "function MTKOutboundMessageReceipt({item:e,Actions:MTKactions})"
+    )
+    .replace(
+      `;return(0,${send.jsx}.jsx)(MTKoutboundHover,{`,
+      `;let h=(0,${send.jsx}.jsx)(MTKoutboundHover,{`
+    )
+    .replace(
+      `children:p})}function MTKrenderOutboundMessage`,
+      `children:p});return MTKactions==null?h:(0,${send.jsx}.jsxs)("div",{className:"group flex min-w-0 flex-col items-start",children:[h,(0,${send.jsx}.jsx)(MTKactions,{copyText:n.prompt,sentAtMs:e.recordedAtMs,timestampHoverOnly:!0})]})}function MTKrenderOutboundMessage`
+    );
+  const themed = withActions.replace(legacyTaskColorFunction, themedTaskColorFunctions).replace(legacyTaskColorStyle, themedTaskColorStyle);
   if (!themed.includes(themedTaskColorFunctions) || !themed.includes(themedTaskColorStyle)) {
     throw new Error("unrecognized outgoing receipt theme-color seam");
   }
@@ -318,6 +335,7 @@ function inspectPristineMain(value) {
 function patchConversation(value, turnValue) {
   const ownerImport = ownerImportProfile(value);
   const hostBus = resolveHostBus(value);
+  const nativeActions = nativeActionsProfile(value);
   const dynamic = dynamicRendererProfile(value);
   let patched = replaceOnce(
     value,
@@ -351,7 +369,7 @@ function patchConversation(value, turnValue) {
     if (insertion < 0) throw new Error("Upstream changed: split dynamic renderer owner is missing");
     patched = patched.slice(0, insertion) +
       `const MTKOutboundReceiptReact=${dynamic.react};` +
-      conversationHelpers(hostBus, "MTKOutboundReceiptReact", dynamic.jsx) +
+      conversationHelpers(hostBus, "MTKOutboundReceiptReact", dynamic.jsx, nativeActions) +
       patched.slice(insertion);
     return {conversationSource: patched, conversationTurnSource: patchedTurn};
   }
@@ -364,7 +382,7 @@ function patchConversation(value, turnValue) {
   );
   const insertion = patched.indexOf("function Oy(");
   if (insertion < 0) throw new Error("Upstream changed: assistant renderer owner is missing");
-  patched = patched.slice(0, insertion) + conversationHelpers(hostBus) + patched.slice(insertion);
+  patched = patched.slice(0, insertion) + conversationHelpers(hostBus, "Jy", "Yy", nativeActions) + patched.slice(insertion);
   return {conversationSource: patched, conversationTurnSource: patched};
 }
 
@@ -375,7 +393,7 @@ function upgradeConversationCache(value) {
       !value.slice(start, end).includes("flatMap")) {
     throw new Error("Upstream changed: flat conversation receipt cache is not uniquely localized");
   }
-  return value.slice(0, start) + conversationHelpers(resolveHostBus(value)) + value.slice(end);
+  return value.slice(0, start) + conversationHelpers(resolveHostBus(value), "Jy", "Yy", nativeActionsProfile(value)) + value.slice(end);
 }
 
 function upgradeMainCache(value) {
@@ -678,6 +696,15 @@ function assistantProfile(value) {
   return {children: children[0]};
 }
 
+function nativeActionsProfile(value) {
+  const marker = uniqueMatch(value, /"data-assistant-message-sent-time":!0/g, "native assistant timestamp");
+  const owner = containingFunction(value, marker.index);
+  for (const expected of ["copyText:", "sentAtMs:", "timestampHoverOnly:", "Copy response"]) {
+    if (!owner.text.includes(expected)) throw new Error(`Upstream changed: native assistant actions omit ${expected}`);
+  }
+  return uniqueMatch(owner.text, new RegExp(`^function (?<name>${id})\\(`, "g"), "native assistant action component").groups.name;
+}
+
 function conversationHelperBoundary(value) {
   if (value.includes("function Cz(")) return "function Cz(";
   if (value.includes("function gx(")) return "function gx(";
@@ -713,7 +740,8 @@ function acklessConversationHelpers(hostBus, react = "Jy", jsx = "Yy") {
   return String.raw`const MTKoutboundReceiptContract="outgoing-message-receipt-v1",MTKoutboundReceiptLimit=256,MTKoutboundReceiptStates=new Map,MTKoutboundReceiptRequests=new Map;function MTKoutboundReceiptRecord(e){if(e==null||typeof e!=="object"||Array.isArray(e)||Object.keys(e).sort().join("\0")!=="callId\0contract\0prompt\0recordedAtMs\0sourceThreadId\0sourceTurnId\0targetHostId\0targetThreadId"||e.contract!==MTKoutboundReceiptContract||typeof e.callId!=="string"||e.callId.length===0||e.callId.length>256||typeof e.sourceThreadId!=="string"||e.sourceThreadId.length===0||typeof e.sourceTurnId!=="string"||e.sourceTurnId.length===0||typeof e.targetThreadId!=="string"||e.targetThreadId.length===0||typeof e.targetHostId!=="string"||e.targetHostId.length===0||typeof e.prompt!=="string"||!Number.isSafeInteger(e.recordedAtMs)||e.recordedAtMs<=0)return null;return e}function MTKoutboundReceiptState(e){let t=MTKoutboundReceiptStates.get(e);return t==null&&(t={loaded:!1,loading:!1,records:new Map,listeners:new Set},MTKoutboundReceiptStates.set(e,t)),t}function MTKoutboundReceiptValues(e){return[...e.records.values()].sort((e,t)=>e.recordedAtMs-t.recordedAtMs||e.callId.localeCompare(t.callId))}function MTKoutboundReceiptNotify(e){let t=MTKoutboundReceiptValues(e);for(let n of e.listeners)n(t)}function MTKoutboundRemember(e){if((e=MTKoutboundReceiptRecord(e))==null)return!1;let t=MTKoutboundReceiptState(e.sourceThreadId),n=t.records.get(e.callId);if(n!=null)return JSON.stringify(n)===JSON.stringify(e);t.records.set(e.callId,e);let r=MTKoutboundReceiptValues(t);for(let e of r.slice(0,Math.max(0,r.length-MTKoutboundReceiptLimit)))t.records.delete(e.callId);MTKoutboundReceiptNotify(t),${hostBus}.dispatchMessage("mtk-outbound-receipt-remember",{record:e});return!0}function MTKoutboundLoad(e){let t=MTKoutboundReceiptState(e);if(t.loaded||t.loading)return;t.loading=!0;let n=crypto.randomUUID();MTKoutboundReceiptRequests.set(n,e),${hostBus}.dispatchMessage("mtk-outbound-receipts-list",{requestId:n,sourceThreadId:e})}globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRequests.delete(e.requestId);let n=MTKoutboundReceiptState(t);n.loading=!1,n.loaded=!0;if(e.ok===!0&&Array.isArray(e.records))for(let r of e.records){r=MTKoutboundReceiptRecord(r);r!=null&&r.sourceThreadId===t&&!n.records.has(r.callId)&&n.records.set(r.callId,r)}MTKoutboundReceiptNotify(n)});function MTKOutboundTurnReceipts({conversationId:e,turnId:t}){let n=typeof e==="string"&&e.length>0&&typeof t==="string"&&t.length>0,r=n?MTKoutboundReceiptState(e):null,[i,a]=${react}.useState(()=>r==null?[]:MTKoutboundReceiptValues(r).filter(e=>e.sourceTurnId===t));return ${react}.useEffect(()=>{if(r==null)return;let n=e=>a(e.filter(e=>e.sourceTurnId===t));return r.listeners.add(n),MTKoutboundLoad(e),n(MTKoutboundReceiptValues(r)),()=>r.listeners.delete(n)},[e,t,r]),i.length===0?null:(0,${jsx}.jsx)("div",{"data-mtk-outgoing-message-receipts":!0,className:"mb-3 flex min-w-0 flex-col items-start gap-2",children:i.map(e=>(0,${jsx}.jsx)(MTKoutboundReceipt,{item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,success:!0}},e.callId))})}`;
 }
 
-function conversationHelpers(hostBus, react = "Jy", jsx = "Yy") {
+function conversationHelpers(hostBus, react = "Jy", jsx = "Yy", actions) {
+  if (!new RegExp(`^${id}$`).test(actions)) throw new Error("native assistant action component is missing");
   const ackless = acklessConversationHelpers(hostBus, react, jsx);
   const current = ackless
     .replace(
@@ -728,10 +756,15 @@ function conversationHelpers(hostBus, react = "Jy", jsx = "Yy") {
       `globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipts-result"`,
       `globalThis.__MTK_OUTBOUND_REMEMBER__=MTKoutboundRemember;${hostBus}.subscribe("mtk-outbound-receipt-remember-result",e=>{if(typeof e?.requestId!=="string")return;let t=MTKoutboundReceiptRememberRequests.get(e.requestId);if(t==null)return;MTKoutboundReceiptRememberRequests.delete(e.requestId);let n=MTKoutboundReceiptRecord(e.record);if(e.ok!==!0||n==null||JSON.stringify(n)!==JSON.stringify(t))return;let r=MTKoutboundReceiptState(t.sourceThreadId);r.records.set(n.callId,n);let i=MTKoutboundReceiptValues(r);for(let e of i.slice(0,Math.max(0,i.length-MTKoutboundReceiptLimit)))r.records.delete(e.callId);MTKoutboundReceiptNotify(r)});${hostBus}.subscribe("mtk-outbound-receipts-result"`
     );
-  if (current === ackless || !current.includes('subscribe("mtk-outbound-receipt-remember-result"')) {
+  const withActions = current.replace(
+    `MTKoutboundReceipt,{item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,success:!0}}`,
+    `MTKoutboundReceipt,{Actions:${actions},item:{arguments:{hostId:e.targetHostId,prompt:e.prompt,threadId:e.targetThreadId},completed:!0,recordedAtMs:e.recordedAtMs,success:!0}}`
+  );
+  if (withActions === ackless || !withActions.includes('subscribe("mtk-outbound-receipt-remember-result"') ||
+      !withActions.includes(`Actions:${actions}`)) {
     throw new Error("acknowledged outgoing receipt renderer helper construction failed");
   }
-  return current;
+  return withActions;
 }
 
 function upgradeConversationAcknowledgment(value) {
@@ -741,7 +774,7 @@ function upgradeConversationAcknowledgment(value) {
   if (start < 0 || end <= start || value.slice(start, end) !== acklessConversationHelpers(hostBus)) {
     throw new Error("Upstream changed: unacknowledged outgoing receipt renderer helper is not uniquely localized");
   }
-  return value.slice(0, start) + conversationHelpers(hostBus) + value.slice(end);
+  return value.slice(0, start) + conversationHelpers(hostBus, "Jy", "Yy", nativeActionsProfile(value)) + value.slice(end);
 }
 
 function patchMain(value) {

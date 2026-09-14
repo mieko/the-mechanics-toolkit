@@ -159,7 +159,7 @@ function inspectState() {
     if (dependencyState !== "applied") {
       throw new Error("Tinrelay outgoing presentation is applied without its pointer-presentation dependency");
     }
-    if (!rendererSource.includes('(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay"})')) {
+    if (!rendererSource.includes('(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay",sentAtMs:t})')) {
       inspectLegacyAppliedRenderer(rendererSource);
       inspectAppliedActivity(activitySource);
       inspectAppliedMain(mainSource);
@@ -292,9 +292,9 @@ function inspectAppliedRenderer(source) {
     "i.sender_ship!==t",
     '.subscribe("mtk-tinrelay-outgoing-result"',
     '.dispatchMessage("mtk-tinrelay-outgoing-lookup"',
-    'children:["📡 ",t]',
+    'children:["📡 ",i]',
     'className:"flex w-full flex-col items-start justify-start gap-1"',
-    `(0,${profile.jsx}.jsx)(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay"})`,
+    `(0,${profile.jsx}.jsx)(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay",sentAtMs:t})`,
     "=MTKtinrelayReact.useRef(null)",
     ".current=MTKtinrelayScrollSnapshot()",
     "MTKtinrelayScheduleScroll("
@@ -519,6 +519,10 @@ function rendererHelpers(hostBus, jsx = "Tb") {
       "function MTKtinrelayOutgoingTurnPresentations({conversationId:e,turnId:t})",
       "function MTKtinrelayOutgoingTurnPresentations({conversationId:e,turnId:t,turnFinished:MTKturnFinished})"
     )
+    .replace(
+      "(MTKtinrelayOutgoingView,{event:e.event},e.transmissionId)",
+      "(MTKtinrelayOutgoingView,{event:e.event,sentAtMs:e.recordedAtMs},e.transmissionId)"
+    )
     .replace("},[e,t,r]),i.length===0?null:", "},[e,t,r]),MTKtinrelayReact.useEffect(()=>{MTKturnFinished&&i.length>0&&MTKtinrelayMarkOutgoingTurnFinished(e,t)},[e,t,MTKturnFinished,i.length]),!MTKturnFinished||i.length===0?null:");
   const finishHelpers = "const MTKtinrelayFinishedTurnLimit=4096,MTKtinrelayFinishedTurns=new Set,MTKtinrelayFinishedTurnListeners=new Set;function MTKtinrelayOutgoingTurnKey(e,t){return typeof e===\`string\`&&e.length>0&&typeof t===\`string\`&&t.length>0?e+\`\\0\`+t:null}function MTKtinrelayMarkOutgoingTurnFinished(e,t){let n=MTKtinrelayOutgoingTurnKey(e,t);if(n==null||MTKtinrelayFinishedTurns.has(n))return!1;MTKtinrelayFinishedTurns.add(n);while(MTKtinrelayFinishedTurns.size>MTKtinrelayFinishedTurnLimit)MTKtinrelayFinishedTurns.delete(MTKtinrelayFinishedTurns.values().next().value);for(let e of MTKtinrelayFinishedTurnListeners)e();return!0}function MTKtinrelayUseOutgoingTurnFinished(e,t){let n=MTKtinrelayOutgoingTurnKey(e,t);return MTKtinrelayReact.useSyncExternalStore(e=>(MTKtinrelayFinishedTurnListeners.add(e),()=>MTKtinrelayFinishedTurnListeners.delete(e)),()=>n!=null&&MTKtinrelayFinishedTurns.has(n),()=>!1)}";
   const finishInsertion = current.indexOf("function MTKtinrelayOutgoingTurnPresentations(");
@@ -559,7 +563,7 @@ function upgradeOutgoingPresentation(value) {
 }
 
 function outgoingView() {
-  return 'function MTKtinrelayOutgoingView({event:e}){let n=MTKtinrelayAddress(e.author_label,e.sender_ship),r=MTKtinrelayAddress(e.attention_label,e.recipient_ship),t=n+" → "+r;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-start justify-start gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",t]}),(0,Tb.jsx)(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay"})]})}';
+  return 'function MTKtinrelayOutgoingView({event:e,sentAtMs:t}){let n=MTKtinrelayAddress(e.author_label,e.sender_ship),r=MTKtinrelayAddress(e.attention_label,e.recipient_ship),i=n+" → "+r;return(0,Tb.jsxs)("div",{className:"flex w-full flex-col items-start justify-start gap-1",children:[(0,Tb.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",i]}),(0,Tb.jsx)(MTKtinrelayMessageView,{body:e.body,outgoing:!0,screenReaderStatus:"Accepted by Tinrelay",sentAtMs:t})]})}';
 }
 
 function legacyAnchorRendererHelpers(hostBus) {
@@ -579,7 +583,7 @@ function legacyAnchorOutgoingExec(hostBus) {
 }
 
 function currentOutgoingExec(hostBus) {
-  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,MTKsetTinrelayOutgoingEvent]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null),MTKturnFinished=MTKtinrelayUseOutgoingTurnFinished(r,i);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;MTKsetTinrelayOutgoingEvent(s&&a==null?null:n),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?MTKturnFinished?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s}):(0,Tb.jsx)(t,{item:n,...a})}`;
+  return `function MTKtinrelayOutgoingExec(e){let{Component:t,item:n,sourceThreadId:r,sourceTurnId:i,...a}=e,o=MTKtinrelayOutgoingAcceptance(n,MTKtinrelayLocalShip),[s,MTKsetTinrelayOutgoingEvent]=MTKtinrelayReact.useState(null),l=MTKtinrelayReact.useRef(null),MTKturnFinished=MTKtinrelayUseOutgoingTurnFinished(r,i);return MTKtinrelayReact.useEffect(()=>{if(o==null)return;l.current=MTKtinrelayScrollSnapshot();let e=crypto.randomUUID(),t=${hostBus}.subscribe("mtk-tinrelay-outgoing-result",t=>{if(t?.requestId!==e)return;let n=t.ok===!0&&MTKtinrelayOutgoingMatches(t.event,o)?t.event:null,a=MTKtinrelayOutgoingAnchorRecord(t?.anchor),s=typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0;MTKsetTinrelayOutgoingEvent(s&&a==null?null:n==null?null:{event:n,recordedAtMs:a?.recordedAtMs}),a!=null&&MTKtinrelayOutgoingAnchorRemember(a),n!=null&&(!s||a!=null)&&MTKtinrelayScheduleScroll(l.current)});return ${hostBus}.dispatchMessage("mtk-tinrelay-outgoing-lookup",{requestId:e,transmissionId:o.transmission_id,senderShip:o.sender_ship,recipientShip:o.recipient_ship,sourceThreadId:r,sourceTurnId:i}),t},[o?.transmission_id,o?.sender_ship,o?.recipient_ship,r,i]),o!=null&&MTKtinrelayOutgoingMatches(s?.event,o)?typeof r==="string"&&r.length>0&&typeof i==="string"&&i.length>0?MTKturnFinished?null:(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s.event,sentAtMs:s.recordedAtMs}):(0,Tb.jsx)(MTKtinrelayOutgoingView,{event:s.event,sentAtMs:s.recordedAtMs}):(0,Tb.jsx)(t,{item:n,...a})}`;
 }
 
 function previousAcknowledgedOutgoingExec(hostBus) {

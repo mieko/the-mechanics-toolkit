@@ -18,7 +18,9 @@ current send state, recipient, and the first meaningful line. Hovering opens the
 through Codex's stock interactive hover and user-message formatter. Clicking the recipient follows
 Codex's stock task route. When the task palette publishes a compatible registry capability, only
 the recipient label borrows a contrast-safe light- or dark-theme form of its color; otherwise the
-receipt remains neutral.
+receipt remains neutral. Persistent receipts also use Codex's native assistant action row on hover:
+the copy button copies the complete sent prompt, and the timestamp is the time the successful send
+was accepted into the private presentation cache.
 
 The receipt stays in the causal order of the turn: after the user message that requested the send,
 and before the assistant activity and response that followed it.

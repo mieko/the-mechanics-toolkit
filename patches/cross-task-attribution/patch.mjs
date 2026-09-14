@@ -11,9 +11,18 @@ if (!new Set(["check", "apply"]).has(command) || !process.argv[3]) {
 }
 
 const id = "[$A-Z_a-z][$\\w]*";
+const attributionNameMarker = '"data-mtk-palette-attribution-name":!0';
 const assets = path.join(root, "webview/assets");
 const owner = findOwner();
 let state = inspectState(owner.source);
+
+if (command === "apply" && state === "name-scope-upgrade") {
+  const patched = upgradeAttributionName(owner.source);
+  fs.writeFileSync(owner.file, patched);
+  syntaxCheck(owner.file);
+  state = inspectState(patched);
+  if (state !== "applied") throw new Error("cross-task attribution name-scope upgrade did not verify");
+}
 
 if (command === "apply" && state === "label-capability-upgrade") {
   const patched = replaceOnce(owner.source, legacyHelper(), currentHelper(), "shared task-label helper upgrade");
@@ -88,7 +97,11 @@ function inspectState(source) {
     if (source.includes("className:`w-full rounded-xl px-2 py-1`") || source.includes("`bg-text/5`) max-w-")) {
       throw new Error("Unrecognized attribution patch: rejected delegated-bubble prototype remains");
     }
-    if (source.includes(currentHelper())) return "applied";
+    if (source.includes(currentHelper())) {
+      if (source.includes(attributionNameMarker)) return "applied";
+      if (source.includes("`Sent by ${MTKresolvedSender}`")) return "name-scope-upgrade";
+      throw new Error("Unrecognized attribution patch: sender-name scope is partial");
+    }
     if (source.includes(genericPlainTitleHelper())) return "plain-title-fallback-upgrade";
     if (count(source, "function MTKshortTaskTitle(") === 0 && source.includes(legacyHelper())) return "label-capability-upgrade";
     throw new Error("Unrecognized attribution patch: shared task-label helper is partial");
@@ -195,7 +208,7 @@ function patchAttribution(source, ownerFile, details) {
   const labelEnd = ",t[1]=p):p=t[1];";
   const metadata =
     `let MTKstore=MTKcrossTaskStoreHook(MTKcrossTaskStoreScope),MTKtitle=MTKstore.get(MTKtitleAtom,{hostId:s??\`local\`,threadId:r}),` +
-    `MTKresolvedSender=MTKsender(MTKtitle,null);MTKresolvedSender!=null&&(p=(0,${profile.delegationJsx}.jsxs)(${profile.delegationJsx}.Fragment,{children:[f,\`Sent by \${MTKresolvedSender}\`]}));`;
+    `MTKresolvedSender=MTKsender(MTKtitle,null);${attributionLabel(profile.delegationJsx)}`;
   delegation = replaceOnce(delegation, labelEnd, labelEnd + metadata, "delegation metadata insertion");
   delegation = replaceOnce(
     delegation,
@@ -248,6 +261,19 @@ function patchAttribution(source, ownerFile, details) {
   source = replaceOnce(source, details.wrapper.text, wrapper, "delegation wrapper component");
   source = replaceOnce(source, details.delegation.text, helper + delegation, "delegation component");
   return replaceOnce(source, imports.before, imports.after, "attribution imports");
+}
+
+function upgradeAttributionName(source) {
+  const oldLabel = uniqueMatch(
+    source,
+    /MTKresolvedSender!=null&&\(p=\(0,(?<jsx>[$A-Z_a-z][$\w]*)\.jsxs\)\(\k<jsx>\.Fragment,\{children:\[f,`Sent by \$\{MTKresolvedSender\}`\]\}\)\);/g,
+    "whole-line attribution label"
+  );
+  return replaceOnce(source, oldLabel[0], attributionLabel(oldLabel.groups.jsx), "sender-name attribution scope");
+}
+
+function attributionLabel(jsx) {
+  return `MTKresolvedSender!=null&&(p=(0,${jsx}.jsxs)(${jsx}.Fragment,{children:[f,\`Sent by \`,(0,${jsx}.jsx)(\`span\`,{${attributionNameMarker},children:MTKresolvedSender})]}));`;
 }
 
 function legacyHelper() {

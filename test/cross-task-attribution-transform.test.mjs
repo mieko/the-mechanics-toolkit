@@ -34,6 +34,14 @@ try {
   assert.equal(runToolkit("apply").state, "applied");
   assert.deepEqual(fs.readFileSync(ownerTarget), once, "second application is byte-identical");
 
+  const wholeLineAttribution = once.toString().replace(currentAttributionLabel(), wholeLineAttributionLabel());
+  assert.notEqual(wholeLineAttribution, once.toString(), "whole-line attribution fixture differs");
+  fs.writeFileSync(ownerTarget, wholeLineAttribution);
+  assert.equal(runToolkit("check").state, "name-scope-upgrade");
+  assert.equal(runToolkit("apply").state, "applied");
+  assert.deepEqual(fs.readFileSync(ownerTarget), once,
+    "whole-line attribution upgrades to sender-name-only color scope");
+
   const legacy = once.toString().replace(currentHelper(), legacyHelper());
   assert.notEqual(legacy, once.toString(), "legacy helper fixture differs");
   fs.writeFileSync(ownerTarget, legacy);
@@ -82,6 +90,14 @@ function genericPlainTitleHelper() {
     "let n=t.indexOf(` — `);return n>0?t.slice(0,n).trim():t}" +
     "function MTKsender(e,t){let n=MTKshortTaskTitle(e);if(n==null)return null;return n!==e.trim()?n:" +
     "typeof t===`string`&&t.trim().length>0?`${t.trim()}/${n}`:null}";
+}
+
+function currentAttributionLabel() {
+  return 'MTKresolvedSender!=null&&(p=(0,Tb.jsxs)(Tb.Fragment,{children:[f,`Sent by `,(0,Tb.jsx)(`span`,{"data-mtk-palette-attribution-name":!0,children:MTKresolvedSender})]}));';
+}
+
+function wholeLineAttributionLabel() {
+  return 'MTKresolvedSender!=null&&(p=(0,Tb.jsxs)(Tb.Fragment,{children:[f,`Sent by ${MTKresolvedSender}`]}));';
 }
 
 function initialFixture() {

@@ -20,6 +20,9 @@ const observerGateHelper = String.raw`const MTKpaletteSurfaceSelector="[data-app
 const universalSelectionOutlineCss = "[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-selected=true],[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-active=true]{box-shadow:inset 0 0 0 1px var(--color-token-text-tertiary)!important}";
 const previousThemeDerive = 'function MTKderive(e,t,n){let r=n?1:.72,i=n?"#101114":"#FAFAFA",a=n?"#282A30":"#E7E9ED",o=n?"#14161A":"#ECEEF1",s=n?"#F2F3F5":"#18191C"';
 const currentThemeDerive = 'function MTKderive(e,t,n){let r=n?1:.56,i=n?"#101114":"#FCFCFD",a=n?"#282A30":"#F4F5F7",o=n?"#14161A":"#F7F8FA",s=n?"#F2F3F5":"#17191C"';
+const readableLabelHelper = 'function MTKreadableLabel(e,t,n){let r=n?"#FFFFFF":"#111318";for(let i=0;i<=20;i++){let a=MTKmix(e,r,i/20);if(MTKcontrast(a,t)>=4.5)return a}return r}';
+const neutralLabelExpression = "label:MTKcontrast(m,l)>=4.5?m:s";
+const readableLabelExpression = "label:MTKreadableLabel(e,l,n)";
 
 let state = inspectState();
 if (command === "apply" && state !== "applied") {
@@ -29,6 +32,8 @@ if (command === "apply" && state !== "applied") {
   }
   if (state === "needs-light-theme") {
     patchLightTheme(appInitial);
+  } else if (state === "needs-readable-attribution") {
+    patchReadableAttribution(appInitial);
   } else if (state === "needs-observer-gate") {
     patchObserverGate(appInitial);
   } else if (state === "needs-archive-protection") {
@@ -56,7 +61,7 @@ if (command === "apply" && state !== "applied") {
 }
 
 process.stdout.write(`${JSON.stringify({
-  state: new Set(["needs-light-theme", "needs-observer-gate", "needs-archive-protection", "needs-reasoning-policy-bridge", "needs-universal-selection-outline", "needs-model-pin-bridge"]).has(state) ? "needs-apply" : state,
+  state: new Set(["needs-light-theme", "needs-readable-attribution", "needs-observer-gate", "needs-archive-protection", "needs-reasoning-policy-bridge", "needs-universal-selection-outline", "needs-model-pin-bridge"]).has(state) ? "needs-apply" : state,
   targets: [appInitial, appPrimary, localPage, delegation].map(file => path.relative(root, file))
 }, null, 2)}\n`);
 
@@ -95,6 +100,12 @@ function inspectState() {
     if (appSource.includes(previousThemeDerive)) return "needs-light-theme";
     if (!appSource.includes(currentThemeDerive)) {
       throw new Error("Unrecognized palette patch: light-theme derivation is missing or changed");
+    }
+    if (!appSource.includes(readableLabelHelper) || !appSource.includes(readableLabelExpression)) {
+      if (!appSource.includes(readableLabelHelper) && appSource.includes(neutralLabelExpression)) {
+        return "needs-readable-attribution";
+      }
+      throw new Error("Unrecognized palette patch: attribution label derivation is partial or changed");
     }
     const archiveProtection = inspectSidebarArchiveProtection(appSource, appPrimarySource);
     if (
@@ -610,7 +621,6 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
   if (!helper.includes(currentThemeDerive) || helper.includes(previousThemeDerive)) {
     throw new Error("unrecognized palette theme derivation");
   }
-
   const sidebarNullSafeHelper = helper
     .replace(
       'attributionStyle:{color:"color-mix(in srgb, "+t.color+" 62%, var(--color-text) 38%)"}',
@@ -641,14 +651,14 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
     '[data-mtk-palette-room=true] ::selection{background-color:var(--mtk-selection-dark)}' +
     '[data-mtk-palette-room=true] [data-mtk-palette-bottom-fade]{--tw-gradient-from:var(--mtk-room-dark)!important;--tw-gradient-via:var(--mtk-room-dark)!important}' +
     '[data-mtk-palette-room=true][data-mtk-palette-mark=true]::before{content:"";position:absolute;z-index:-1;left:50%;top:48%;width:min(62vw,760px);height:min(62vw,760px);transform:translate(-50%,-50%);pointer-events:none;background-color:var(--mtk-mark-dark);opacity:var(--mtk-watermark-dark-opacity);-webkit-mask-image:var(--mtk-mark-image);mask-image:var(--mtk-mark-image);-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}' +
-    '[data-mtk-palette-delegation=true]>button:first-child{color:var(--mtk-label-dark)!important}' +
+    '[data-mtk-palette-delegation=true] [data-mtk-palette-attribution-name]{color:var(--mtk-label-dark)!important}' +
     '[data-mtk-palette-delegation=true] [data-user-message-bubble]{background:var(--mtk-bubble-dark)!important;box-shadow:0 1px 8px color-mix(in srgb,var(--mtk-delegated-accent-dark) 12%,transparent)}' +
     '[data-mtk-palette-delegation=true] [data-user-message-bubble]::selection,[data-mtk-palette-delegation=true] [data-user-message-bubble] *::selection{background-color:var(--mtk-selection-dark)}' +
     'html.electron-light [data-mtk-palette-row=true][data-app-action-sidebar-thread-selected=true],html.electron-light [data-mtk-palette-row=true][data-app-action-sidebar-thread-active=true]{box-shadow:inset 0 0 0 1px var(--mtk-accent-light)!important}' +
     'html.electron-light [data-mtk-palette-room=true] ::selection{background-color:var(--mtk-selection-light)}' +
     'html.electron-light [data-mtk-palette-room=true] [data-mtk-palette-bottom-fade]{--tw-gradient-from:var(--mtk-room-light)!important;--tw-gradient-via:var(--mtk-room-light)!important}' +
     'html.electron-light [data-mtk-palette-room=true][data-mtk-palette-mark=true]::before{background-color:var(--mtk-mark-light);opacity:var(--mtk-watermark-light-opacity);filter:drop-shadow(0 1px 1px rgba(255,255,255,.5))}' +
-    'html.electron-light [data-mtk-palette-delegation=true]>button:first-child{color:var(--mtk-label-light)!important}' +
+    'html.electron-light [data-mtk-palette-delegation=true] [data-mtk-palette-attribution-name]{color:var(--mtk-label-light)!important}' +
     'html.electron-light [data-mtk-palette-delegation=true] [data-user-message-bubble]{background:var(--mtk-bubble-light)!important;box-shadow:0 1px 8px color-mix(in srgb,var(--mtk-delegated-accent-light) 12%,transparent)}' +
     'html.electron-light [data-mtk-palette-delegation=true] [data-user-message-bubble]::selection,html.electron-light [data-mtk-palette-delegation=true] [data-user-message-bubble] *::selection{background-color:var(--mtk-selection-light)}';
   const surfaceObserver = observerGateHelper + String.raw`function MTKremoveProperties(e,t){for(let n of t)e.style.removeProperty(n)}function MTKapplyCalibration(e){let t=document.documentElement;t.style.setProperty("--mtk-user-bubble-strength",e.calibration.userBubble+"%"),t.style.setProperty("--mtk-generic-bubble-strength",e.calibration.genericBubble+"%"),t.style.setProperty("--mtk-watermark-dark-opacity",e.calibration.watermarkDark/100),t.style.setProperty("--mtk-watermark-light-opacity",e.calibration.watermarkLight/100)}function MTKclearCalibration(){MTKremoveProperties(document.documentElement,["--mtk-user-bubble-strength","--mtk-generic-bubble-strength","--mtk-watermark-dark-opacity","--mtk-watermark-light-opacity"])}function MTKclearRoom(e){e.removeAttribute("data-mtk-palette-room"),e.removeAttribute("data-mtk-palette-mark"),MTKremoveProperties(e,["--mtk-room-dark","--mtk-room-light","--mtk-mark-dark","--mtk-mark-light","--mtk-mark-image"])}function MTKclearDelegation(e){e.removeAttribute("data-mtk-palette-delegation"),MTKremoveProperties(e,["--mtk-bubble-dark","--mtk-bubble-light","--mtk-label-dark","--mtk-label-light","--mtk-delegated-accent-dark","--mtk-delegated-accent-light"])}function MTKsidebarMetadata(e){for(let t of document.querySelectorAll("[data-app-action-sidebar-thread-row]"))if(t.getAttribute("data-app-action-sidebar-thread-id")===e)return{title:t.getAttribute("data-app-action-sidebar-thread-title"),id:e};return{title:null,id:e}}function MTKapplyPaletteSurfaces(e){MTKapplyCalibration(e),MTKapplySidebar(e);for(let t of document.querySelectorAll("[data-mtk-palette-room-host]")){let n=t.getAttribute("data-mtk-palette-thread-id"),r=MTKsidebarMetadata(n),i=MTKmatchPalette(e,r.title,r.id);if(i==null){MTKclearRoom(t);continue}t.setAttribute("data-mtk-palette-room","true"),t.style.setProperty("--mtk-room-dark",i.dark.canvas),t.style.setProperty("--mtk-room-light",i.light.canvas);if(i.markDataUrl==null)t.removeAttribute("data-mtk-palette-mark"),t.style.removeProperty("--mtk-mark-image");else{t.setAttribute("data-mtk-palette-mark","true"),t.style.setProperty("--mtk-mark-image",'url("'+i.markDataUrl+'")')}t.style.setProperty("--mtk-mark-dark",i.dark.accent),t.style.setProperty("--mtk-mark-light",i.light.accent)}for(let t of document.querySelectorAll("[data-mtk-palette-source-id]")){let n=MTKmatchPalette(e,t.getAttribute("data-mtk-palette-source-title"),t.getAttribute("data-mtk-palette-source-id"));if(n==null){MTKclearDelegation(t);continue}t.setAttribute("data-mtk-palette-delegation","true"),t.style.setProperty("--mtk-bubble-dark",n.dark.bubble),t.style.setProperty("--mtk-bubble-light",n.light.bubble),t.style.setProperty("--mtk-label-dark",n.dark.label),t.style.setProperty("--mtk-label-light",n.light.label),t.style.setProperty("--mtk-delegated-accent-dark",n.dark.accent),t.style.setProperty("--mtk-delegated-accent-light",n.light.accent)}}function MTKclearPaletteSurfaces(){MTKclearCalibration();for(let e of document.querySelectorAll("[data-mtk-palette-row=true]"))MTKclearSidebarRow(e);for(let e of document.querySelectorAll("[data-mtk-palette-room-host]"))MTKclearRoom(e);for(let e of document.querySelectorAll("[data-mtk-palette-source-id]"))MTKclearDelegation(e)}`;
@@ -717,6 +727,7 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
       'function MTKuseTaskVisual(e,t){let n=Ss(Q),r=Y(Can),i=MTKpaletteKey(r),[a,o]=QSl.useState(null);return QSl.useEffect(()=>{let e=!1;if(i.length===0)return o(null),MTKinstallSidebar(null),()=>{e=!0};let t=r.filter(e=>e.projectKind==="local").flatMap(e=>e.rootPaths??[]);return MTKpalettePromiseKey!==i&&(MTKpalettePromiseKey=i,MTKpalettePromise=MTKloadPalette(Qg(n,"local"),t)),MTKpalettePromise.then(t=>{e||(o(t),MTKinstallSidebar(t))}),()=>{e=!0}},[n,i]),MTKmatchPalette(a,e,t)}function MTKuseThreadVisual(e){let t=typeof e==="string"?Iy(e):null,n=bs(Zx,t),r=n?.kind==="local"?n.conversation?.title:n?.kind==="remote"?n.task?.title:null;return MTKuseTaskVisual(r,e)}',
       'async function MTKloadPaletteWhenReady(e,t){try{return e.get($g)==null&&await e.when(({get:e})=>e($g)!=null),await MTKloadPalette(Qg(e,"local"),t)}catch{return null}}function MTKusePaletteBootstrap(){let e=Ss(Q),t=Y(Can),n=MTKpaletteKey(t);return QSl.useEffect(()=>{let r=!1;if(n.length===0)return MTKinstallSidebar(null),()=>{r=!0};let i=t.filter(e=>e.projectKind==="local").flatMap(e=>e.rootPaths??[]);return MTKpalettePromiseKey!==n&&(MTKpalettePromiseKey=n,MTKpalettePromise=MTKloadPaletteWhenReady(e,i)),MTKpalettePromise.then(e=>{r||MTKinstallSidebar(e)}),()=>{r=!0}},[e,n]),null}'
     );
+  domOnlyHelper = readableAttributionSource(domOnlyHelper);
   for (const contract of ["MTKapplyPaletteSurfaces", "data-mtk-palette-delegation", "data-mtk-palette-sidebar-context", "--mtk-sidebar-chip", "::before", "::selection", "selection:n?MTKmix", "MTKclearPaletteSurfaces"]) {
     if (!domOnlyHelper.includes(contract)) throw new Error(`missing DOM-only palette contract ${contract}`);
   }
@@ -754,7 +765,18 @@ const MTKpaletteRelativePath=".codex/task-visual-palette.json",MTKpaletteDefault
 function patchLightTheme(file) {
   let source = fs.readFileSync(file, "utf8");
   source = replaceOnce(source, previousThemeDerive, currentThemeDerive, "light palette derivation");
+  source = readableAttributionSource(source);
   fs.writeFileSync(file, source);
+}
+
+function patchReadableAttribution(file) {
+  const source = readableAttributionSource(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, source);
+}
+
+function readableAttributionSource(source) {
+  source = replaceOnce(source, "function MTKderive(", readableLabelHelper + "function MTKderive(", "readable attribution helper");
+  return replaceOnce(source, neutralLabelExpression, readableLabelExpression, "readable attribution color");
 }
 
 function addPaletteRuntimeReload(source, fixedOwnerRoot, workspaceRoot) {

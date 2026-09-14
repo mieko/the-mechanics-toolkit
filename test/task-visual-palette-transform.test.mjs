@@ -55,6 +55,16 @@ try {
   const probe = spawnSync(process.execPath, [behavioralProbe, extracted, workspace], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
 
+  const readableLabelHelper = 'function MTKreadableLabel(e,t,n){let r=n?"#FFFFFF":"#111318";for(let i=0;i<=20;i++){let a=MTKmix(e,r,i/20);if(MTKcontrast(a,t)>=4.5)return a}return r}';
+  fs.writeFileSync(initialTarget, fs.readFileSync(initialTarget, "utf8")
+    .replace(readableLabelHelper, "")
+    .replace("label:MTKreadableLabel(e,l,n)", "label:MTKcontrast(m,l)>=4.5?m:s"));
+  assert.equal(runToolkit("check").state, "needs-apply", "neutral attribution fallback is upgradeable");
+  assert.equal(runToolkit("apply").state, "applied", "attribution hue upgrade applies");
+  const upgradedProbe = spawnSync(process.execPath, [behavioralProbe, extracted, workspace], { encoding: "utf8" });
+  assert.equal(upgradedProbe.status, 0, upgradedProbe.stderr || upgradedProbe.stdout);
+  assert.deepEqual(fs.readFileSync(initialTarget), once[0], "attribution hue upgrade reaches canonical bytes");
+
   assert.equal(runToolkit("apply").state, "applied");
   for (const [index, target] of [initialTarget, primaryTarget, localTarget, delegationTarget].entries()) {
     assert.deepEqual(fs.readFileSync(target), once[index], `${path.basename(target)} second application is byte-identical`);

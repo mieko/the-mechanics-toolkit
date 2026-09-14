@@ -35,7 +35,10 @@ The patch recognizes only the exact `tinrelay-local-pointer-v1` shape in a deleg
 main process asks the configured local Tinrelay client to inspect that one inbox item, verifies the
 returned routing and author fields against the pointer, and returns only display-safe fields. The
 renderer shows the route and body through Codex's complete stock user-message bubble, including its
-safe Markdown surface, dimensions, padding, radius, and **Show more** behavior after six lines.
+safe Markdown surface, dimensions, padding, radius, **Show more** behavior after six lines, and
+native hover actions for copying the body and reading the event time. Incoming cards use the
+delegation event's recorded time; outgoing cards retain the relay-acceptance anchor time across
+active rendering, hoisting, restart, and later pagination.
 Source-style single newlines render as ordinary Markdown
 soft breaks while blank-line paragraph boundaries remain visible. Named endpoints render as
 `local@ship`; ship-wide catch-all endpoints retain their canonical `@ship` address in both

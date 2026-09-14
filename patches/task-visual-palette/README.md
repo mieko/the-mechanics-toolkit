@@ -89,12 +89,17 @@ config refusal, exact-root quoting, all four transformations, palette parsing, t
 room/sidebar/delegation behavior, archive suppression, mutation filtering, and byte-identical
 second application.
 
-The private build-`7942` implementation was also accepted in live use before extraction: room and
+The current transform also keeps the sender name inside an attribution label source-hued while
+moving toward the theme's readable endpoint only as far as contrast requires. The surrounding
+native label text retains its stock metadata color.
+
+The private build-`7942` implementation was accepted in live use before extraction: room and
 sidebar colors, source-colored delegated bubbles, optional background marks, neutral unnamed-task
-selection, and exact-ID archive protection all remained usable. The later identity-chip treatment
-is covered by the current transform and static behavioral probes until separately accepted in live
-use. Historical evidence for an earlier treatment is not a claim that this separately namespaced
-public transform is installed.
+selection, and exact-ID archive protection all remained usable. Build `8881` live acceptance also
+covered the current identity chips, room colors, and background marks. The source-hued-label
+treatment is covered by the current transform and static behavioral probes until separately
+accepted in live use. Historical evidence for an earlier treatment is not a claim that this
+separately namespaced public transform is installed.
 
 ## Non-goals
 

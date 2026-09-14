@@ -213,9 +213,11 @@ These failures were changed or missing renderer owners, not syntax errors after 
 needs an explicit renderer-profile port for those patches. The x64/ARM64 identity result means one
 Linux JavaScript port should cover both architectures for this exact build.
 
-The dormant `full-history-drain-suppression` check reported `upstream-owned` on all inspected
-platforms. The dormant `renderer-turn-window` and `task-supervisor` transforms did not recognize
-the current pristine profiles and remain unqualified.
+At this initial cross-platform inventory, the dormant `full-history-drain-suppression` check
+reported `upstream-owned` on all inspected platforms, while `renderer-turn-window` and
+`task-supervisor` did not recognize the pristine profiles. The renderer window was subsequently
+reactivated and ported against the macOS build-`8881` owner after real long-lived-task stalls;
+other platform profiles remain separate qualification work.
 
 ## Package and installation boundaries
 

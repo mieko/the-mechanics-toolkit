@@ -112,6 +112,7 @@ const detachedEvent = {
   author_label: "mechanic",
   body: "The source command has already left the activity tree."
 };
+const detachedRecordedAtMs = Date.now();
 liveAnchorListeners[0]({
   type: "mtk-tinrelay-outgoing-result",
   requestId: "detached-source-exec",
@@ -122,7 +123,7 @@ liveAnchorListeners[0]({
     sourceThreadId: "detached-source-task",
     sourceTurnId: "detached-source-turn",
     transmissionId: detachedTransmissionId,
-    recordedAtMs: Date.now(),
+    recordedAtMs: detachedRecordedAtMs,
     event: detachedEvent
   }
 });
@@ -130,6 +131,9 @@ const detachedTurn = renderWithHooks("detached-turn", rendererApi.turn,
   {conversationId: "detached-source-task", turnId: "detached-source-turn", turnFinished: true});
 assert.equal(detachedTurn.props.children[0].props.event, detachedEvent,
   "the turn receives a persisted outgoing card even when its request-scoped listener is gone");
+assert.equal(detachedTurn.props.children[0].props.sentAtMs,
+  detachedRecordedAtMs,
+  "the detached presentation retains its stable recorded time");
 dispatches.length = 0;
 
 const transmissionId = "11111111-1111-4111-8111-111111111111";
@@ -192,6 +196,8 @@ assert.equal(observed?.type.name, "MTKtinrelayOutgoingView",
   "the accepted radio card remains visible in reasoning until its turn-owned presentation can be promoted");
 assert.equal(observed.props.event, event,
   "the active reasoning slot renders the accepted outgoing transmission");
+assert.equal(observed.props.sentAtMs, rendererAnchor.recordedAtMs,
+  "the active radio card uses the main-process anchor time");
 assert.equal(renderWithHooks("active-turn", rendererApi.turn, {
   conversationId: "source-task", turnId: "source-turn", turnFinished: false
 }), null, "an anchored outgoing transmission does not hoist above its source turn while that turn is active");
@@ -203,6 +209,8 @@ assert.equal(renderWithHooks("exec", rendererApi.exec, componentProps), null,
   "the source exec disappears after the completed turn promotes its durable presentation");
 const anchored = turn.props.children[0];
 assert.equal(anchored.type.name, "MTKtinrelayOutgoingView");
+assert.equal(anchored.props.sentAtMs, rendererAnchor.recordedAtMs,
+  "the promoted radio card keeps the same stable time");
 const rendered = anchored.type(anchored.props);
 const restartedRenderer = rendererApiFactory();
 assert.equal(renderWithHooks("restarted-turn", restartedRenderer.turn,
@@ -227,6 +235,8 @@ const reconstructed = renderWithHooks("restarted-turn", restartedRenderer.turn,
   {conversationId: "source-task", turnId: "source-turn", turnFinished: true});
 assert.equal(reconstructed.props.children[0].props.event, event,
   "a fresh renderer rebuilds the card without the original command activity");
+assert.equal(reconstructed.props.children[0].props.sentAtMs, rendererAnchor.recordedAtMs,
+  "a fresh renderer reconstructs the persisted event time");
 assert.match(turnCallSource, /MTKtinrelayOutgoingTurnPresentations,\{conversationId:[$A-Z_a-z][$\w]*,turnId:[$A-Z_a-z][$\w]*,turnFinished:/,
   "the turn renderer passes an explicit source-turn completion decision to outgoing hoisting");
 assert.ok(turnCallSource.includes("?.completed===!0") && turnCallSource.includes("?.phase===`final_answer`") &&
@@ -252,7 +262,8 @@ assert.equal(card.type, StockMessageBubble, "outgoing cards use the shared Tinre
 assert.deepEqual(card.props, {
   body: event.body,
   outgoing: true,
-  screenReaderStatus: "Accepted by Tinrelay"
+  screenReaderStatus: "Accepted by Tinrelay",
+  sentAtMs: rendererAnchor.recordedAtMs
 }, "outgoing direction changes only presentation metadata around the shared bubble");
 
 const unlabeled = {...event, author_label: null, attention_label: ""};

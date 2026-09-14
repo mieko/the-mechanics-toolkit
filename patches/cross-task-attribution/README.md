@@ -15,7 +15,9 @@ This patch resolves the source task through Codex's own renderer store and repla
 label with the name before a title's ` — ` separator, or with the complete task title when no named
 role separator exists. If authoritative title metadata is missing it keeps the stock generic label.
 It never parses message prose as identity. The retained label helper can also render
-`Project/Task title` when an older renderer profile supplies project metadata.
+`Project/Task title` when an older renderer profile supplies project metadata. The sender name has
+its own semantic marker so the visual palette can color only the identity while the surrounding
+native attribution text keeps its stock metadata color.
 
 The patch also applies Codex's existing muted semantic accent only to the delegated user-message
 bubble. It does not tint the whole turn, dim text, or remove the source-task link.

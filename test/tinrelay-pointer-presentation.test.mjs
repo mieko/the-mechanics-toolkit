@@ -241,12 +241,15 @@ assert.equal(queuedScroll, null, "reading more than one viewport up is never dis
 for (const forbidden of ["dangerouslySetInnerHTML", "innerHTML", "MTKoutboundFormattedText", "window.open"])
   assert.ok(!rendererHelpers.includes(forbidden), `renderer omits ${forbidden}`);
 assert.match(rendererHelpers,
-  /\(0,[A-Za-z_$][\w$]*\.jsx\)\([A-Za-z_$][\w$]*,\{message:e,collapsedLineCount:6,compactActions:!0,hideActions:!0,cwd:null,hostId:"local"\}\)/,
-  "incoming and outgoing bodies reuse Codex's complete stock user-message bubble");
+  /\(0,[A-Za-z_$][\w$]*\.jsx\)\([A-Za-z_$][\w$]*,\{message:e,sentAtMs:r,collapsedLineCount:6,compactActions:!1,cwd:null,hostId:"local"\}\)/,
+  "incoming and outgoing bodies reuse Codex's stock user-message hover actions");
 assert.ok(!rendererHelpers.includes('maxWidth:"min(38rem,86%)"'),
   "Tinrelay does not maintain a competing message-width rule");
-assert.equal((rendererSource.match(/messageNode:MTKtinrelayPointerNode\(i\)/g) ?? []).length, 1,
-  "only delegated messages receive the pointer presentation seam");
+assert.equal((rendererSource.match(/messageNode:MTKtinrelayPointerNode\(i,a\)/g) ?? []).length, 1,
+  "only delegated messages receive the pointer presentation seam and native event time");
+assert.ok(rendererHelpers.includes("function MTKtinrelayPointerNode(e,t)") &&
+  rendererHelpers.includes("MTKtinrelayPointerView,{pointerText:e,sentAtMs:t}"),
+"incoming pointers preserve their native delegation time");
 assert.ok(rendererHelpers.includes('useState({status:"loading"})'),
   "valid pointers enter automatic inspection state");
 assert.ok(rendererHelpers.includes('useRef(!1)') && rendererHelpers.includes('if(!o.current){o.current=!0'),

@@ -179,6 +179,7 @@ function conversationFixture() {
     'import{x as x,persistent as rh}from"./app-control-fixture.js";',
     'import{bus as HostBus}from"./app-initial-fixture.js";',
     "const Jy={useState(e){return[typeof e===`function`?e():e,()=>{}]},useEffect(){}},Yy={jsx(){return{}},jsxs(){return{}}},Compiler={c(){return[]}};",
+    'function NativeActions(e){let{copyText:t,sentAtMs:n,timestampHoverOnly:r}=e;return(0,Yy.jsx)("span",{"data-assistant-message-sent-time":!0,children:"Copy response"})}',
     "function Ub(e){let t=(0,Compiler.c)(16),{conversationId:n,enableTimelineTargets:r,agentActivityIcon:i,isLeadingSummaryPart:a,item:o,variant:s}=e,c=a===void 0||a,l=s===void 0?`row`:s,u;t[0]!==i||t[1]!==c||t[2]!==o||t[3]!==l?(u=rh(o)?.render(o,l,i,c),t[0]=i,t[1]=c,t[2]=o,t[3]=l,t[4]=u):u=t[4];let d=u;if(d!=null)return d;if(l===`row`&&i!==void 0){let e;return e}let f;return f}",
     "function Oy(e){let t=(0,Compiler.c)(195),{turnId:o,conversationId:p}=e,Ze=null,Qe=!1,ft,Rr=()=>null;return ft=Qe?(0,Yy.jsx)(`div`,{className:`flex w-full items-center justify-center pt-8`,children:(0,Yy.jsx)(Rr,{className:`icon-sm`})}):(0,Yy.jsxs)(Yy.Fragment,{children:[Ze,null]}),ft}",
     "function YT(e){let t=(0,Compiler.c)(349),{item:n,conversationId:d,turnId:S,enableTimelineTargets:xe}=e,Ne=null;switch(n.type){case`dynamic-tool-call`:{let e;return t[332]!==Ne||t[333]!==d||t[334]!==xe||t[335]!==n?(e=(0,Yy.jsx)(Ub,{agentActivityIcon:Ne,conversationId:d,enableTimelineTargets:xe,item:n}),t[332]=Ne,t[333]=d,t[334]=xe,t[335]=n,t[336]=e):e=t[336]}}}",

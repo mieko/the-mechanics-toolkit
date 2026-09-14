@@ -134,6 +134,7 @@ if (source.includes("MTKstore.get(MTKtitleAtom")) {
 for (const contract of [
   ...metadataContracts,
   "defaultMessage:`Sent by {appName} from another task`",
+  '"data-mtk-palette-attribution-name":!0',
   "messageBubbleStyle:MTKdelegatedBubbleStyle",
   '"data-user-message-bubble":!0,style:MTKbubbleStyleOverride'
 ]) assert.equal(count(source, contract), 1, `attribution contract: ${contract}`);

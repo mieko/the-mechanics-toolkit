@@ -158,15 +158,23 @@ const prompt = "Please inspect this exact behavior.\nDo not reply.";
 const receipt = api.MTKOutboundMessageReceipt({item: {
   arguments: {threadId: "bridge-keeper", prompt},
   completed: true,
+  recordedAtMs: 123,
   success: true
-}});
-assert.equal(receipt.type.name, "StockHover", "stock interactive hover surface owns the preview");
-assert.equal(receipt.props.interactive, true);
-assert.equal(receipt.props.delayDuration, 800, "hover timing matches the stock diff preview");
-assert.equal(receipt.props.variant, "rich", "stock elevated rich surface owns the preview chrome");
-assert.equal(receipt.props.closeOnTriggerBlur, false, "interactive preview remains reachable");
-assert.equal(receipt.props.tooltipMaxWidth, "min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))");
-const summary = receipt.props.children;
+}, Actions: function StockActions() {}});
+assert.equal(receipt.type, "div", "the persisted receipt owns the native hover-action group");
+assert.ok(receipt.props.className.includes("group"));
+const [hoverReceipt, nativeActions] = receipt.props.children;
+assert.equal(hoverReceipt.type.name, "StockHover", "stock interactive hover surface owns the preview");
+assert.equal(hoverReceipt.props.interactive, true);
+assert.equal(hoverReceipt.props.delayDuration, 800, "hover timing matches the stock diff preview");
+assert.equal(hoverReceipt.props.variant, "rich", "stock elevated rich surface owns the preview chrome");
+assert.equal(hoverReceipt.props.closeOnTriggerBlur, false, "interactive preview remains reachable");
+assert.equal(hoverReceipt.props.tooltipMaxWidth, "min(42rem, var(--radix-tooltip-content-available-width), calc(100vw - 16px))");
+assert.equal(nativeActions.type.name, "StockActions", "Codex's native assistant action row owns copy and time");
+assert.equal(nativeActions.props.copyText, prompt);
+assert.equal(nativeActions.props.sentAtMs, 123);
+assert.equal(nativeActions.props.timestampHoverOnly, true);
+const summary = hoverReceipt.props.children;
 assert.equal(summary.type, "div");
 assert.equal(summary.props["data-mtk-outgoing-message-receipt"], true);
 assert.ok(summary.props.className.includes("self-start"), "receipt is left aligned");
@@ -181,7 +189,7 @@ assert.match(recipient.props.style.color, /^light-dark\(#[0-9A-F]{6},#[0-9A-F]{6
 assert.equal(separator.props.children, "·");
 assert.equal(preview.props.children, "Please inspect this exact behavior.");
 assert.equal(summary.props.children.length, 5, "hover receipt has no click-disclosure indicator");
-const hoverBody = receipt.props.tooltipContent;
+const hoverBody = hoverReceipt.props.tooltipContent;
 assert.equal(hoverBody.type, "div");
 assert.equal(hoverBody.props.style.userSelect, "text", "floating message remains selectable");
 assert.equal(hoverBody.props.style.padding, "0.75rem", "tooltip restores the recipient bubble's missing inset");
@@ -246,6 +254,7 @@ for (const contract of [
   "globalThis.__MTK_PATCH_REGISTRY__",
   "MTKoutboundHover",
   "MTKoutboundFormattedText",
+  "timestampHoverOnly:!0",
   "globalThis.__MTK_OUTBOUND_REMEMBER__",
   "interactive:!0",
   "delayDuration:800",
@@ -298,12 +307,24 @@ const conversationCacheEnd = conversation.indexOf("function ", receiptFunctionSt
 const conversationHelper = conversation.slice(conversationCacheStart, conversationCacheEnd);
 assert.ok(conversationHelper.includes("length-MTKoutboundReceiptLimit"),
   "renderer bounds acknowledged receipts per source task");
+assert.ok(conversationHelper.includes("Actions:") && conversationHelper.includes("recordedAtMs:e.recordedAtMs"),
+  "durable receipts hand their stable time to the native action row");
 assert.ok(!conversation.slice(conversationCacheStart, conversationCacheEnd).includes("flatMap"),
   "renderer does not enforce one global receipt pool");
 const hostBusName = unique(
   conversationHelper,
   /(?<name>[$A-Z_a-z][$\w]*)\.dispatchMessage\("mtk-outbound-receipt-remember"/g,
   "receipt host bus"
+).groups.name;
+const nativeActionsName = unique(
+  conversationHelper,
+  /Actions:(?<name>[$A-Z_a-z][$\w]*),item:/g,
+  "native assistant action component"
+).groups.name;
+const receiptJsxName = unique(
+  conversationHelper,
+  /\(0,(?<name>[$A-Z_a-z][$\w]*)\.jsx\)\("div",\{"data-mtk-outgoing-message-receipts":!0/g,
+  "durable receipt JSX binding"
 ).groups.name;
 const receiptDispatches = [];
 const receiptListeners = new Map();
@@ -315,18 +336,33 @@ const receiptReact = {
   useState(initializer) { return [typeof initializer === "function" ? initializer() : initializer, () => {}]; },
   useEffect() {}
 };
-const receiptJsx = {jsx() { return null; }};
+const receiptJsx = {jsx(type, props, key) { return {type, props, key}; }};
+function StockActions() {}
+function StockReceipt() {}
 const receiptReactBinding = conversation.match(
   /const MTKOutboundReceiptReact=(?<expression>[^;]+);const MTKoutboundReceiptContract=/
 );
 const boundReceiptReact = receiptReactBinding == null
   ? receiptReact
   : evaluateReceiptReactBinding(receiptReactBinding.groups.expression);
+const evaluatorBindings = new Map([
+  [hostBusName, receiptBus],
+  [nativeActionsName, StockActions],
+  [receiptJsxName, receiptJsx],
+  ["Jy", receiptReact],
+  ["Yy", receiptJsx],
+  ["gS", receiptReact],
+  ["_x", receiptJsx],
+  ["t", value => value],
+  ["x", () => receiptReact],
+  ["$", receiptJsx],
+  ["MTKOutboundReceiptReact", boundReceiptReact],
+  ["MTKoutboundReceipt", StockReceipt]
+]);
 const conversationApi = Function(
-  hostBusName, "Jy", "Yy", "gS", "_x", "t", "x", "$", "MTKOutboundReceiptReact", "MTKoutboundReceipt",
+  ...evaluatorBindings.keys(),
   `${conversationHelper};return {component:MTKOutboundTurnReceipts,remember:MTKoutboundRemember,state:MTKoutboundReceiptState,values:MTKoutboundReceiptValues}`
-)(receiptBus, receiptReact, receiptJsx, receiptReact, receiptJsx, value => value, () => receiptReact, receiptJsx,
-  boundReceiptReact, () => null);
+)(...evaluatorBindings.values());
 assert.equal(
   conversationApi.component({conversationId: "source-thread", turnId: "source-turn"}),
   null,
@@ -399,6 +435,13 @@ try {
   receiptListeners.get("mtk-outbound-receipt-remember-result")(mainResponses[0]);
   assert.deepEqual(conversationApi.values(conversationApi.state("source-thread")), [first],
     "renderer accepts the acknowledged durable record");
+  const persistent = conversationApi.component({conversationId: "source-thread", turnId: "source-turn"});
+  const persistentReceipt = persistent.props.children[0];
+  assert.equal(persistentReceipt.type, StockReceipt);
+  assert.equal(persistentReceipt.props.Actions, StockActions,
+    "the conversation owner hands its native action row to the persistent receipt");
+  assert.equal(persistentReceipt.props.item.recordedAtMs, first.recordedAtMs,
+    "the durable acceptance time reaches the native timestamp control");
   assert.equal(conversationApi.remember(first), true, "acknowledged receipt can hand off to the durable turn surface");
   const failed = {...first, callId: "call-write-failed", recordedAtMs: 101};
   assert.equal(conversationApi.remember(failed), false);

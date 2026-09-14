@@ -160,6 +160,14 @@ const protectedTaskId = protectedRule.taskId;
 const ordinaryTaskId = "not-a-configured-task";
 const protectedLoadedRule = api.MTKmatchPalette(loaded, "", protectedTaskId);
 assert.ok(protectedLoadedRule, "protected task ID resolves its configured palette rule");
+assert.notEqual(protectedLoadedRule.dark.label, protectedLoadedRule.dark.text,
+  "dark attribution keeps a recognizable source hue instead of collapsing to neutral text");
+assert.notEqual(protectedLoadedRule.light.label, protectedLoadedRule.light.text,
+  "light attribution keeps a recognizable source hue instead of collapsing to neutral text");
+assert.ok(contrast(protectedLoadedRule.dark.label, protectedLoadedRule.dark.bubble) >= 4.5,
+  "dark attribution remains readable against its mapped bubble");
+assert.ok(contrast(protectedLoadedRule.light.label, protectedLoadedRule.light.bubble) >= 4.5,
+  "light attribution remains readable against its mapped bubble");
 assert.deepEqual(loaded.calibration, {
   canvas: 11,
   userBubble: 8,
@@ -235,7 +243,7 @@ assert.deepEqual(api.MTKderive("#FF0000", neutralCalibration, false), {
   hover: "#F7F1F3",
   selected: "#F7EAEC",
   accent: "#D40304",
-  label: "#AE0608",
+  label: "#DB0304",
   selection: "#F6A1A3",
   text: "#17191C"
 }, "light mode starts from airy neutral surfaces and adds a pale accent wash");
@@ -329,6 +337,8 @@ assert.equal(bridgeRoom.style.get("--mtk-room-dark"), protectedLoadedRule.dark.c
 assert.equal(bridgeRoom.style.get("--mtk-selection-dark"), protectedLoadedRule.dark.selection);
 assert.equal(mappedDelegation.getAttribute("data-mtk-palette-delegation"), "true");
 assert.equal(mappedDelegation.style.get("--mtk-bubble-dark"), protectedLoadedRule.dark.bubble);
+assert.equal(mappedDelegation.style.get("--mtk-label-dark"), protectedLoadedRule.dark.label);
+assert.equal(mappedDelegation.style.get("--mtk-label-light"), protectedLoadedRule.light.label);
 assert.equal(mappedDelegation.style.get("--mtk-selection-dark"), protectedLoadedRule.dark.selection);
 assert.equal(genericDelegation.getAttribute("data-mtk-palette-delegation"), null);
 assert.equal(ordinarySidebar.getAttribute("data-mtk-palette-row"), null);
@@ -379,6 +389,7 @@ for (const contract of [
   "box-shadow:inset 0 0 0 1px var(--mtk-accent-dark)!important",
   "box-shadow:inset 0 0 0 1px var(--mtk-accent-light)!important",
   "[data-mtk-palette-room=true] ::selection{background-color:var(--mtk-selection-dark)}",
+  "[data-mtk-palette-delegation=true] [data-mtk-palette-attribution-name]{color:var(--mtk-label-dark)!important}",
   "[data-mtk-palette-delegation=true] [data-user-message-bubble] *::selection",
   "[data-mtk-palette-room=true] [data-mtk-palette-bottom-fade]",
   "--tw-gradient-from:var(--mtk-room-dark)",
@@ -390,6 +401,8 @@ assert.ok(!source.includes("[data-mtk-palette-room=true]{opacity:"), "room conte
 assert.ok(!source.includes(":not([data-mtk-palette-delegation=true]) ::selection"), "unmapped delegation selection stays native");
 assert.ok(!source.includes('[data-mtk-palette-row=true]{background-color:'), "inactive mapped rows retain stock backgrounds");
 assert.ok(!source.includes('[data-mtk-palette-row=true]:hover{background-color:'), "inactive mapped rows retain stock hover behavior");
+assert.ok(!source.includes('[data-mtk-palette-delegation=true]>button:first-child{color:'),
+  "palette color is scoped to the sender name rather than the native attribution line");
 assert.ok(!source.includes('setProperty("--mtk-row-dark"'), "unused inactive-row colors are not installed inline");
 assert.ok(source.includes("function MTKloadPaletteWhenReady("), "startup has an App Server readiness boundary");
 assert.ok(source.includes(".when(({get:"), "startup waits for the manager atom instead of throwing");
