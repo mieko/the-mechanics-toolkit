@@ -807,7 +807,7 @@ function embeddedLocalShip(source) {
   const literal = '"(?:\\\\.|[^"\\\\])*"';
   const match = uniqueMatch(
     source,
-    new RegExp(`const MTKtinrelayLocalShip=(?<ship>${literal});function MTKtinrelayPointerFromMessage\\(`, "g"),
+    new RegExp(`const MTKtinrelayLocalShip=(?<ship>${literal});function MTKtinrelay(?:Envelope|PointerFromMessage)\\(`, "g"),
     "embedded Tinrelay local ship"
   );
   const ship = JSON.parse(match.groups.ship);

@@ -100,6 +100,17 @@ try {
   const probe = spawnSync(process.execPath, [behavioralProbe, extracted], { encoding: "utf8" });
   assert.equal(probe.status, 0, probe.stderr || probe.stdout);
 
+  fs.writeFileSync(rendererTarget, rendererText.replace(
+    "function MTKtinrelayDeliveryFromMessage(",
+    "function MTKtinrelayLegacyDeliveryFromMessage("
+  ));
+  assert.equal(runToolkit("check").state, "needs-apply",
+    "an installed pointer-only renderer is recognized as needing the delivery upgrade");
+  assert.equal(runToolkit("apply").state, "applied",
+    "an installed pointer-only renderer gains direct-delivery parsing");
+  assert.deepEqual(fs.readFileSync(rendererTarget), rendererOnce,
+    "direct-delivery migration produces the canonical renderer");
+
   assert.equal(runToolkit("apply").state, "applied", "an applied tree needs no config to verify");
   assert.deepEqual(fs.readFileSync(rendererTarget), rendererOnce, "renderer is byte-identical after second application");
   assert.deepEqual(fs.readFileSync(activityTarget), activityOnce, "activity classifier is byte-identical after second application");

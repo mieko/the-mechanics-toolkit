@@ -34,8 +34,8 @@ if (command === "apply" && state !== "applied") {
 
 process.stdout.write(`${JSON.stringify({
   state,
-  contracts: ["tinrelay-local-pointer-v1", "tinrelay-outgoing-observer-v1"],
-  source: "incoming-pointers-and-ordinary-successful-sends",
+  contracts: ["tinrelay-local-pointer-v1", "tinrelay-message-delivery-v1", "tinrelay-outgoing-observer-v1"],
+  source: "incoming-pointers-or-deliveries-and-ordinary-successful-sends",
   client: incomingResult.client,
   localShip: incomingResult.localShip,
   targets: [...new Set([...incomingResult.targets, ...outgoingResult.targets])].sort()

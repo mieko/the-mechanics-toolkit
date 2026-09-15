@@ -18,7 +18,7 @@ const mainSource = fs.readFileSync(main, "utf8");
 const stringLiteral = '"(?:\\\\.|[^"\\\\])*"';
 const rendererConfig = uniqueMatch(
   rendererSource,
-  new RegExp(`const MTKtinrelayLocalShip=(?<ship>${stringLiteral});function MTKtinrelayPointerFromMessage\\(`, "g"),
+  new RegExp(`const MTKtinrelayLocalShip=(?<ship>${stringLiteral});function MTKtinrelay(?:Envelope|PointerFromMessage)\\(`, "g"),
   "embedded renderer configuration"
 ).groups;
 const mainConfig = uniqueMatch(
@@ -45,7 +45,10 @@ const incomingHostBusOwner = uniqueMatch(
   /const MTKtinrelayHostBus=(?<bus>[$A-Z_a-z][$\w]*);/g,
   "incoming renderer host bus capture"
 ).groups.bus;
-const parsePointer = Function(`${rendererSource.slice(rendererStart, rendererEnd)};return MTKtinrelayPointerFromMessage`)();
+const parsers = Function(
+  `${rendererSource.slice(rendererStart, rendererEnd)};return {pointer:MTKtinrelayPointerFromMessage,delivery:MTKtinrelayDeliveryFromMessage}`
+)();
+const parsePointer = parsers.pointer;
 
 const pointer = {
   contract: "tinrelay-local-pointer-v1",
@@ -69,6 +72,31 @@ for (const [label, text] of [
   ["bad sender ship", `TINRELAY LOCAL POINTER\n${JSON.stringify({...pointer, sender_ship: "Bad Ship"})}`],
   ["non-string label", `TINRELAY LOCAL POINTER\n${JSON.stringify({...pointer, attention_label: null})}`]
 ]) assert.equal(parsePointer(text), null, label);
+
+const delivery = {
+  contract: "tinrelay-message-delivery-v1",
+  kind: "transmission",
+  local_id: pointer.local_id,
+  local_ship: localShip,
+  sender_ship: pointer.sender_ship,
+  attention_label: pointer.attention_label,
+  author_label: "aster",
+  body: "Exact message text.\nSecond line."
+};
+const deliveryText = `TINRELAY MESSAGE DELIVERY\n${JSON.stringify(delivery)}`;
+assert.deepEqual(parsers.delivery(deliveryText), delivery);
+assert.deepEqual(parsers.delivery(`${deliveryText}\n`), delivery, "one final LF is allowed");
+assert.equal(parsePointer(deliveryText), null, "a delivery is not a local pointer");
+for (const [label, text] of [
+  ["pointer presented as delivery", pointerText.replace("LOCAL POINTER", "MESSAGE DELIVERY")],
+  ["unknown key", `TINRELAY MESSAGE DELIVERY\n${JSON.stringify({...delivery, extra: true})}`],
+  ["wrong local ship", `TINRELAY MESSAGE DELIVERY\n${JSON.stringify({...delivery, local_ship: "other"})}`],
+  ["empty author", `TINRELAY MESSAGE DELIVERY\n${JSON.stringify({...delivery, author_label: ""})}`],
+  ["non-string body", `TINRELAY MESSAGE DELIVERY\n${JSON.stringify({...delivery, body: null})}`],
+  ["literal extra line", `${deliveryText}\nnot-json`]
+]) assert.equal(parsers.delivery(text), null, `delivery ${label}`);
+assert.deepEqual(parsers.delivery(`TINRELAY MESSAGE DELIVERY\n${JSON.stringify({...delivery, author_label: null})}`),
+  {...delivery, author_label: null}, "an unlabeled delivery is valid");
 
 const helpersStart = mainSource.indexOf("const MTKtinrelayClient=");
 const helpersEnd = [
@@ -250,6 +278,11 @@ assert.equal((rendererSource.match(/messageNode:MTKtinrelayPointerNode\(i,a\)/g)
 assert.ok(rendererHelpers.includes("function MTKtinrelayPointerNode(e,t)") &&
   rendererHelpers.includes("MTKtinrelayPointerView,{pointerText:e,sentAtMs:t}"),
 "incoming pointers preserve their native delegation time");
+assert.ok(rendererHelpers.includes("function MTKtinrelayDeliveryFromMessage(e)") &&
+  rendererHelpers.includes("MTKtinrelayDeliveryView,{delivery:n,sentAtMs:t}"),
+"full deliveries use the same native delegation time without local inspection");
+assert.ok(rendererHelpers.includes('MTKtinrelayAddress(e.author_label,e.sender_ship)+" → "+MTKtinrelayAddress(e.attention_label,e.local_ship)'),
+  "full deliveries render their exact sender and recipient attribution");
 assert.ok(rendererHelpers.includes('useState({status:"loading"})'),
   "valid pointers enter automatic inspection state");
 assert.ok(rendererHelpers.includes('useRef(!1)') && rendererHelpers.includes('if(!o.current){o.current=!0'),

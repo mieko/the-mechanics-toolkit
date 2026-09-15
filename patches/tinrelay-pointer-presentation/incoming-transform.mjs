@@ -117,6 +117,8 @@ function inspectState() {
         rendererSource.includes(JSON.stringify(PREVIOUS_LIGHT_FOREGROUND_VISUAL_CSS)) ||
         rendererSource.includes(LEGACY_BODY_CLASS) ||
         !rendererSource.includes("function MTKtinrelayMessageView(") ||
+        !rendererSource.includes("function MTKtinrelayDeliveryFromMessage(") ||
+        !rendererSource.includes("function MTKtinrelayDeliveryView(") ||
         !rendererSource.includes("function MTKtinrelayScrollSnapshot(") ||
         !rendererSource.includes("&&Math.max(0,-t.scrollTop)<=Math.max(1,t.clientHeight)&&t.scrollTo") ||
         !rendererSource.includes("MTKtinrelayScheduleScroll(d.current)")) {
@@ -164,12 +166,15 @@ function inspectAppliedRenderer(source) {
   }
   for (const contract of [
     "function MTKtinrelayAddress(",
-    'function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"',
+    'function MTKtinrelayEnvelope(e,t){if(typeof e!=="string"',
+    'function MTKtinrelayPointerFromMessage(e)',
+    'function MTKtinrelayDeliveryFromMessage(e)',
     'children:["📡 ",u]',
     'MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)',
     'MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip)',
     'MTKtinrelayAddress(null,n.sender_ship)',
     'function MTKtinrelayMessageView(',
+    'function MTKtinrelayDeliveryView(',
     `(0,${profile.helperJsx}.jsx)(${profile.messageComponent},{message:e,sentAtMs:r,collapsedLineCount:6,compactActions:!1,cwd:null,hostId:"local"})`,
     "function MTKtinrelayPointerNode(e,t)",
     "MTKtinrelayPointerView,{pointerText:e,sentAtMs:t}",
@@ -422,7 +427,7 @@ function rendererHelpers(hostBus, localShip, profile = {jsx:"Tb", messageCompone
 }
 
 function pointerHelpers(localShip, jsx = "Tb") {
-  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayPointerFromMessage(e){if(typeof e!=="string"||e.includes("\r"))return null;let t=e.endsWith("\n")?e.slice(0,-1):e,n=t.split("\n");if(n.length!==2||n[0]!=="TINRELAY LOCAL POINTER")return null;let r;try{r=JSON.parse(n[1])}catch{return null}if(r==null||typeof r!=="object"||Array.isArray(r))return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayPointerNode(e,t){return MTKtinrelayPointerFromMessage(e)==null?null:(0,${jsx}.jsx)(MTKtinrelayPointerView,{pointerText:e,sentAtMs:t})}function MTKtinrelayAddress(e,t){return(typeof e==="string"&&e.length>0?e:"")+"@"+t}`;
+  return String.raw`const MTKtinrelayLocalShip=${JSON.stringify(localShip)};function MTKtinrelayEnvelope(e,t){if(typeof e!=="string"||e.includes("\r"))return null;let n=e.endsWith("\n")?e.slice(0,-1):e,r=n.indexOf("\n");if(r<0||n.indexOf("\n",r+1)>=0||n.slice(0,r)!==t)return null;let i;try{i=JSON.parse(n.slice(r+1))}catch{return null}return i==null||typeof i!=="object"||Array.isArray(i)?null:i}function MTKtinrelayPointerFromMessage(e){let r=MTKtinrelayEnvelope(e,"TINRELAY LOCAL POINTER");if(r==null)return null;let i=["attention_label","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-local-pointer-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string")return null;return r}function MTKtinrelayDeliveryFromMessage(e){let r=MTKtinrelayEnvelope(e,"TINRELAY MESSAGE DELIVERY");if(r==null)return null;let i=["attention_label","author_label","body","contract","kind","local_id","local_ship","sender_ship"];if(Object.keys(r).sort().join("\0")!==i.join("\0")||r.contract!=="tinrelay-message-delivery-v1"||r.kind!=="transmission"||typeof r.local_id!=="string"||!/^tr_[0-9a-f]{32}$/.test(r.local_id)||r.local_ship!==MTKtinrelayLocalShip||typeof r.sender_ship!=="string"||!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(r.sender_ship)||typeof r.attention_label!=="string"||r.author_label!==null&&(typeof r.author_label!=="string"||r.author_label.length===0)||typeof r.body!=="string")return null;return r}function MTKtinrelayPointerNode(e,t){let n=MTKtinrelayDeliveryFromMessage(e);return n==null?MTKtinrelayPointerFromMessage(e)==null?null:(0,${jsx}.jsx)(MTKtinrelayPointerView,{pointerText:e,sentAtMs:t}):(0,${jsx}.jsx)(MTKtinrelayDeliveryView,{delivery:n,sentAtMs:t})}function MTKtinrelayAddress(e,t){return(typeof e==="string"&&e.length>0?e:"")+"@"+t}`;
 }
 
 function scrollHelpers() {
@@ -430,7 +435,7 @@ function scrollHelpers() {
 }
 
 function presentationHelpers(hostBus, jsx = "Tb", messageComponent = "Eg") {
-  return `const MTKtinrelayHostBus=${hostBus};function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n,sentAtMs:r}){MTKtinrelayEnsureStyle();return(0,${jsx}.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,${jsx}.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,${jsx}.jsx)(${messageComponent},{message:e,sentAtMs:r,collapsedLineCount:6,compactActions:!1,cwd:null,hostId:"local"})]})}function MTKtinrelayPointerView({pointerText:e,sentAtMs:t}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=MTKtinrelayHostBus.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,MTKtinrelayHostBus.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l,sentAtMs:t})]})}`;
+  return `const MTKtinrelayHostBus=${hostBus};function MTKtinrelayEnsureStyle(){if(document.getElementById("mtk-tinrelay-signal-style"))return;let e=document.createElement("style");e.id="mtk-tinrelay-signal-style",e.textContent=${JSON.stringify(NEXT_VISUAL_CSS)},document.head.appendChild(e)}function MTKtinrelayMessageView({body:e,outgoing:t,screenReaderStatus:n,sentAtMs:r}){MTKtinrelayEnsureStyle();return(0,${jsx}.jsxs)("div",{"data-mtk-tinrelay-pointer":!0,"data-mtk-tinrelay-outgoing":t||void 0,className:"mtk-tinrelay-signal w-full",children:[n==null?null:(0,${jsx}.jsx)("span",{"aria-label":n,className:"sr-only",children:n}),(0,${jsx}.jsx)(${messageComponent},{message:e,sentAtMs:r,collapsedLineCount:6,compactActions:!1,cwd:null,hostId:"local"})]})}function MTKtinrelayIncomingView(e,t,n){return(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",e]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:t,outgoing:!1,sentAtMs:n})]})}function MTKtinrelayDeliveryView({delivery:e,sentAtMs:t}){let n=MTKtinrelayAddress(e.author_label,e.sender_ship)+" → "+MTKtinrelayAddress(e.attention_label,e.local_ship);return MTKtinrelayIncomingView(n,e.body,t)}function MTKtinrelayPointerView({pointerText:e,sentAtMs:t}){let n=MTKtinrelayPointerFromMessage(e),[r,i]=MTKtinrelayReact.useState({status:"loading"}),a=MTKtinrelayReact.useRef(null),o=MTKtinrelayReact.useRef(!1),d=MTKtinrelayReact.useRef(null);MTKtinrelayReact.useEffect(()=>{let s=MTKtinrelayHostBus.subscribe("mtk-tinrelay-pointer-result",e=>{if(e?.requestId!==a.current)return;a.current=null;if(e.ok!==!0||e.transmission==null){i({status:"error",error:typeof e.error==="string"?e.error:"Tinrelay inspection failed."});return}let t=e.transmission;t.localId===n.local_id&&t.localShip===n.local_ship&&t.senderShip===n.sender_ship&&t.attentionLabel===n.attention_label&&(t.authorLabel===null||typeof t.authorLabel==="string"&&t.authorLabel.length>0)&&typeof t.body==="string"?(i({status:"ready",transmission:t}),MTKtinrelayScheduleScroll(d.current)):i({status:"error",error:"Tinrelay inspection did not match this pointer."})});if(!o.current){o.current=!0,d.current=MTKtinrelayScrollSnapshot();let c=crypto.randomUUID();a.current=c,MTKtinrelayHostBus.dispatchMessage("mtk-tinrelay-pointer-inspect",{requestId:c,pointerText:e})}return s},[n.local_id,n.local_ship,n.sender_ship,n.attention_label]);let u=r.status==="ready"?MTKtinrelayAddress(r.transmission.authorLabel,r.transmission.senderShip)+" → "+MTKtinrelayAddress(r.transmission.attentionLabel,r.transmission.localShip):"Tinrelay transmission from "+MTKtinrelayAddress(null,n.sender_ship),c=r.status==="ready"?r.transmission.body:r.status==="error"?r.error:"Inspecting…",l=r.status==="error"?"Tinrelay inspection failed":null;return l==null?MTKtinrelayIncomingView(u,c,t):(0,${jsx}.jsxs)("div",{className:"flex w-full flex-col items-end justify-end gap-1",children:[(0,${jsx}.jsxs)("div",{className:"text-size-chat-sm flex items-center gap-1 px-1 py-0.5 text-codex-description",children:["📡 ",u]}),(0,${jsx}.jsx)(MTKtinrelayMessageView,{body:c,outgoing:!1,screenReaderStatus:l,sentAtMs:t})]})}`;
 }
 
 
@@ -562,6 +567,21 @@ function migrateRendererPresentation(value) {
     }
     patched = patched.slice(0, styleStart) + presentationHelpers(resolveHostBus(patched)) + patched.slice(pointer.end);
   }
+  if (!patched.includes("function MTKtinrelayDeliveryFromMessage(") ||
+      !patched.includes("function MTKtinrelayDeliveryView(")) {
+    const profile = incomingRendererProfile(patched);
+    const start = patched.indexOf("const MTKtinrelayLocalShip=");
+    const pointerStart = patched.indexOf("function MTKtinrelayPointerView(", start);
+    const pointer = functionAt(patched, pointerStart);
+    const ship = uniqueMatch(
+      patched.slice(start, pointer.start),
+      /const MTKtinrelayLocalShip=(?<ship>"(?:\\.|[^"\\])*");/g,
+      "embedded renderer Tinrelay ship"
+    ).groups.ship;
+    patched = patched.slice(0, start) +
+      rendererHelpers(resolveHostBus(patched), JSON.parse(ship), profile) +
+      patched.slice(pointer.end);
+  }
   return patched;
 }
 
@@ -644,7 +664,7 @@ function exportedAs(source, internal) {
 }
 
 function helperSlice(source) {
-  const start = source.indexOf("function MTKtinrelayPointerFromMessage(");
+  const start = source.indexOf("const MTKtinrelayLocalShip=");
   const end = source.indexOf(`function ${incomingRendererProfile(source).delegation}(`, start);
   if (start < 0 || end < 0) throw new Error("Tinrelay renderer helper boundary is missing");
   return source.slice(start, end);
@@ -783,7 +803,7 @@ function embeddedConfiguration() {
   const literal = '"(?:\\\\.|[^"\\\\])*"';
   const renderer = uniqueMatch(
     rendererSource,
-    new RegExp(`const MTKtinrelayLocalShip=(?<ship>${literal});function MTKtinrelayPointerFromMessage\\(`, "g"),
+    new RegExp(`const MTKtinrelayLocalShip=(?<ship>${literal});function MTKtinrelay(?:Envelope|PointerFromMessage)\\(`, "g"),
     "embedded renderer Tinrelay configuration"
   ).groups;
   const main = uniqueMatch(

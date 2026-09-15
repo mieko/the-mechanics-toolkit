@@ -27,7 +27,7 @@ assert.equal(turnCallSources.length, 1, "one turn renderer owns outgoing TinRela
 const turnCallSource = turnCallSources[0];
 const localShip = JSON.parse(uniqueMatch(
   rendererSource,
-  /const MTKtinrelayLocalShip=(?<ship>"(?:\\.|[^"\\])*");function MTKtinrelayPointerFromMessage\(/g,
+  /const MTKtinrelayLocalShip=(?<ship>"(?:\\.|[^"\\])*");function MTKtinrelay(?:Envelope|PointerFromMessage)\(/g,
   "embedded local ship"
 ).groups.ship);
 

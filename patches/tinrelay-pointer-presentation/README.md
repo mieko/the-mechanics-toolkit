@@ -31,10 +31,13 @@ cannot answer hails.
 
 ## Incoming transmissions
 
-The patch recognizes only the exact `tinrelay-local-pointer-v1` shape in a delegated message. The
-main process asks the configured local Tinrelay client to inspect that one inbox item, verifies the
-returned routing and author fields against the pointer, and returns only display-safe fields. The
-renderer shows the route and body through Codex's complete stock user-message bubble, including its
+The patch recognizes two exact delegated-message shapes. A `tinrelay-local-pointer-v1` pointer makes
+the main process ask the configured local Tinrelay client to inspect that one inbox item, verify the
+returned routing and author fields against the pointer, and return only display-safe fields. A
+`tinrelay-message-delivery-v1` envelope already contains those validated display fields, so the
+renderer presents it directly without another process call. Unknown keys, malformed fields, and a
+delivery for another local ship leave the delegated message untouched. The renderer shows the route
+and body through Codex's complete stock user-message bubble, including its
 safe Markdown surface, dimensions, padding, radius, **Show more** behavior after six lines, and
 native hover actions for copying the body and reading the event time. Incoming cards use the
 delegation event's recorded time; outgoing cards retain the relay-acceptance anchor time across
@@ -123,8 +126,9 @@ send whose activity never returns cannot be retroactively assigned to a turn.
 
 ## Owned seams
 
-Incoming presentation owns the delegated-message node and attribution seams plus a fixed `execFile`
-inspection call. Outgoing presentation owns the completed-exec classifier, completed-command
+Incoming presentation owns the delegated-message node and attribution seams, exact pointer and
+delivery parsers, plus a fixed `execFile` inspection call for pointers only. Outgoing presentation
+owns the completed-exec classifier, completed-command
 renderer, private Electron socket listener, and one host-message lookup. The two small internal
 transforms remain separate because those are different upstream Codex owners, but the toolkit
 exposes and applies them as one Tinrelay patch.
@@ -149,12 +153,13 @@ replaces a working application.
 
 ## Verification
 
-The transform fixture proves fail-closed configuration and ownership, both exact contracts,
+The transform fixture proves fail-closed configuration and ownership, all exact contracts,
 byte-identical second application, syntax validity, and composition with the runtime watcher. The
 behavior probes cover exact pointer parsing, fixed no-shell inspection, metadata equality, stock
 safe Markdown with paragraph-aware soft wrapping and six-line disclosure, directional radio wakes
 that never contract below the card while animating, distinct light- and dark-theme surfaces,
-guarded post-hoist scrolling, outgoing palette inversion and visible transmitter origin,
+guarded post-hoist scrolling, direct delivery without local inspection, pointer-only installation
+migration, outgoing palette inversion and visible transmitter origin,
 ordinary-send recognition, collapsed-turn hoisting,
 private socket permissions, fragmented events, lookup-before-event ordering, first-valid duplicate
 handling, the
